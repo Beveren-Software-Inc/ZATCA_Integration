@@ -1,0 +1,156 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2023-12-24 04:37:29.275359",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "csr_tab",
+  "zatca_environment_section",
+  "zatca_environment",
+  "csr_configuration_section",
+  "csrcommonname",
+  "csrserialnumber",
+  "csrorganizationname",
+  "csrorganizationidentifier",
+  "csrorganizationunitname",
+  "column_break_nmew",
+  "csrcountryname",
+  "csrinvoicetype",
+  "csrlocationaddress",
+  "csrindustrybusinesscategory",
+  "generated_csr_section",
+  "private_key_column",
+  "csr",
+  "small_text_xtxp"
+ ],
+ "fields": [
+  {
+   "fieldname": "zatca_environment",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Zatca Environment",
+   "options": "Zatca Environment",
+   "reqd": 1
+  },
+  {
+   "fieldname": "csr_configuration_section",
+   "fieldtype": "Section Break",
+   "label": "CSR Configuration"
+  },
+  {
+   "fieldname": "csrcommonname",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "csr.common.name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "csrserialnumber",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "csr.serial.number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "csrorganizationname",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "csr.organization.name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "csrorganizationidentifier",
+   "fieldtype": "Data",
+   "label": "csr.organization.identifier",
+   "reqd": 1
+  },
+  {
+   "fieldname": "csrorganizationunitname",
+   "fieldtype": "Data",
+   "label": "csr.organization.unit.name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_nmew",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "csrcountryname",
+   "fieldtype": "Data",
+   "label": "csr.country.name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "csrinvoicetype",
+   "fieldtype": "Data",
+   "label": "csr.invoice.type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "csrlocationaddress",
+   "fieldtype": "Data",
+   "label": "csr.location.address",
+   "reqd": 1
+  },
+  {
+   "fieldname": "csrindustrybusinesscategory",
+   "fieldtype": "Data",
+   "label": "csr.industry.business.category",
+   "reqd": 1
+  },
+  {
+   "fieldname": "generated_csr_section",
+   "fieldtype": "Section Break",
+   "label": "Generated CSR"
+  },
+  {
+   "fieldname": "private_key_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "small_text_xtxp",
+   "fieldtype": "Small Text",
+   "label": "Private Key"
+  },
+  {
+   "fieldname": "csr_tab",
+   "fieldtype": "Tab Break",
+   "label": "CSR"
+  },
+  {
+   "fieldname": "zatca_environment_section",
+   "fieldtype": "Section Break",
+   "label": "Zatca Environment"
+  },
+  {
+   "fieldname": "csr",
+   "fieldtype": "Small Text",
+   "label": "CSR"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2023-12-24 13:24:44.740560",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Zatca Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

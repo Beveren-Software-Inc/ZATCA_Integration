@@ -1,0 +1,157 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2023-12-24 10:02:56.834203",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "input_section",
+  "otp",
+  "generated_compliance_csid_section",
+  "request_id",
+  "disposition_message",
+  "errors",
+  "column_break_bbje",
+  "binary_security_token",
+  "secret",
+  "compliance_status_section",
+  "standard_invoice",
+  "standard_debit_note",
+  "standard_credit_note",
+  "column_break_uiap",
+  "simplified_invoice",
+  "simplified_debit_note",
+  "simplified_credit_note"
+ ],
+ "fields": [
+  {
+   "fieldname": "input_section",
+   "fieldtype": "Section Break",
+   "label": "Input"
+  },
+  {
+   "fieldname": "otp",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "OTP",
+   "reqd": 1
+  },
+  {
+   "fieldname": "generated_compliance_csid_section",
+   "fieldtype": "Section Break",
+   "label": "Generated Compliance CSID"
+  },
+  {
+   "fieldname": "request_id",
+   "fieldtype": "Data",
+   "label": "Request ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "disposition_message",
+   "fieldtype": "Data",
+   "label": "Disposition Message",
+   "read_only": 1
+  },
+  {
+   "fieldname": "errors",
+   "fieldtype": "Small Text",
+   "label": "Errors",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_bbje",
+   "fieldtype": "Column Break",
+   "read_only": 1
+  },
+  {
+   "fieldname": "binary_security_token",
+   "fieldtype": "Small Text",
+   "label": "Binary Security Token",
+   "read_only": 1
+  },
+  {
+   "fieldname": "secret",
+   "fieldtype": "Data",
+   "label": "Secret",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "compliance_status_section",
+   "fieldtype": "Section Break",
+   "label": "CSID Compliance Status",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "standard_invoice",
+   "fieldtype": "Check",
+   "label": "Standard Invoice",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "standard_debit_note",
+   "fieldtype": "Check",
+   "label": "Standard Debit Note",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "standard_credit_note",
+   "fieldtype": "Check",
+   "label": "Standard Credit Note",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "simplified_invoice",
+   "fieldtype": "Check",
+   "label": "Simplified Invoice",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "simplified_debit_note",
+   "fieldtype": "Check",
+   "label": "Simplified Debit Note",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "simplified_credit_note",
+   "fieldtype": "Check",
+   "label": "Simplified Credit Note",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_uiap",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2023-12-24 13:56:21.196476",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Zatca Compliance CSID",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

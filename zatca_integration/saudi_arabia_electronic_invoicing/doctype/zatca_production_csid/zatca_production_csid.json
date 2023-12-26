@@ -1,0 +1,94 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2023-12-24 10:08:04.825875",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "test",
+  "generated_production_csid_section",
+  "request_id",
+  "disposition_message",
+  "errors",
+  "column_break_xmpm",
+  "binary_security_token",
+  "secret",
+  "token_type"
+ ],
+ "fields": [
+  {
+   "fieldname": "generated_production_csid_section",
+   "fieldtype": "Section Break",
+   "label": "Generated Production CSID"
+  },
+  {
+   "fieldname": "request_id",
+   "fieldtype": "Data",
+   "label": "Request ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "disposition_message",
+   "fieldtype": "Data",
+   "label": "Disposition Message",
+   "read_only": 1
+  },
+  {
+   "fieldname": "errors",
+   "fieldtype": "Small Text",
+   "label": "Errors",
+   "read_only": 1
+  },
+  {
+   "fieldname": "binary_security_token",
+   "fieldtype": "Small Text",
+   "label": "Binary Security Token",
+   "read_only": 1
+  },
+  {
+   "fieldname": "secret",
+   "fieldtype": "Data",
+   "label": "Secret",
+   "read_only": 1
+  },
+  {
+   "fieldname": "token_type",
+   "fieldtype": "Data",
+   "label": "Token Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_xmpm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "test",
+   "fieldtype": "Data",
+   "label": "Test"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2023-12-26 07:13:19.137708",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Zatca Production CSID",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

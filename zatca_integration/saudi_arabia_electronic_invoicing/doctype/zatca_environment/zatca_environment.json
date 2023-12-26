@@ -1,0 +1,141 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "prompt",
+ "creation": "2023-12-24 03:45:51.769816",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "onboarding_apis_section",
+  "compliance_csid_api",
+  "compliance_invoice_api",
+  "production_csid_api",
+  "core_solution_apis_section",
+  "invoice_clearance_api",
+  "invoice_reporting_api",
+  "csr_config_section",
+  "csr_generate_api",
+  "client_id",
+  "client_secret",
+  "column_break_xtpn",
+  "certificate_template",
+  "non_production",
+  "simulation"
+ ],
+ "fields": [
+  {
+   "fieldname": "onboarding_apis_section",
+   "fieldtype": "Section Break",
+   "label": "Onboarding APIs"
+  },
+  {
+   "fieldname": "compliance_csid_api",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Compliance CSID API",
+   "reqd": 1
+  },
+  {
+   "fieldname": "compliance_invoice_api",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Compliance Invoice API",
+   "reqd": 1
+  },
+  {
+   "fieldname": "production_csid_api",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Production CSID API",
+   "reqd": 1
+  },
+  {
+   "fieldname": "core_solution_apis_section",
+   "fieldtype": "Section Break",
+   "label": "Core Solution APIs"
+  },
+  {
+   "fieldname": "invoice_clearance_api",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Invoice Clearance API",
+   "reqd": 1
+  },
+  {
+   "fieldname": "invoice_reporting_api",
+   "fieldtype": "Data",
+   "label": "Invoice Reporting API",
+   "reqd": 1
+  },
+  {
+   "fieldname": "csr_config_section",
+   "fieldtype": "Section Break",
+   "label": "CSR Config"
+  },
+  {
+   "fieldname": "csr_generate_api",
+   "fieldtype": "Data",
+   "label": "CSR Generate API",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "non_production",
+   "fieldtype": "Check",
+   "label": "Non Production"
+  },
+  {
+   "default": "0",
+   "fieldname": "simulation",
+   "fieldtype": "Check",
+   "label": "Simulation"
+  },
+  {
+   "fieldname": "certificate_template",
+   "fieldtype": "Data",
+   "label": "Certificate Template",
+   "reqd": 1
+  },
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Data",
+   "label": "Client ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Data",
+   "label": "Client Secret",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_xtpn",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2023-12-26 05:37:32.649953",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Zatca Environment",
+ "naming_rule": "Set by user",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
