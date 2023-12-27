@@ -9,10 +9,10 @@ from frappe.model.document import Document
 class ZatcaSettings(Document):
 
 	def before_save(self):
-		self.genereate_zatca_compliance_csid()
+		self.genereate_csr()
 
 	#TODO: Add button Generate CSR
-	def genereate_zatca_compliance_csid(self):
+	def genereate_csr(self):
 		
 		zatca_settings = frappe.get_doc("Zatca Settings", 'Zatca Settings')
 		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
