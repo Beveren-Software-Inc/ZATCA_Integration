@@ -1,0 +1,53 @@
+[
+ {
+  "certificate_template": "ZATCA-Code-Signing",
+  "client_id": "test",
+  "client_secret": "test",
+  "compliance_csid_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/core/compliance",
+  "compliance_invoice_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/core/compliance/invoices",
+  "csr_generate_api": "https://erpnext-ksa.uc.r.appspot.com/",
+  "docstatus": 0,
+  "doctype": "Zatca Environment",
+  "invoice_clearance_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/core/invoices/reporting/single",
+  "invoice_reporting_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/core/invoices/clearance/single",
+  "modified": "2023-12-26 13:11:48.289986",
+  "name": "FATOORA Portal",
+  "non_production": 0,
+  "production_csid_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/core/production/csids",
+  "simulation": 0
+ },
+ {
+  "certificate_template": "PREZATCA-Code-Signing",
+  "client_id": "test",
+  "client_secret": "test",
+  "compliance_csid_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation/compliance",
+  "compliance_invoice_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation/compliance/invoices",
+  "csr_generate_api": "https://erpnext-ksa.uc.r.appspot.com/",
+  "docstatus": 0,
+  "doctype": "Zatca Environment",
+  "invoice_clearance_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation/invoices/reporting/single",
+  "invoice_reporting_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation/invoices/clearance/single",
+  "modified": "2023-12-26 13:12:39.624556",
+  "name": "Simulation Portal",
+  "non_production": 0,
+  "production_csid_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation/production/csids",
+  "simulation": 1
+ },
+ {
+  "certificate_template": "TSTZATCA-Code-Signing",
+  "client_id": "test",
+  "client_secret": "test",
+  "compliance_csid_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/compliance",
+  "compliance_invoice_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/compliance/invoices",
+  "csr_generate_api": "https://erpnext-ksa.uc.r.appspot.com/",
+  "docstatus": 0,
+  "doctype": "Zatca Environment",
+  "invoice_clearance_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/invoices/clearance/single",
+  "invoice_reporting_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/invoices/reporting/single",
+  "modified": "2023-12-26 13:13:14.024017",
+  "name": "Sandbox Portal",
+  "non_production": 1,
+  "production_csid_api": "https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/production/csids",
+  "simulation": 0
+ }
+]

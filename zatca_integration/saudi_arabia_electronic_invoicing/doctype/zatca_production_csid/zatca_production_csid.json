@@ -5,7 +5,6 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "test",
   "generated_production_csid_section",
   "request_id",
   "disposition_message",
@@ -19,7 +18,8 @@
   {
    "fieldname": "generated_production_csid_section",
    "fieldtype": "Section Break",
-   "label": "Generated Production CSID"
+   "label": "Generated Production CSID",
+   "read_only": 1
   },
   {
    "fieldname": "request_id",
@@ -60,17 +60,12 @@
   {
    "fieldname": "column_break_xmpm",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "test",
-   "fieldtype": "Data",
-   "label": "Test"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2023-12-26 07:13:19.137708",
+ "modified": "2023-12-26 15:50:33.743541",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Production CSID",

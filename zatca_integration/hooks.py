@@ -38,6 +38,13 @@ app_license = "mit"
 # include app icons in desk
 # app_include_icons = "zatca_integration/public/icons.svg"
 
+fixtures = [
+    "Zatca Environment",
+    "Zatca Settings",
+    "Zatca Compliance CSID",
+    "Zatca Production CSID",
+]
+
 # Home Pages
 # ----------
 
