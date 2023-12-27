@@ -22,7 +22,7 @@
   "generated_csr_section",
   "private_key_column",
   "csr",
-  "small_text_xtxp"
+  "private_key"
  ],
  "fields": [
   {
@@ -102,16 +102,12 @@
   {
    "fieldname": "generated_csr_section",
    "fieldtype": "Section Break",
-   "label": "Generated CSR"
+   "label": "Generated CSR",
+   "read_only": 1
   },
   {
    "fieldname": "private_key_column",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "small_text_xtxp",
-   "fieldtype": "Small Text",
-   "label": "Private Key"
   },
   {
    "fieldname": "csr_tab",
@@ -126,13 +122,20 @@
   {
    "fieldname": "csr",
    "fieldtype": "Small Text",
-   "label": "CSR"
+   "label": "CSR",
+   "read_only": 1
+  },
+  {
+   "fieldname": "private_key",
+   "fieldtype": "Small Text",
+   "label": "Private Key",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2023-12-24 13:24:44.740560",
+ "modified": "2023-12-26 15:49:03.999644",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Settings",

@@ -12,6 +12,8 @@ class ZatcaProductionCSID(Document):
 	def before_save(self):
 		self.genereate_zatca_production_csid()
 
+	#TODO: Add button Generate CSID
+	#TODO: Validate Complaince CSID is validated
 	def genereate_zatca_production_csid(self):
 		
 		# Get ZATCA Settings and ZATCA Environment

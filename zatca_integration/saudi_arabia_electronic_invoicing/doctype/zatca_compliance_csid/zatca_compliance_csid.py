@@ -13,9 +13,11 @@ from zatca_integration.util import generate_compliance_invoice_xml
 class ZatcaComplianceCSID(Document):
 
 	def before_save(self):
+		pass
 		# self.genereate_zatca_compliance_csid()
-		self.invoke_zatca_compliance_invoice()
+		# self.invoke_zatca_compliance_invoice()
 
+	#TODO: Add button Generate CSID
 	def genereate_zatca_compliance_csid(self):
 
 		# Get ZATCA Settings and ZATCA Environment
@@ -39,9 +41,12 @@ class ZatcaComplianceCSID(Document):
 		self.disposition_message = response['dispositionMessage']
 		self.binary_security_token = response['binarySecurityToken']
 		self.secret = response['secret']
-		self.errors = response['errors']
-		
+		self.errors = response.get('errors', '{}')
 
+		# Update Zatca Compliance CSID Status
+		self.reset_compliance_csid_status(False)
+
+	#TODO: Add button Vallidate CSID
 	def invoke_zatca_compliance_invoice(self):
 
 		# Get ZATCA Settings and ZATCA Environment
@@ -73,9 +78,8 @@ class ZatcaComplianceCSID(Document):
 		)
 		print(response.json())
 		
-		# TODO Update Zatca Compliance CSID Status
-		# zatca_compliance_csid.standard_invoice = True
-		# zatca_compliance_csid.save()
+		# Update Zatca Compliance CSID Status TODO All Types
+		self.reset_compliance_csid_status(True)
 
 		return response.json()
 		
@@ -110,7 +114,12 @@ class ZatcaComplianceCSID(Document):
 		decoded_string = decoded_bytes.decode('utf-8')
 		return decoded_string
 		
-
-	
+	def reset_compliance_csid_status(self, status):
+		self.standard_invoice = status
+		self.standard_debit_note = status
+		self.standard_credit_note = status
+		self.simplified_invoice = status
+		self.simplified_debit_note = status
+		self.simplified_credit_note = status
     
   
