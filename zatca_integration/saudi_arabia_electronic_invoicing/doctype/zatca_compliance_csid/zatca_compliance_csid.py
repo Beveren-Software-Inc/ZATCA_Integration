@@ -18,6 +18,7 @@ class ZatcaComplianceCSID(Document):
 		# self.invoke_zatca_compliance_invoice()
 
 	#TODO: Add button Generate CSID
+	@frappe.whitelist()
 	def genereate_zatca_compliance_csid(self):
 
 		# Get ZATCA Settings and ZATCA Environment
@@ -65,6 +66,7 @@ class ZatcaComplianceCSID(Document):
 			frappe.throw("Error in generating ZATCA Compliance CSID")
 
 	#TODO: Add button Vallidate CSID
+	@frappe.whitelist()
 	def invoke_zatca_compliance_invoice(self):
 
 		# Get ZATCA Settings and ZATCA Environment
