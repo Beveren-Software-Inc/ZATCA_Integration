@@ -9,7 +9,8 @@ from frappe.model.document import Document
 class ZatcaSettings(Document):
 
 	def before_save(self):
-		self.genereate_csr()
+		pass
+		#self.genereate_csr()
 
 	#TODO: Add button Generate CSR
 	def genereate_csr(self):

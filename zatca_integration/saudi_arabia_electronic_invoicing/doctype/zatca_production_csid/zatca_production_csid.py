@@ -10,7 +10,8 @@ from frappe.model.document import Document
 class ZatcaProductionCSID(Document):
 
 	def before_save(self):
-		self.genereate_zatca_production_csid()
+		pass
+		# self.genereate_zatca_production_csid()
 
 	#TODO: Add button Generate CSID
 	#TODO: Validate Complaince CSID is validated
