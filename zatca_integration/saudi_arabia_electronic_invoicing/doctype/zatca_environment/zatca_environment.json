@@ -31,21 +31,18 @@
   {
    "fieldname": "compliance_csid_api",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Compliance CSID API",
    "reqd": 1
   },
   {
    "fieldname": "compliance_invoice_api",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Compliance Invoice API",
    "reqd": 1
   },
   {
    "fieldname": "production_csid_api",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Production CSID API",
    "reqd": 1
   },
@@ -82,12 +79,14 @@
    "default": "0",
    "fieldname": "non_production",
    "fieldtype": "Check",
+   "in_list_view": 1,
    "label": "Non Production"
   },
   {
    "default": "0",
    "fieldname": "simulation",
    "fieldtype": "Check",
+   "in_list_view": 1,
    "label": "Simulation"
   },
   {
@@ -115,7 +114,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2023-12-26 05:37:32.649953",
+ "modified": "2023-12-27 14:02:47.284079",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Environment",

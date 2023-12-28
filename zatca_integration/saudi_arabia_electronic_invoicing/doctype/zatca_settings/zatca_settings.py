@@ -14,12 +14,11 @@ class ZatcaSettings(Document):
 	#TODO: Add button Generate CSR
 	def genereate_csr(self):
 		
-		zatca_settings = frappe.get_doc("Zatca Settings", 'Zatca Settings')
-		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
+		# Get ZATCA Environment
+		zatca_environment = frappe.get_doc("Zatca Environment", self.zatca_environment)
 
 		# Beveren Zatca Backend URL
 		url = zatca_environment.csr_generate_api + 'generateCSR'
-		print(url)
 		
 		# Set the headers
 		headers = {
@@ -29,30 +28,33 @@ class ZatcaSettings(Document):
 			'isSim': str(zatca_environment.simulation),
 			'Content-Type': 'application/json'
 		}
-		print(headers)
 
 		# Encode the string into bytes, then encode it using base64
 		data = {
-			'commonName': zatca_settings.csrcommonname,
-			'serialNumber': zatca_settings.csrserialnumber,
-			'organizationIdentifier': zatca_settings.csrorganizationidentifier,
-			'organizationUnitName': zatca_settings.csrorganizationunitname,
-			'organizationName': zatca_settings.csrorganizationname,
-			'countryName': zatca_settings.csrcountryname,
-			'invoiceType': zatca_settings.csrinvoicetype,
-			'location': zatca_settings.csrlocationaddress,
-			'industry': zatca_settings.csrindustrybusinesscategory,
+			'commonName': self.csrcommonname,
+			'serialNumber': self.csrserialnumber,
+			'organizationIdentifier': self.csrorganizationidentifier,
+			'organizationUnitName': self.csrorganizationunitname,
+			'organizationName': self.csrorganizationname,
+			'countryName': self.csrcountryname,
+			'invoiceType': self.csrinvoicetype,
+			'location': self.csrlocationaddress,
+			'industry': self.csrindustrybusinesscategory,
 		}
-		print(data)
 
 		# Make the POST request
 		response = requests.post(url, headers=headers, json=data)
-		response = response.json()
-		print(response)
+		
+		try:
+			response_json = response.json()
+		except ValueError:
+			# Handle the case where response is not in JSON format
+			response_json = None
 
-		# Save the CSR and Private Key
-		self.csr = response['csr']
-		self.private_key = response['privateKey']
-
-		# Save zatca_settings DocType updates
-		# zatca_settings.save()
+		if response.status_code == 200 and response_json is not None:
+			# Save the CSR and Private Key
+			self.csr = response_json['csr']
+			self.private_key = response_json['privateKey']
+		else:
+			# Raise an exception
+			frappe.throw("Error in generating CSR")

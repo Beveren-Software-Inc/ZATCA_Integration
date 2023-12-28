@@ -35,16 +35,34 @@ class ZatcaComplianceCSID(Document):
 			"csr": zatca_settings.csr
 		}
 		response = requests.post(zatca_environment.compliance_csid_api, headers=headers, json=data)
-		response = response.json()
-		
-		self.request_id = response['requestID']
-		self.disposition_message = response['dispositionMessage']
-		self.binary_security_token = response['binarySecurityToken']
-		self.secret = response['secret']
-		self.errors = response.get('errors', '{}')
 
-		# Update Zatca Compliance CSID Status
-		self.reset_compliance_csid_status(False)
+		try:
+			response_json = response.json()
+		except ValueError:
+			# Handle the case where response is not in JSON format
+			response_json = None
+
+		if response.status_code == 200 and response_json is not None:
+			# If response is 200 OK and JSON format, extract the necessary data
+			self.request_id = response_json.get('requestID', '')
+			self.disposition_message = response_json.get('dispositionMessage', '')
+			self.binary_security_token = response_json.get('binarySecurityToken', '')
+			self.secret = response_json.get('secret', '')
+			self.errors = response_json.get('errors', '{}')
+
+			# Update Zatca Compliance CSID Status False
+			self.reset_compliance_csid_status(False)
+		else:
+			# If response is not 200 OK or not JSON, handle the error case
+			if response_json:
+				# If there is a JSON response, use it
+				self.errors = response_json
+			else:
+				# If there is no JSON response, use the response text or a default error message
+				self.errors = response.text if response.text else 'Error with no response data'
+
+			# Raise an exception with the error message	
+			frappe.throw("Error in generating ZATCA Compliance CSID")
 
 	#TODO: Add button Vallidate CSID
 	def invoke_zatca_compliance_invoice(self):
@@ -52,7 +70,6 @@ class ZatcaComplianceCSID(Document):
 		# Get ZATCA Settings and ZATCA Environment
 		zatca_settings = frappe.get_doc("Zatca Settings", 'Zatca Settings')
 		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
-		zatca_compliance_csid = frappe.get_doc("Zatca Compliance CSID", "Zatca Compliance CSID")
 
 		# Get Invoice Request Body
 		uuid, invoice_xml = generate_compliance_invoice_xml()
@@ -73,7 +90,7 @@ class ZatcaComplianceCSID(Document):
 		response = requests.post(
 			zatca_environment.compliance_invoice_api, 
 			headers=headers, 
-			auth=HTTPBasicAuth(zatca_compliance_csid.binary_security_token, zatca_compliance_csid.secret), 
+			auth=HTTPBasicAuth(self.binary_security_token, self.secret), 
 			data=json.dumps(invoice_request)
 		)
 		print(response.json())
@@ -121,5 +138,3 @@ class ZatcaComplianceCSID(Document):
 		self.simplified_invoice = status
 		self.simplified_debit_note = status
 		self.simplified_credit_note = status
-    
-  
