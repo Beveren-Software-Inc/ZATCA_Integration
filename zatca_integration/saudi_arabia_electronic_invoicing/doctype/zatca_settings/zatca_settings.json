@@ -8,6 +8,17 @@
   "csr_tab",
   "zatca_environment_section",
   "zatca_environment",
+  "company_information_section",
+  "registration_scheme",
+  "column_break_hnpa",
+  "registration_number",
+  "company_address_section",
+  "street_name",
+  "building_number",
+  "postal_zone",
+  "column_break_ovky",
+  "city_name",
+  "city_subdivision_name",
   "csr_configuration_section",
   "csrcommonname",
   "csrserialnumber",
@@ -22,7 +33,8 @@
   "generated_csr_section",
   "private_key_column",
   "csr",
-  "private_key"
+  "private_key",
+  "created_time"
  ],
  "fields": [
   {
@@ -36,39 +48,40 @@
   {
    "fieldname": "csr_configuration_section",
    "fieldtype": "Section Break",
-   "label": "CSR Configuration"
+   "label": "Tax Infomation"
   },
   {
    "fieldname": "csrcommonname",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "csr.common.name",
+   "label": "EGS Common Name",
    "reqd": 1
   },
   {
    "fieldname": "csrserialnumber",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "csr.serial.number",
+   "label": "EGS Serial Number",
+   "read_only": 1,
    "reqd": 1
   },
   {
    "fieldname": "csrorganizationname",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "csr.organization.name",
+   "label": "Organization Name",
    "reqd": 1
   },
   {
    "fieldname": "csrorganizationidentifier",
    "fieldtype": "Data",
-   "label": "csr.organization.identifier",
+   "label": "VAT or Group VAT Registration Number",
    "reqd": 1
   },
   {
    "fieldname": "csrorganizationunitname",
    "fieldtype": "Data",
-   "label": "csr.organization.unit.name",
+   "label": "Organization Unit or TIN",
    "reqd": 1
   },
   {
@@ -76,27 +89,31 @@
    "fieldtype": "Column Break"
   },
   {
+   "default": "SA",
    "fieldname": "csrcountryname",
-   "fieldtype": "Data",
-   "label": "csr.country.name",
+   "fieldtype": "Select",
+   "label": "Country Code",
+   "options": "SA",
    "reqd": 1
   },
   {
+   "default": "1000",
    "fieldname": "csrinvoicetype",
-   "fieldtype": "Data",
-   "label": "csr.invoice.type",
+   "fieldtype": "Select",
+   "label": "Invoice Type",
+   "options": "1000",
    "reqd": 1
   },
   {
    "fieldname": "csrlocationaddress",
    "fieldtype": "Data",
-   "label": "csr.location.address",
+   "label": "Location(Preferably Short Address)",
    "reqd": 1
   },
   {
    "fieldname": "csrindustrybusinesscategory",
    "fieldtype": "Data",
-   "label": "csr.industry.business.category",
+   "label": "Industry (Business category)",
    "reqd": 1
   },
   {
@@ -130,12 +147,82 @@
    "fieldtype": "Small Text",
    "label": "Private Key",
    "read_only": 1
+  },
+  {
+   "fieldname": "company_information_section",
+   "fieldtype": "Section Break",
+   "label": "Registration Information"
+  },
+  {
+   "default": "Commercial Registration number(CRN)",
+   "fieldname": "registration_scheme",
+   "fieldtype": "Select",
+   "label": "Registration Scheme",
+   "options": "Commercial Registration number(CRN)\nMOMRAH(MOM)\nMHRSD(MLS)\n700(700)\nMISA(SAG)\nOther OD(OTH)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_hnpa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "registration_number",
+   "fieldtype": "Data",
+   "label": "Registration number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company_address_section",
+   "fieldtype": "Section Break",
+   "label": "Company Address"
+  },
+  {
+   "fieldname": "street_name",
+   "fieldtype": "Data",
+   "label": "Street Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "building_number",
+   "fieldtype": "Int",
+   "label": "Building Number",
+   "length": 4,
+   "reqd": 1
+  },
+  {
+   "fieldname": "postal_zone",
+   "fieldtype": "Int",
+   "label": "Postal Zone",
+   "length": 5,
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ovky",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "city_name",
+   "fieldtype": "Data",
+   "label": "City Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "city_subdivision_name",
+   "fieldtype": "Data",
+   "label": "City Subdivision Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "created_time",
+   "fieldtype": "Datetime",
+   "label": "Created Time",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2023-12-26 15:49:03.999644",
+ "modified": "2023-12-29 07:41:51.121712",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Settings",

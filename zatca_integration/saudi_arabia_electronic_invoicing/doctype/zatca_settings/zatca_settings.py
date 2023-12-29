@@ -4,15 +4,23 @@
 import frappe
 import requests
 from frappe.model.document import Document
+import random
+import uuid
 
 
 class ZatcaSettings(Document):
 
 	def before_save(self):
-		pass
-		#self.genereate_csr()
+		if not self.csrserialnumber:
+			self.csrserialnumber = self.generate_serial_number()
+		
+	#self.genereate_csr()
+	def generate_serial_number(self):
+		serial_number = str(uuid.uuid4())
+		return "1-ERPNext|2-V15|3-" + serial_number
 
 	#TODO: Add button Generate CSR
+	@frappe.whitelist()
 	def genereate_csr(self):
 		
 		# Get ZATCA Environment
@@ -56,6 +64,8 @@ class ZatcaSettings(Document):
 			# Save the CSR and Private Key
 			self.csr = response_json['csr']
 			self.private_key = response_json['privateKey']
+			self.created_time = frappe.utils.now_datetime()
+			self.save()
 		else:
 			# Raise an exception
 			frappe.throw("Error in generating CSR")

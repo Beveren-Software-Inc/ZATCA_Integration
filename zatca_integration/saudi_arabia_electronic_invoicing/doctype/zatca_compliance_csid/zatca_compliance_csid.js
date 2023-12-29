@@ -15,8 +15,7 @@ frappe.ui.form.on("Zatca Compliance CSID", {
                 callback: function(r) {
                     if(!r.exc) {
                         // Success message or action
-                        // frm.reload_doc();
-                        console.log('Retuned Somethng')
+                        frm.reload_doc();
                     }
                 }
             });
@@ -31,8 +30,7 @@ frappe.ui.form.on("Zatca Compliance CSID", {
                 callback: function(r) {
                     if(!r.exc) {
                         // Success message or action
-                        // frm.reload_doc();
-                        console.log('Retuned Somethng')
+                        frm.reload_doc();
                     }
                 }
             });

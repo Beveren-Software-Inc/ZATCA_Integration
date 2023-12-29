@@ -14,8 +14,7 @@ frappe.ui.form.on("Zatca Production CSID", {
                 callback: function(r) {
                     if(!r.exc) {
                         // Success message or action
-                        // frm.reload_doc();
-                        console.log('Retuned Somethng')
+                        frm.reload_doc();
                     }
                 }
             });

@@ -52,7 +52,7 @@ class ZatcaProductionCSID(Document):
 			self.request_id = response_json.get('requestID', '')
 			self.disposition_message = response_json.get('dispositionMessage', '')
 			self.binary_security_token = response_json.get('binarySecurityToken', '')
-			self.token_type = response_json['tokenType']
+			self.token_type = response_json.get('tokenType', '')
 			self.secret = response_json.get('secret', '')
 			self.errors = response_json.get('errors', '{}')
 			self.save()
