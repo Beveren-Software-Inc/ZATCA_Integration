@@ -10,6 +10,7 @@
   "generated_compliance_csid_section",
   "request_id",
   "disposition_message",
+  "created_time",
   "errors",
   "column_break_bbje",
   "binary_security_token",
@@ -128,12 +129,19 @@
   {
    "fieldname": "column_break_uiap",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "created_time",
+   "fieldtype": "Datetime",
+   "label": "Created Time",
+   "read_only": 1,
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2023-12-24 13:56:21.196476",
+ "modified": "2023-12-29 06:59:51.197078",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Compliance CSID",

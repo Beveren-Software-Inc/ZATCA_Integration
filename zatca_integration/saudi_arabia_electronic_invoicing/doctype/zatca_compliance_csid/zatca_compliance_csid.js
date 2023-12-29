@@ -7,7 +7,7 @@ frappe.ui.form.on("Zatca Compliance CSID", {
         frm.trigger("invoke_zatca_compliance_invoice");
 	},
     genereate_zatca_compliance_csid: frm => {
-        frm.add_custom_button(__('Generate CSID'), function() {
+        frm.add_custom_button(__('Generate Compliance CSID'), function() {
             // Call the server side function
             frappe.call({
                 method: "genereate_zatca_compliance_csid",
@@ -23,7 +23,7 @@ frappe.ui.form.on("Zatca Compliance CSID", {
         });
     },
     invoke_zatca_compliance_invoice: frm => {
-        frm.add_custom_button(__('Invoke Compliance Invoice'), function() {
+        frm.add_custom_button(__('Validate Compliance CSID'), function() {
             // Call the server side function
             frappe.call({
                 method: "invoke_zatca_compliance_invoice",

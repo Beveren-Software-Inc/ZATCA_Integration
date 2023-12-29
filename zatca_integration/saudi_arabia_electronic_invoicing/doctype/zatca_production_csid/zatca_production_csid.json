@@ -8,6 +8,7 @@
   "generated_production_csid_section",
   "request_id",
   "disposition_message",
+  "created_time",
   "errors",
   "column_break_xmpm",
   "binary_security_token",
@@ -60,12 +61,20 @@
   {
    "fieldname": "column_break_xmpm",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "created_time",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Created Time",
+   "read_only": 1,
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2023-12-26 15:50:33.743541",
+ "modified": "2023-12-29 06:36:54.092815",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Production CSID",

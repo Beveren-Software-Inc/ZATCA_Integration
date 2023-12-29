@@ -39,12 +39,14 @@ class ZatcaComplianceCSID(Document):
 
 		try:
 			response_json = response.json()
+			print(response_json)
 		except ValueError:
 			# Handle the case where response is not in JSON format
 			response_json = None
 
 		if response.status_code == 200 and response_json is not None:
 			# If response is 200 OK and JSON format, extract the necessary data
+			self.created_time = frappe.utils.now_datetime()
 			self.request_id = response_json.get('requestID', '')
 			self.disposition_message = response_json.get('dispositionMessage', '')
 			self.binary_security_token = response_json.get('binarySecurityToken', '')
@@ -53,6 +55,7 @@ class ZatcaComplianceCSID(Document):
 
 			# Update Zatca Compliance CSID Status False
 			self.reset_compliance_csid_status(False)
+			self.save()
 		else:
 			# If response is not 200 OK or not JSON, handle the error case
 			if response_json:
@@ -99,8 +102,7 @@ class ZatcaComplianceCSID(Document):
 		
 		# Update Zatca Compliance CSID Status TODO All Types
 		self.reset_compliance_csid_status(True)
-
-		return response.json()
+		self.save()
 		
 	def get_invoice_request(self, url, clientId, clientSecret, invoice):
 		url = url + 'generateInvoiceRequest'

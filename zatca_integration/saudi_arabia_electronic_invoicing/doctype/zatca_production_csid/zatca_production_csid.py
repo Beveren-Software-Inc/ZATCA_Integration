@@ -41,18 +41,21 @@ class ZatcaProductionCSID(Document):
 
 		try:
 			response_json = response.json()
+			print(response_json)
 		except ValueError:
 			# Handle the case where response is not in JSON format
 			response_json = None
 
 		if response.status_code == 200 and response_json is not None:
 			# If response is 200 OK and JSON format, extract the necessary data
+			self.created_time = frappe.utils.now_datetime()
 			self.request_id = response_json.get('requestID', '')
 			self.disposition_message = response_json.get('dispositionMessage', '')
 			self.binary_security_token = response_json.get('binarySecurityToken', '')
-			self.token_type = response['tokenType']
+			self.token_type = response_json['tokenType']
 			self.secret = response_json.get('secret', '')
 			self.errors = response_json.get('errors', '{}')
+			self.save()
 		else:
 			# If response is not 200 OK or not JSON, handle the error case
 			if response_json:
