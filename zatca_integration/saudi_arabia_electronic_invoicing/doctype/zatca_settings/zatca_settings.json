@@ -62,8 +62,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "EGS Serial Number",
-   "read_only": 1,
-   "reqd": 1
+   "read_only": 1
   },
   {
    "fieldname": "csrorganizationname",
@@ -222,7 +221,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2023-12-29 07:41:51.121712",
+ "modified": "2023-12-30 00:28:41.888370",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Settings",

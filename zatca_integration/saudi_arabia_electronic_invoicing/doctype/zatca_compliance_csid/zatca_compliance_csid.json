@@ -78,10 +78,9 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "compliance_status_section",
    "fieldtype": "Section Break",
-   "label": "CSID Compliance Status",
+   "label": "Compliance CSID Status",
    "read_only": 1
   },
   {
@@ -134,14 +133,13 @@
    "fieldname": "created_time",
    "fieldtype": "Datetime",
    "label": "Created Time",
-   "read_only": 1,
-   "reqd": 1
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2023-12-29 06:59:51.197078",
+ "modified": "2023-12-30 00:33:32.644471",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Compliance CSID",
