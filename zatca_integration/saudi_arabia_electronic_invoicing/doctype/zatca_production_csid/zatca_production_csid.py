@@ -15,6 +15,7 @@ class ZatcaProductionCSID(Document):
 
 	#TODO: Add button Generate CSID
 	#TODO: Validate Complaince CSID is validated
+	@frappe.whitelist()
 	def genereate_zatca_production_csid(self):
 		
 		# Get ZATCA Settings and ZATCA Environment
