@@ -18,16 +18,19 @@
         </ext:UBLExtension>
     </ext:UBLExtensions>
 
-
     <cbc:ProfileID>reporting:1.0</cbc:ProfileID>
     <cbc:ID>{{ invoiceNumber }}</cbc:ID>
     <cbc:UUID>{{ uniqueInvoiceIdentifier }}</cbc:UUID>
     <cbc:IssueDate>{{ invoice_date }}</cbc:IssueDate>
     <cbc:IssueTime>{{ invoice_time }}</cbc:IssueTime>
-    <cbc:InvoiceTypeCode name="0100000">388</cbc:InvoiceTypeCode>
+    <cbc:InvoiceTypeCode name="0100000">381</cbc:InvoiceTypeCode>
     <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
     <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
-
+    <cac:BillingReference>
+        <cac:InvoiceDocumentReference>
+            <cbc:ID>{{ originalinvoiceNumber }}</cbc:ID>
+        </cac:InvoiceDocumentReference>
+    </cac:BillingReference>
     <cac:AdditionalDocumentReference>
         <cbc:ID>ICV</cbc:ID>
         <cbc:UUID>{{ invoiceCounterValue }}</cbc:UUID>
@@ -101,6 +104,7 @@
 
     <cac:PaymentMeans>
         <cbc:PaymentMeansCode>10</cbc:PaymentMeansCode>
+        <cbc:InstructionNote>CANCELLATION_OR_TERMINATION</cbc:InstructionNote>
     </cac:PaymentMeans>
 
     <cac:TaxTotal>
@@ -130,7 +134,7 @@
         <cbc:PrepaidAmount currencyID="SAR">0.00</cbc:PrepaidAmount>
         <cbc:PayableAmount currencyID="SAR">4.60</cbc:PayableAmount>
     </cac:LegalMonetaryTotal>
-
+    
     <cac:InvoiceLine>
         <cbc:ID>1</cbc:ID>
         <cbc:InvoicedQuantity unitCode="PCE">2.000000</cbc:InvoicedQuantity>
@@ -140,7 +144,7 @@
             <cbc:RoundingAmount currencyID="SAR">4.60</cbc:RoundingAmount>
         </cac:TaxTotal>
         <cac:Item>
-            <cbc:Name>قلم رصاص</cbc:Name>
+            <cbc:Name>قلم</cbc:Name>
             <cac:ClassifiedTaxCategory>
                 <cbc:ID>S</cbc:ID>
                 <cbc:Percent>15.00</cbc:Percent>
@@ -158,5 +162,5 @@
             </cac:AllowanceCharge>
         </cac:Price>
     </cac:InvoiceLine>
-
+    
 </Invoice>

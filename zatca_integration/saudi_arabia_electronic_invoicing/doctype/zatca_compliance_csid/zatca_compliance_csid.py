@@ -7,7 +7,7 @@ import frappe
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
-from zatca_integration.util import generate_compliance_standard_invoice
+from zatca_integration.util import generate_compliance_standard_invoice, generate_compliance_standard_credit_note
 
 
 class ZatcaComplianceCSID(Document):
@@ -74,10 +74,16 @@ class ZatcaComplianceCSID(Document):
 		zatca_settings = frappe.get_doc("Zatca Settings", 'Zatca Settings')
 		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
 
-		# Compliance Standard Invoice
-		uuid, standard_invoice_xml = generate_compliance_standard_invoice()
-		print(standard_invoice_xml)
-		self.invoke_compliance_invoice_api(zatca_environment, standard_invoice_xml)
+		# Seller Information
+		seller = self.get_seller_information(zatca_settings)
+
+		# Buyer Information
+		zatca_compliance_csid = frappe.get_doc("Zatca Compliance CSID", "Zatca Compliance CSID")
+		test_buyer = frappe.get_doc("Customer", zatca_compliance_csid.buyer) 
+		buyer = self.get_buyer_information(frappe.get_doc("Customer", test_buyer) )
+
+		# Issue Invoice and Credit Note
+		self.issue_invoice_and_credit_note(zatca_environment, seller, buyer)
 
 		# Compliance Credit Note
 		# uuid, standard_credit_xml = generate_compliance_standard_invoice()
@@ -91,6 +97,88 @@ class ZatcaComplianceCSID(Document):
 		self.reset_compliance_csid_status(True)
 		self.save()
 
+	def issue_invoice_and_credit_note(self, zatca_environment, seller, buyer):
+
+		first_invoice_hash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
+
+		# Compliance Standard Invoice
+		print("#################### Compliance Standard Invoice START ####################")
+		standard_invoice_number  = "INV-00001"
+		standard_invoice = generate_compliance_standard_invoice(
+			standard_invoice_number, seller, buyer,
+			first_invoice_hash
+		)
+		print(standard_invoice["xml"])
+		standard_invoice_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_invoice["xml"])
+		print("#################### Compliance Standard Invoice END ####################")
+
+		# Compliance Standard Credit Note
+		print("#################### Compliance Standard Credit Note START ####################")
+		credit_note_invoice_number = "INV-00002"
+		standard_credit_note = generate_compliance_standard_credit_note(
+			credit_note_invoice_number, seller, buyer, 
+			standard_invoice["invoiceNumber"], 
+			standard_invoice["invoiceDeliveryDate"], 
+			standard_invoice_hash
+		)
+		print(standard_credit_note["xml"])
+		standard_credit_note_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_credit_note["xml"])
+		print("#################### Compliance Standard Credit Note END ####################")
+
+		# Compliance Standard Invoice
+		print("#################### Compliance Standard Invoice START ####################")
+		standard_invoice_number  = "INV-00003"
+		standard_invoice = generate_compliance_standard_invoice(
+			standard_invoice_number, seller, buyer,
+			standard_credit_note_hash
+		)
+		print(standard_invoice["xml"])
+		standard_invoice_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_invoice["xml"])
+		print("#################### Compliance Standard Invoice END ####################")
+
+		# Compliance Standard Debit Note
+		print("#################### Compliance Standard Debit Note START ####################")
+		debit_note_invoice_number = "INV-00004"
+		standard_credit_note = generate_compliance_standard_credit_note(
+			debit_note_invoice_number, seller, buyer, 
+			standard_invoice["invoiceNumber"], 
+			standard_invoice["invoiceDeliveryDate"], 
+			standard_invoice_hash
+		)
+		print(standard_credit_note["xml"])
+		standard_debit_note_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_credit_note["xml"])
+		print("#################### Compliance Standard Debit Note END ####################")
+		
+	
+	def issue_invoice_and_debit_note(self):
+		pass
+
+	def get_seller_information(self, zatca_settings):
+		return {
+			"registrationScheme": zatca_settings.registration_scheme,
+			"registrationNumber": zatca_settings.registration_number,
+			"streetName": zatca_settings.street_name,
+			"buildingNumber": zatca_settings.building_number,
+			"citySubdivisionName": zatca_settings.city_subdivision_name,
+			"cityName": zatca_settings.city_name,
+			"postalZone": zatca_settings.postal_zone,
+			"countryCode": zatca_settings.csrcountryname,
+			"vatNumber": zatca_settings.csrorganizationidentifier,
+			"organizationName": zatca_settings.csrorganizationname
+		}
+
+	def get_buyer_information(self, customer):
+		return {
+			"streetName": customer.custom_street_name,
+			"buildingNumber":  customer.custom_building_number,
+			"citySubdivisionName":  customer.custom_city_subdivision_name,
+			"cityName":  customer.custom_city_name,
+			"postalZone":  customer.custom_postal_zone,
+			"countryCode":  customer.custom_country_code,
+			"vatNumber":  customer.custom_vat_or_group_vat_registration_number,
+			"organizationName":  customer.custom_organization_name
+		}
+
 	def invoke_compliance_invoice_api(self, zatca_environment, invoice_xml):
 		# Get Invoice Request Body from Backend
 		invoice_request = self.get_invoice_request(
@@ -102,21 +190,23 @@ class ZatcaComplianceCSID(Document):
 
 		# Post Invoice Request to Zatca Compliance Invoice API
 		headers = {
-        'accept': 'application/json',
-        'Accept-Language': 'en',
-        'Accept-Version': 'V2',
-        'Content-Type': 'application/json'
-    	}
+			'accept': 'application/json',
+			'Accept-Language': 'en',
+			'Accept-Version': 'V2',
+			'Content-Type': 'application/json'
+		}
 
+		# Post Zapca Compliance Invoice API
 		response = requests.post(
-		zatca_environment.compliance_invoice_api, 
-		headers=headers, 
-		auth=HTTPBasicAuth(self.binary_security_token, self.secret), 
-		data=json.dumps(invoice_request)
+			zatca_environment.compliance_invoice_api, 
+			headers=headers, 
+			auth=HTTPBasicAuth(self.binary_security_token, self.secret), 
+			data=json.dumps(invoice_request)
 		)
-
 		print(response.status_code)
 		print(response.json())
+
+		return invoice_request["invoiceHash"]
 	
 	def get_invoice_request(self, url, clientId, clientSecret, invoice):
 		url = url + 'generateInvoiceRequest'

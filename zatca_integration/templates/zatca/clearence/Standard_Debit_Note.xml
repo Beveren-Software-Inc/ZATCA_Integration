@@ -18,19 +18,22 @@
         </ext:UBLExtension>
     </ext:UBLExtensions>
 
-
     <cbc:ProfileID>reporting:1.0</cbc:ProfileID>
     <cbc:ID>{{ invoiceNumber }}</cbc:ID>
     <cbc:UUID>{{ uniqueInvoiceIdentifier }}</cbc:UUID>
     <cbc:IssueDate>{{ invoice_date }}</cbc:IssueDate>
     <cbc:IssueTime>{{ invoice_time }}</cbc:IssueTime>
-    <cbc:InvoiceTypeCode name="0100000">388</cbc:InvoiceTypeCode>
+    <cbc:InvoiceTypeCode name="0100000">383</cbc:InvoiceTypeCode>
     <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
     <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
-
+    <cac:BillingReference>
+        <cac:InvoiceDocumentReference>
+            <cbc:ID>{{ originalinvoiceNumber }}</cbc:ID>
+        </cac:InvoiceDocumentReference>
+    </cac:BillingReference>
     <cac:AdditionalDocumentReference>
         <cbc:ID>ICV</cbc:ID>
-        <cbc:UUID>{{ invoiceCounterValue }}</cbc:UUID>
+        <cbc:UUID>16</cbc:UUID>
     </cac:AdditionalDocumentReference>
     <cac:AdditionalDocumentReference>
         <cbc:ID>PIH</cbc:ID>
@@ -101,17 +104,18 @@
 
     <cac:PaymentMeans>
         <cbc:PaymentMeansCode>10</cbc:PaymentMeansCode>
+        <cbc:InstructionNote>CANCELLATION_OR_TERMINATION</cbc:InstructionNote>
     </cac:PaymentMeans>
 
     <cac:TaxTotal>
-        <cbc:TaxAmount currencyID="SAR">0.6</cbc:TaxAmount>
+        <cbc:TaxAmount currencyID="SAR">3.6</cbc:TaxAmount>
     </cac:TaxTotal>
 
     <cac:TaxTotal>
-        <cbc:TaxAmount currencyID="SAR">0.6</cbc:TaxAmount>
+        <cbc:TaxAmount currencyID="SAR">3.6</cbc:TaxAmount>
         <cac:TaxSubtotal>
-            <cbc:TaxableAmount currencyID="SAR">4.00</cbc:TaxableAmount>
-            <cbc:TaxAmount currencyID="SAR">0.60</cbc:TaxAmount>
+            <cbc:TaxableAmount currencyID="SAR">24.00</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="SAR">3.60</cbc:TaxAmount>
             <cac:TaxCategory>
                 <cbc:ID schemeID="UN/ECE 5305" schemeAgencyID="6">S</cbc:ID>
                 <cbc:Percent>15.00</cbc:Percent>
@@ -123,24 +127,24 @@
     </cac:TaxTotal>
 
     <cac:LegalMonetaryTotal>
-        <cbc:LineExtensionAmount currencyID="SAR">4.00</cbc:LineExtensionAmount>
-        <cbc:TaxExclusiveAmount currencyID="SAR">4.00</cbc:TaxExclusiveAmount>
-        <cbc:TaxInclusiveAmount currencyID="SAR">4.60</cbc:TaxInclusiveAmount>
+        <cbc:LineExtensionAmount currencyID="SAR">24.00</cbc:LineExtensionAmount>
+        <cbc:TaxExclusiveAmount currencyID="SAR">24.00</cbc:TaxExclusiveAmount>
+        <cbc:TaxInclusiveAmount currencyID="SAR">27.60</cbc:TaxInclusiveAmount>
         <cbc:AllowanceTotalAmount currencyID="SAR">0.00</cbc:AllowanceTotalAmount>
         <cbc:PrepaidAmount currencyID="SAR">0.00</cbc:PrepaidAmount>
-        <cbc:PayableAmount currencyID="SAR">4.60</cbc:PayableAmount>
+        <cbc:PayableAmount currencyID="SAR">27.60</cbc:PayableAmount>
     </cac:LegalMonetaryTotal>
 
     <cac:InvoiceLine>
         <cbc:ID>1</cbc:ID>
-        <cbc:InvoicedQuantity unitCode="PCE">2.000000</cbc:InvoicedQuantity>
-        <cbc:LineExtensionAmount currencyID="SAR">4.00</cbc:LineExtensionAmount>
+        <cbc:InvoicedQuantity unitCode="PCE">12.000000</cbc:InvoicedQuantity>
+        <cbc:LineExtensionAmount currencyID="SAR">24.00</cbc:LineExtensionAmount>
         <cac:TaxTotal>
-            <cbc:TaxAmount currencyID="SAR">0.60</cbc:TaxAmount>
-            <cbc:RoundingAmount currencyID="SAR">4.60</cbc:RoundingAmount>
+            <cbc:TaxAmount currencyID="SAR">3.60</cbc:TaxAmount>
+            <cbc:RoundingAmount currencyID="SAR">27.60</cbc:RoundingAmount>
         </cac:TaxTotal>
         <cac:Item>
-            <cbc:Name>قلم رصاص</cbc:Name>
+            <cbc:Name>قلم</cbc:Name>
             <cac:ClassifiedTaxCategory>
                 <cbc:ID>S</cbc:ID>
                 <cbc:Percent>15.00</cbc:Percent>
@@ -158,5 +162,5 @@
             </cac:AllowanceCharge>
         </cac:Price>
     </cac:InvoiceLine>
-
+    
 </Invoice>
