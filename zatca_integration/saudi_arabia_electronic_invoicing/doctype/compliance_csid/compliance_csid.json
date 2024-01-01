@@ -173,8 +173,13 @@
   }
  ],
  "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2024-01-01 22:21:34.966307",
+ "links": [
+  {
+   "link_doctype": "Production CSID",
+   "link_fieldname": "compliance_csid"
+  }
+ ],
+ "modified": "2024-01-01 22:47:49.690915",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Compliance CSID",

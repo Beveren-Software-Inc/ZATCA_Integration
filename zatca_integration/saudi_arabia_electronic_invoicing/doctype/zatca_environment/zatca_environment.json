@@ -113,8 +113,13 @@
   }
  ],
  "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2023-12-27 14:02:47.284079",
+ "links": [
+  {
+   "link_doctype": "Zatca CSR Settings",
+   "link_fieldname": "zatca_environment"
+  }
+ ],
+ "modified": "2024-01-01 22:45:29.775781",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Environment",

@@ -219,8 +219,13 @@
   }
  ],
  "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2024-01-01 22:25:02.528884",
+ "links": [
+  {
+   "link_doctype": "Compliance CSID",
+   "link_fieldname": "csr_settings"
+  }
+ ],
+ "modified": "2024-01-01 22:46:36.297018",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca CSR Settings",
