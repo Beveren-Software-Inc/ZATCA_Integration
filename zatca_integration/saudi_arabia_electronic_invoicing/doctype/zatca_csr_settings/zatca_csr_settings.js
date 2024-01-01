@@ -1,15 +1,21 @@
-// Copyright (c) 2023, Shakir PM and contributors
+// Copyright (c) 2024, Shakir PM and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Zatca Production CSID", {
+// frappe.ui.form.on("Zatca CSR Settings", {
+// 	refresh(frm) {
+
+// 	},
+// });
+
+frappe.ui.form.on("Zatca CSR Settings", {
 	refresh: frm => {
-        frm.trigger("genereate_zatca_production_csid");
+        frm.trigger("genereate_csr");
 	},
-    genereate_zatca_production_csid: frm => {
-        frm.add_custom_button(__('Generate Production CSID'), function() {
+    genereate_csr: frm => {
+        frm.add_custom_button(__('Generate CSR'), function() {
             // Call the server side function
             frappe.call({
-                method: "genereate_zatca_production_csid",
+                method: "genereate_csr",
                 doc: frm.doc,
                 callback: function(r) {
                     if(!r.exc) {

@@ -1,10 +1,13 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2023-12-24 10:08:04.825875",
+ "autoname": "prompt",
+ "creation": "2024-01-01 22:13:10.735512",
+ "default_view": "List",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "compliance_csid",
   "generated_production_csid_section",
   "request_id",
   "disposition_message",
@@ -35,10 +38,21 @@
    "read_only": 1
   },
   {
+   "fieldname": "created_time",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Created Time",
+   "read_only": 1
+  },
+  {
    "fieldname": "errors",
    "fieldtype": "Small Text",
    "label": "Errors",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_xmpm",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "binary_security_token",
@@ -59,25 +73,20 @@
    "read_only": 1
   },
   {
-   "fieldname": "column_break_xmpm",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "created_time",
-   "fieldtype": "Datetime",
-   "in_list_view": 1,
-   "label": "Created Time",
-   "read_only": 1,
+   "fieldname": "compliance_csid",
+   "fieldtype": "Link",
+   "label": "Compliance CSID",
+   "options": "Compliance CSID",
    "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
- "issingle": 1,
  "links": [],
- "modified": "2023-12-29 06:36:54.092815",
+ "modified": "2024-01-01 22:19:46.117298",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
- "name": "Zatca Production CSID",
+ "name": "Production CSID",
+ "naming_rule": "Set by user",
  "owner": "Administrator",
  "permissions": [
   {

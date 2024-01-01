@@ -1,7 +1,7 @@
-// Copyright (c) 2023, Shakir PM and contributors
+// Copyright (c) 2024, Shakir PM and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Zatca Compliance CSID", {
+frappe.ui.form.on("Compliance CSID", {
 	refresh: frm => {
         frm.trigger("genereate_zatca_compliance_csid");
         frm.trigger("invoke_zatca_compliance_invoice");

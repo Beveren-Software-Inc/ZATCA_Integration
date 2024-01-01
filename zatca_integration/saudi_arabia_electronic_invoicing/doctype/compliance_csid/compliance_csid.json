@@ -1,12 +1,17 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2023-12-24 10:02:56.834203",
+ "autoname": "prompt",
+ "creation": "2024-01-01 21:39:59.209145",
+ "default_view": "List",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "input_section",
+  "column_break_btvk",
   "otp",
+  "column_break_bmay",
+  "csr_settings",
   "column_break_yqaw",
   "buyer",
   "generated_compliance_csid_section",
@@ -40,6 +45,17 @@
    "reqd": 1
   },
   {
+   "fieldname": "column_break_yqaw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "buyer",
+   "fieldtype": "Link",
+   "label": "Test Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
    "fieldname": "generated_compliance_csid_section",
    "fieldtype": "Section Break",
    "label": "Generated Compliance CSID"
@@ -54,6 +70,13 @@
    "fieldname": "disposition_message",
    "fieldtype": "Data",
    "label": "Disposition Message",
+   "read_only": 1
+  },
+  {
+   "fieldname": "created_time",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Created Time",
    "read_only": 1
   },
   {
@@ -107,6 +130,10 @@
    "read_only": 1
   },
   {
+   "fieldname": "column_break_uiap",
+   "fieldtype": "Column Break"
+  },
+  {
    "default": "0",
    "fieldname": "simplified_invoice",
    "fieldtype": "Check",
@@ -128,34 +155,30 @@
    "read_only": 1
   },
   {
-   "fieldname": "column_break_uiap",
+   "fieldname": "column_break_bmay",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "created_time",
-   "fieldtype": "Datetime",
-   "label": "Created Time",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_yqaw",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "buyer",
+   "fieldname": "csr_settings",
    "fieldtype": "Link",
-   "label": "Test Customer",
-   "options": "Customer",
+   "in_list_view": 1,
+   "label": "CSR Settings",
+   "options": "Zatca CSR Settings",
    "reqd": 1
+  },
+  {
+   "fieldname": "column_break_btvk",
+   "fieldtype": "Column Break",
+   "width": "4"
   }
  ],
  "index_web_pages_for_search": 1,
- "issingle": 1,
  "links": [],
- "modified": "2024-01-01 04:45:34.294294",
+ "modified": "2024-01-01 22:21:34.966307",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
- "name": "Zatca Compliance CSID",
+ "name": "Compliance CSID",
+ "naming_rule": "Set by user",
  "owner": "Administrator",
  "permissions": [
   {

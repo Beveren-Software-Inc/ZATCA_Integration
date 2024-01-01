@@ -1,15 +1,13 @@
-# Copyright (c) 2023, Shakir PM and contributors
+# Copyright (c) 2024, Shakir PM and contributors
 # For license information, please see license.txt
 
 import frappe
 import requests
 from frappe.model.document import Document
-import random
 import uuid
 
 
-class ZatcaSettings(Document):
-
+class ZatcaCSRSettings(Document):
 	def before_save(self):
 		if not self.csrserialnumber:
 			self.csrserialnumber = self.generate_serial_number()

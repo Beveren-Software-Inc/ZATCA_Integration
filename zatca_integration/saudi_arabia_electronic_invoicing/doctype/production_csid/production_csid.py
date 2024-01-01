@@ -1,3 +1,6 @@
+
+
+
 # Copyright (c) 2023, Shakir PM and contributors
 # For license information, please see license.txt
 
@@ -7,21 +10,19 @@ from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
 
 
-class ZatcaProductionCSID(Document):
+class ProductionCSID(Document):
 
 	def before_save(self):
 		pass
-		# self.genereate_zatca_production_csid()
-
-	#TODO: Add button Generate CSID
-	#TODO: Validate Complaince CSID is validated
+	
 	@frappe.whitelist()
 	def genereate_zatca_production_csid(self):
 		
 		# Get ZATCA Settings and ZATCA Environment
-		zatca_settings = frappe.get_doc("Zatca Settings", 'Zatca Settings')
+		compliance_csid = frappe.get_doc("Compliance CSID", self.compliance_csid)
+		zatca_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
 		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
-		zatca_compliance_csid = frappe.get_doc("Zatca Compliance CSID", "Zatca Compliance CSID")
+		
 
 		# Make Call to ZATCA Production CSID API to get Production CSID
 		headers = {
@@ -30,12 +31,12 @@ class ZatcaProductionCSID(Document):
 			'Content-Type': 'application/json'
 		}
 		data = {
-			"compliance_request_id": zatca_compliance_csid.request_id
+			"compliance_request_id": compliance_csid.request_id
 		}
 		response = requests.post(
 			zatca_environment.production_csid_api, 
 			headers=headers,
-			auth=HTTPBasicAuth(zatca_compliance_csid.binary_security_token, zatca_compliance_csid.secret), 
+			auth=HTTPBasicAuth(compliance_csid.binary_security_token, compliance_csid.secret), 
 			json=data
 		)
 

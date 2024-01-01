@@ -10,7 +10,7 @@ from frappe.model.document import Document
 from zatca_integration.compliance_util import generate_compliance_standard_invoice, generate_compliance_standard_credit_note
 
 
-class ZatcaComplianceCSID(Document):
+class ComplianceCSID(Document):
 
 	def before_save(self):
 		pass
@@ -18,8 +18,8 @@ class ZatcaComplianceCSID(Document):
 	@frappe.whitelist()
 	def genereate_zatca_compliance_csid(self):
 
-		# Get ZATCA Settings and ZATCA Environment
-		zatca_settings = frappe.get_doc("Zatca Settings", 'Zatca Settings')
+		# Get ZATCA CSR Settings and ZATCA Environment
+		zatca_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
 		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
 
 		# Make Call to ZATCA Compliance CSID API to get Compliance CSID
@@ -71,15 +71,14 @@ class ZatcaComplianceCSID(Document):
 	def invoke_zatca_compliance_invoice(self):
 
 		# Get ZATCA Settings and ZATCA Environment
-		zatca_settings = frappe.get_doc("Zatca Settings", 'Zatca Settings')
+		zatca_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
 		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
 
 		# Seller Information
 		seller = self.get_seller_information(zatca_settings)
 
 		# Buyer Information
-		zatca_compliance_csid = frappe.get_doc("Zatca Compliance CSID", "Zatca Compliance CSID")
-		test_buyer = frappe.get_doc("Customer", zatca_compliance_csid.buyer) 
+		test_buyer = frappe.get_doc("Customer", self.buyer) 
 		buyer = self.get_buyer_information(frappe.get_doc("Customer", test_buyer) )
 
 		# Issue Invoice and Credit Note

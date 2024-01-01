@@ -1,7 +1,9 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2023-12-24 04:37:29.275359",
+ "autoname": "prompt",
+ "creation": "2024-01-01 21:28:06.161875",
+ "default_view": "List",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -38,11 +40,86 @@
  ],
  "fields": [
   {
+   "fieldname": "csr_tab",
+   "fieldtype": "Tab Break",
+   "label": "CSR"
+  },
+  {
+   "fieldname": "zatca_environment_section",
+   "fieldtype": "Section Break",
+   "label": "Zatca Environment"
+  },
+  {
    "fieldname": "zatca_environment",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Zatca Environment",
    "options": "Zatca Environment",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company_information_section",
+   "fieldtype": "Section Break",
+   "label": "Registration Information"
+  },
+  {
+   "default": "Commercial Registration number(CRN)",
+   "fieldname": "registration_scheme",
+   "fieldtype": "Select",
+   "label": "Registration Scheme",
+   "options": "Commercial Registration number(CRN)\nMOMRAH(MOM)\nMHRSD(MLS)\n700(700)\nMISA(SAG)\nOther OD(OTH)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_hnpa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "registration_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Registration number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company_address_section",
+   "fieldtype": "Section Break",
+   "label": "Company Address"
+  },
+  {
+   "fieldname": "street_name",
+   "fieldtype": "Data",
+   "label": "Street Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "building_number",
+   "fieldtype": "Int",
+   "label": "Building Number",
+   "length": 4,
+   "reqd": 1
+  },
+  {
+   "fieldname": "city_subdivision_name",
+   "fieldtype": "Data",
+   "label": "City Subdivision Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ovky",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "city_name",
+   "fieldtype": "Data",
+   "label": "City Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "postal_zone",
+   "fieldtype": "Int",
+   "label": "Postal Zone",
+   "length": 5,
    "reqd": 1
   },
   {
@@ -53,27 +130,24 @@
   {
    "fieldname": "csrcommonname",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "EGS Common Name",
    "reqd": 1
   },
   {
    "fieldname": "csrserialnumber",
    "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "EGS Serial Number",
-   "read_only": 1
+   "label": "EGS Serial Number"
   },
   {
    "fieldname": "csrorganizationname",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Organization Name",
    "reqd": 1
   },
   {
    "fieldname": "csrorganizationidentifier",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "VAT or Group VAT Registration Number",
    "reqd": 1
   },
@@ -126,16 +200,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "csr_tab",
-   "fieldtype": "Tab Break",
-   "label": "CSR"
-  },
-  {
-   "fieldname": "zatca_environment_section",
-   "fieldtype": "Section Break",
-   "label": "Zatca Environment"
-  },
-  {
    "fieldname": "csr",
    "fieldtype": "Small Text",
    "label": "CSR",
@@ -148,70 +212,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "company_information_section",
-   "fieldtype": "Section Break",
-   "label": "Registration Information"
-  },
-  {
-   "default": "Commercial Registration number(CRN)",
-   "fieldname": "registration_scheme",
-   "fieldtype": "Select",
-   "label": "Registration Scheme",
-   "options": "Commercial Registration number(CRN)\nMOMRAH(MOM)\nMHRSD(MLS)\n700(700)\nMISA(SAG)\nOther OD(OTH)",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_hnpa",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "registration_number",
-   "fieldtype": "Data",
-   "label": "Registration number",
-   "reqd": 1
-  },
-  {
-   "fieldname": "company_address_section",
-   "fieldtype": "Section Break",
-   "label": "Company Address"
-  },
-  {
-   "fieldname": "street_name",
-   "fieldtype": "Data",
-   "label": "Street Name",
-   "reqd": 1
-  },
-  {
-   "fieldname": "building_number",
-   "fieldtype": "Int",
-   "label": "Building Number",
-   "length": 4,
-   "reqd": 1
-  },
-  {
-   "fieldname": "postal_zone",
-   "fieldtype": "Int",
-   "label": "Postal Zone",
-   "length": 5,
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_ovky",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "city_name",
-   "fieldtype": "Data",
-   "label": "City Name",
-   "reqd": 1
-  },
-  {
-   "fieldname": "city_subdivision_name",
-   "fieldtype": "Data",
-   "label": "City Subdivision Name",
-   "reqd": 1
-  },
-  {
    "fieldname": "created_time",
    "fieldtype": "Datetime",
    "label": "Created Time",
@@ -219,12 +219,12 @@
   }
  ],
  "index_web_pages_for_search": 1,
- "issingle": 1,
  "links": [],
- "modified": "2024-01-01 03:53:20.421577",
+ "modified": "2024-01-01 22:25:02.528884",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
- "name": "Zatca Settings",
+ "name": "Zatca CSR Settings",
+ "naming_rule": "Set by user",
  "owner": "Administrator",
  "permissions": [
   {
