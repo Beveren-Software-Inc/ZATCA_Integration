@@ -1,0 +1,55 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2024-01-01 23:06:23.823433",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enable_e_invoicing",
+  "default_production_csid",
+  "column_break_truh"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "fieldname": "enable_e_invoicing",
+   "fieldtype": "Check",
+   "label": "Enable E Invoicing"
+  },
+  {
+   "fieldname": "default_production_csid",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Default Production CSID",
+   "options": "Production CSID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_truh",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2024-01-01 23:13:36.749908",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Zatca Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

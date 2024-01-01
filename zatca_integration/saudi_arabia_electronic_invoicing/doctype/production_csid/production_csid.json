@@ -8,6 +8,8 @@
  "engine": "InnoDB",
  "field_order": [
   "compliance_csid",
+  "column_break_qkoy",
+  "zatca_environment",
   "generated_production_csid_section",
   "request_id",
   "disposition_message",
@@ -75,14 +77,26 @@
   {
    "fieldname": "compliance_csid",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Compliance CSID",
    "options": "Compliance CSID",
    "reqd": 1
+  },
+  {
+   "fieldname": "zatca_environment",
+   "fieldtype": "Link",
+   "label": "Zatca Environment",
+   "options": "Zatca Environment",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_qkoy",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-01-01 22:19:46.117298",
+ "modified": "2024-01-01 23:19:45.474152",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Production CSID",

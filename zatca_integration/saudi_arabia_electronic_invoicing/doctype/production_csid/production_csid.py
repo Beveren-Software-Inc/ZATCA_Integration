@@ -56,6 +56,7 @@ class ProductionCSID(Document):
 			self.token_type = response_json.get('tokenType', '')
 			self.secret = response_json.get('secret', '')
 			self.errors = response_json.get('errors', '{}')
+			self.zatca_environment = zatca_environment.name
 			self.save()
 		else:
 			# If response is not 200 OK or not JSON, handle the error case
