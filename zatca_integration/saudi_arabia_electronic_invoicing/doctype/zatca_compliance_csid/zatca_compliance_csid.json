@@ -7,6 +7,8 @@
  "field_order": [
   "input_section",
   "otp",
+  "column_break_yqaw",
+  "buyer",
   "generated_compliance_csid_section",
   "request_id",
   "disposition_message",
@@ -134,12 +136,23 @@
    "fieldtype": "Datetime",
    "label": "Created Time",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_yqaw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "buyer",
+   "fieldtype": "Link",
+   "label": "Test Customer",
+   "options": "Customer",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2023-12-30 00:33:32.644471",
+ "modified": "2024-01-01 04:45:34.294294",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Compliance CSID",

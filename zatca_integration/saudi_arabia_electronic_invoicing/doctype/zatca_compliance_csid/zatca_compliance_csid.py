@@ -7,17 +7,14 @@ import frappe
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
-from zatca_integration.util import generate_compliance_invoice_xml
+from zatca_integration.util import generate_compliance_standard_invoice
 
 
 class ZatcaComplianceCSID(Document):
 
 	def before_save(self):
 		pass
-		# self.genereate_zatca_compliance_csid()
-		# self.invoke_zatca_compliance_invoice()
 
-	#TODO: Add button Generate CSID
 	@frappe.whitelist()
 	def genereate_zatca_compliance_csid(self):
 
@@ -64,11 +61,12 @@ class ZatcaComplianceCSID(Document):
 			else:
 				# If there is no JSON response, use the response text or a default error message
 				self.errors = response.text if response.text else 'Error with no response data'
-
+			self.save()
+			print(response.status_code)
+			print(self.errors)
 			# Raise an exception with the error message	
 			frappe.throw("Error in generating ZATCA Compliance CSID")
 
-	#TODO: Add button Vallidate CSID
 	@frappe.whitelist()
 	def invoke_zatca_compliance_invoice(self):
 
@@ -76,8 +74,25 @@ class ZatcaComplianceCSID(Document):
 		zatca_settings = frappe.get_doc("Zatca Settings", 'Zatca Settings')
 		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
 
-		# Get Invoice Request Body
-		uuid, invoice_xml = generate_compliance_invoice_xml()
+		# Compliance Standard Invoice
+		uuid, standard_invoice_xml = generate_compliance_standard_invoice()
+		print(standard_invoice_xml)
+		self.invoke_compliance_invoice_api(zatca_environment, standard_invoice_xml)
+
+		# Compliance Credit Note
+		# uuid, standard_credit_xml = generate_compliance_standard_invoice()
+		# self.invoke_compliance_invoice(zatca_environment, standard_credit_xml)
+
+		# # Compliance Debit Note
+		# uuid, standard_debit_xml = generate_compliance_standard_invoice()
+		# self.invoke_compliance_invoice(zatca_environment, standard_debit_xml)
+		
+		# Update Zatca Compliance CSID Status
+		self.reset_compliance_csid_status(True)
+		self.save()
+
+	def invoke_compliance_invoice_api(self, zatca_environment, invoice_xml):
+		# Get Invoice Request Body from Backend
 		invoice_request = self.get_invoice_request(
 			zatca_environment.csr_generate_api, 
 			zatca_environment.client_id, 
@@ -92,18 +107,17 @@ class ZatcaComplianceCSID(Document):
         'Accept-Version': 'V2',
         'Content-Type': 'application/json'
     	}
+
 		response = requests.post(
-			zatca_environment.compliance_invoice_api, 
-			headers=headers, 
-			auth=HTTPBasicAuth(self.binary_security_token, self.secret), 
-			data=json.dumps(invoice_request)
+		zatca_environment.compliance_invoice_api, 
+		headers=headers, 
+		auth=HTTPBasicAuth(self.binary_security_token, self.secret), 
+		data=json.dumps(invoice_request)
 		)
+
+		print(response.status_code)
 		print(response.json())
-		
-		# Update Zatca Compliance CSID Status TODO All Types
-		self.reset_compliance_csid_status(True)
-		self.save()
-		
+	
 	def get_invoice_request(self, url, clientId, clientSecret, invoice):
 		url = url + 'generateInvoiceRequest'
 		# Set the headers

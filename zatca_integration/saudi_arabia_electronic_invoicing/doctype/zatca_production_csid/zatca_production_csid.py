@@ -64,7 +64,9 @@ class ZatcaProductionCSID(Document):
 			else:
 				# If there is no JSON response, use the response text or a default error message
 				self.errors = response.text if response.text else 'Error with no response data'
-
+			self.save()
+			print(response.status_code)
+			print(self.errors)
 			# Raise an exception with the error message	
 			frappe.throw("Error in generating ZATCA Production CSID")
 
