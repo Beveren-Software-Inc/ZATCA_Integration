@@ -103,4 +103,3 @@ def generate_compliance_standard_invoice(invoiceNumber, seller, buyer, previousI
         "xml": standard_invoice_xml,
     }
     return standard_invoice
-

@@ -7,7 +7,7 @@ import frappe
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
-from zatca_integration.util import generate_compliance_standard_invoice, generate_compliance_standard_credit_note
+from zatca_integration.compliance_util import generate_compliance_standard_invoice, generate_compliance_standard_credit_note
 
 
 class ZatcaComplianceCSID(Document):
@@ -222,10 +222,14 @@ class ZatcaComplianceCSID(Document):
 			'invoice': self.encode_invoice(invoice)
 		}
 
-		# Make the POST request
-		response = requests.post(url, headers=headers, json=data)
+		try:
+			# Make the POST request
+			response = requests.post(url, headers=headers, json=data)
+			response_json = response.json()
+		except requests.exceptions.JSONDecodeError:
+			frappe.throw("Error in generating invoice request from backend")
 
-		return response.json()
+		return response_json
 
 	def encode_invoice(self, invoice):
 		input_bytes = invoice.encode('utf-8')
