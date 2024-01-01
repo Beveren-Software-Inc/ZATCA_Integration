@@ -40,10 +40,13 @@ app_license = "mit"
 
 # bench --site zatca.local export-fixtures
 fixtures = [
-    # "Zatca Environment",
-    # "Zatca Settings",
-    # "Zatca Compliance CSID",
-    # "Zatca Production CSID",
+    "Zatca Environment",
+    { 
+        "dt": "Workspace",
+        "filters": {
+            "name": "ZATCA Integrations"
+        }
+    },
     {
         "dt": "Custom Field",
         "filters": {
