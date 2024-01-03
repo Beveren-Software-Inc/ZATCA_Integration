@@ -17,7 +17,7 @@ def generate_compliance_standard_debit_note(invoiceNumber, seller, buyer, origin
     invoice_date = datetime.date.today().strftime("%Y-%m-%d")
     invoice_time = datetime.datetime.now().strftime("%H:%M:%S")
 
-    standard_debit_note_xml = frappe.render_template("zatca_integration/templates/zatca/clearence/Standard_Debit_Note.xml", {
+    standard_debit_note_xml = frappe.render_template("zatca_integration/templates/zatca/compliance/Standard_Debit_Note.xml", {
         "originalinvoiceNumber": originalinvoiceNumber,
         "previousInvoiceHash": previousInvoiceHash,
         "invoiceNumber": invoiceNumber,
@@ -49,7 +49,7 @@ def generate_compliance_standard_credit_note(invoiceNumber, seller, buyer, origi
     invoice_date = datetime.date.today().strftime("%Y-%m-%d")
     invoice_time = datetime.datetime.now().strftime("%H:%M:%S")
 
-    standard_credit_note_xml = frappe.render_template("zatca_integration/templates/zatca/clearence/Standard_Credit_Note.xml", {
+    standard_credit_note_xml = frappe.render_template("zatca_integration/templates/zatca/compliance/Standard_Credit_Note.xml", {
         "originalinvoiceNumber": originalinvoiceNumber,
         "previousInvoiceHash": previousInvoiceHash,
         "invoiceNumber": invoiceNumber,
@@ -84,7 +84,7 @@ def generate_compliance_standard_invoice(invoiceNumber, seller, buyer, previousI
     # Invoice Delivery Date
     invoiceDeliveryDate = (datetime.date.today() + datetime.timedelta(days=10)).strftime("%Y-%m-%d")
 
-    standard_invoice_xml = frappe.render_template("zatca_integration/templates/zatca/clearence/Standard_Invoice.xml", {
+    standard_invoice_xml = frappe.render_template("zatca_integration/templates/zatca/compliance/Standard_Invoice.xml", {
         "previousInvoiceHash": previousInvoiceHash,
         "invoiceNumber": invoiceNumber,
         "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,

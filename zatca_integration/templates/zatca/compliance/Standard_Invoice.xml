@@ -20,22 +20,22 @@
 
 
     <cbc:ProfileID>reporting:1.0</cbc:ProfileID>
-    <cbc:ID>TOSL108</cbc:ID>
-    <cbc:UUID>68ed29f6-db88-4359-afbd-1ba0e0d4d5da</cbc:UUID>
-    <cbc:IssueDate>2022-09-07</cbc:IssueDate>
-    <cbc:IssueTime>12:21:28</cbc:IssueTime>
+    <cbc:ID>{{ invoiceNumber }}</cbc:ID>
+    <cbc:UUID>{{ uniqueInvoiceIdentifier }}</cbc:UUID>
+    <cbc:IssueDate>{{ invoice_date }}</cbc:IssueDate>
+    <cbc:IssueTime>{{ invoice_time }}</cbc:IssueTime>
     <cbc:InvoiceTypeCode name="0100000">388</cbc:InvoiceTypeCode>
     <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
     <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
 
     <cac:AdditionalDocumentReference>
         <cbc:ID>ICV</cbc:ID>
-        <cbc:UUID>76547</cbc:UUID>
+        <cbc:UUID>{{ invoiceCounterValue }}</cbc:UUID>
     </cac:AdditionalDocumentReference>
     <cac:AdditionalDocumentReference>
         <cbc:ID>PIH</cbc:ID>
         <cac:Attachment>
-            <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==</cbc:EmbeddedDocumentBinaryObject>
+            <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">{{ previousInvoiceHash }}</cbc:EmbeddedDocumentBinaryObject>
         </cac:Attachment>
     </cac:AdditionalDocumentReference>
 
@@ -47,61 +47,61 @@
     <cac:AccountingSupplierParty>
         <cac:Party>
             <cac:PartyIdentification>
-                <cbc:ID schemeID="CRN">311111111111113</cbc:ID>
+                <cbc:ID schemeID="CRN">{{ seller.registrationNumber }}</cbc:ID>
             </cac:PartyIdentification>
             <cac:PostalAddress>
-                <cbc:StreetName>الامير سلطان</cbc:StreetName>
-                <cbc:BuildingNumber>2322</cbc:BuildingNumber>
-                <cbc:PlotIdentification>2223</cbc:PlotIdentification>
-                <cbc:CitySubdivisionName>الرياض</cbc:CitySubdivisionName>
-                <cbc:CityName>الرياض | Riyadh</cbc:CityName>
-                <cbc:PostalZone>23333</cbc:PostalZone>
+                <cbc:StreetName>{{ seller.streetName }}</cbc:StreetName>
+                <cbc:BuildingNumber>{{ seller.buildingNumber }}</cbc:BuildingNumber>
+                <cbc:CitySubdivisionName>{{ seller.citySubdivisionName }}</cbc:CitySubdivisionName>
+                <cbc:CityName>{{ seller.cityName }}</cbc:CityName>
+                <cbc:PostalZone>{{ seller.postalZone }}</cbc:PostalZone>
                 <cac:Country>
-                    <cbc:IdentificationCode>SA</cbc:IdentificationCode>
+                    <cbc:IdentificationCode>{{ seller.countryCode }}</cbc:IdentificationCode>
                 </cac:Country>
             </cac:PostalAddress>
             <cac:PartyTaxScheme>
-                <cbc:CompanyID>311111111101113</cbc:CompanyID>
+                <cbc:CompanyID>{{ seller.vatNumber }}</cbc:CompanyID>
                 <cac:TaxScheme>
                     <cbc:ID>VAT</cbc:ID>
                 </cac:TaxScheme>
             </cac:PartyTaxScheme>
             <cac:PartyLegalEntity>
-                <cbc:RegistrationName>Acme Widget’s LTD</cbc:RegistrationName>
+                <cbc:RegistrationName>{{ seller.organizationName }}</cbc:RegistrationName>
             </cac:PartyLegalEntity>
         </cac:Party>
     </cac:AccountingSupplierParty>
 
     <cac:AccountingCustomerParty>
         <cac:Party>
-            <cac:PartyIdentification>
-                <cbc:ID schemeID="NAT">311111111111113</cbc:ID>
-            </cac:PartyIdentification>
             <cac:PostalAddress>
-                <cbc:StreetName>الرياض</cbc:StreetName>
-                <cbc:BuildingNumber>1111</cbc:BuildingNumber>
-                <cbc:PlotIdentification>2223</cbc:PlotIdentification>
-                <cbc:CitySubdivisionName>الرياض</cbc:CitySubdivisionName>
-                <cbc:CityName>الدمام | Dammam</cbc:CityName>
-                <cbc:PostalZone>12222</cbc:PostalZone>
+                <cbc:StreetName>{{ buyer.streetName }}</cbc:StreetName>
+                <cbc:BuildingNumber>{{ buyer.buildingNumber }}</cbc:BuildingNumber>
+                <cbc:CitySubdivisionName>{{ buyer.citySubdivisionName }}</cbc:CitySubdivisionName>
+                <cbc:CityName>{{ buyer.cityName }}</cbc:CityName>
+                <cbc:PostalZone>{{ buyer.postalZone }}</cbc:PostalZone>
                 <cac:Country>
-                    <cbc:IdentificationCode>SA</cbc:IdentificationCode>
+                    <cbc:IdentificationCode>{{ buyer.countryCode }}</cbc:IdentificationCode>
                 </cac:Country>
             </cac:PostalAddress>
             <cac:PartyTaxScheme>
+                <cbc:CompanyID>{{ buyer.vatNumber }}</cbc:CompanyID>
                 <cac:TaxScheme>
                     <cbc:ID>VAT</cbc:ID>
                 </cac:TaxScheme>
             </cac:PartyTaxScheme>
             <cac:PartyLegalEntity>
-                <cbc:RegistrationName>Acme Widget’s LTD 2</cbc:RegistrationName>
+                <cbc:RegistrationName>{{ buyer.organizationName }}</cbc:RegistrationName>
             </cac:PartyLegalEntity>
         </cac:Party>
     </cac:AccountingCustomerParty>
 
     <cac:Delivery>
-        <cbc:ActualDeliveryDate>2022-09-07</cbc:ActualDeliveryDate>
+        <cbc:ActualDeliveryDate>{{ invoiceDeliveryDate }}</cbc:ActualDeliveryDate>
     </cac:Delivery>
+
+    <cac:PaymentMeans>
+        <cbc:PaymentMeansCode>10</cbc:PaymentMeansCode>
+    </cac:PaymentMeans>
 
     <cac:TaxTotal>
         <cbc:TaxAmount currencyID="SAR">0.6</cbc:TaxAmount>
