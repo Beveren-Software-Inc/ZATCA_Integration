@@ -131,12 +131,15 @@
    "fieldname": "csrcommonname",
    "fieldtype": "Data",
    "label": "EGS Common Name",
-   "reqd": 1
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "csrserialnumber",
    "fieldtype": "Data",
-   "label": "EGS Serial Number"
+   "label": "EGS Serial Number",
+   "read_only": 1,
+   "unique": 1
   },
   {
    "fieldname": "csrorganizationname",
@@ -225,7 +228,7 @@
    "link_fieldname": "csr_settings"
   }
  ],
- "modified": "2024-01-01 22:46:36.297018",
+ "modified": "2024-01-04 07:01:04.714068",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca CSR Settings",
