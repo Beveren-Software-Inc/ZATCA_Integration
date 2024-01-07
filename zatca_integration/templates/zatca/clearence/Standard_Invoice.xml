@@ -104,17 +104,17 @@
     </cac:PaymentMeans>
 
     <cac:TaxTotal>
-        <cbc:TaxAmount currencyID="SAR">0.6</cbc:TaxAmount>
+        <cbc:TaxAmount currencyID="SAR">{{ taxAmount }}</cbc:TaxAmount>
     </cac:TaxTotal>
 
     <cac:TaxTotal>
-        <cbc:TaxAmount currencyID="SAR">0.6</cbc:TaxAmount>
+        <cbc:TaxAmount currencyID="SAR">{{ taxAmount }}</cbc:TaxAmount>
         <cac:TaxSubtotal>
-            <cbc:TaxableAmount currencyID="SAR">4.00</cbc:TaxableAmount>
-            <cbc:TaxAmount currencyID="SAR">0.60</cbc:TaxAmount>
+            <cbc:TaxableAmount currencyID="SAR">{{ taxableAmount }}</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="SAR">{{ taxAmount }}</cbc:TaxAmount>
             <cac:TaxCategory>
                 <cbc:ID schemeID="UN/ECE 5305" schemeAgencyID="6">S</cbc:ID>
-                <cbc:Percent>15.00</cbc:Percent>
+                <cbc:Percent>{{ taxPercentage }}</cbc:Percent>
                 <cac:TaxScheme>
                     <cbc:ID schemeID="UN/ECE 5153" schemeAgencyID="6">VAT</cbc:ID>
                 </cac:TaxScheme>
@@ -123,34 +123,35 @@
     </cac:TaxTotal>
 
     <cac:LegalMonetaryTotal>
-        <cbc:LineExtensionAmount currencyID="SAR">4.00</cbc:LineExtensionAmount>
-        <cbc:TaxExclusiveAmount currencyID="SAR">4.00</cbc:TaxExclusiveAmount>
-        <cbc:TaxInclusiveAmount currencyID="SAR">4.60</cbc:TaxInclusiveAmount>
+        <cbc:LineExtensionAmount currencyID="SAR">{{ taxableAmount }}</cbc:LineExtensionAmount>
+        <cbc:TaxExclusiveAmount currencyID="SAR">{{ taxableAmount }}</cbc:TaxExclusiveAmount>
+        <cbc:TaxInclusiveAmount currencyID="SAR">{{ payableAmount }}</cbc:TaxInclusiveAmount>
         <cbc:AllowanceTotalAmount currencyID="SAR">0.00</cbc:AllowanceTotalAmount>
         <cbc:PrepaidAmount currencyID="SAR">0.00</cbc:PrepaidAmount>
-        <cbc:PayableAmount currencyID="SAR">4.60</cbc:PayableAmount>
+        <cbc:PayableAmount currencyID="SAR">{{ payableAmount }}</cbc:PayableAmount>
     </cac:LegalMonetaryTotal>
 
+{% for line_item in line_items %}
     <cac:InvoiceLine>
-        <cbc:ID>1</cbc:ID>
-        <cbc:InvoicedQuantity unitCode="PCE">2.000000</cbc:InvoicedQuantity>
-        <cbc:LineExtensionAmount currencyID="SAR">4.00</cbc:LineExtensionAmount>
+        <cbc:ID>{{ line_item.lineNumber }}</cbc:ID>
+        <cbc:InvoicedQuantity unitCode="PCE">{{ line_item.quantity }}</cbc:InvoicedQuantity>
+        <cbc:LineExtensionAmount currencyID="SAR">{{ line_item.taxableAmount }}</cbc:LineExtensionAmount>
         <cac:TaxTotal>
-            <cbc:TaxAmount currencyID="SAR">0.60</cbc:TaxAmount>
-            <cbc:RoundingAmount currencyID="SAR">4.60</cbc:RoundingAmount>
+            <cbc:TaxAmount currencyID="SAR">{{ line_item.taxAmount }}</cbc:TaxAmount>
+            <cbc:RoundingAmount currencyID="SAR">{{ line_item.payableAmount }}</cbc:RoundingAmount>
         </cac:TaxTotal>
         <cac:Item>
-            <cbc:Name>قلم رصاص</cbc:Name>
+            <cbc:Name>{{ line_item.itemName }}</cbc:Name>
             <cac:ClassifiedTaxCategory>
                 <cbc:ID>S</cbc:ID>
-                <cbc:Percent>15.00</cbc:Percent>
+                <cbc:Percent>{{ line_item.taxPercentage }}</cbc:Percent>
                 <cac:TaxScheme>
                     <cbc:ID>VAT</cbc:ID>
                 </cac:TaxScheme>
             </cac:ClassifiedTaxCategory>
         </cac:Item>
         <cac:Price>
-            <cbc:PriceAmount currencyID="SAR">2.00</cbc:PriceAmount>
+            <cbc:PriceAmount currencyID="SAR">{{ line_item.unitPrice }}</cbc:PriceAmount>
             <cac:AllowanceCharge>
                 <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
                 <cbc:AllowanceChargeReason>discount</cbc:AllowanceChargeReason>
@@ -158,5 +159,6 @@
             </cac:AllowanceCharge>
         </cac:Price>
     </cac:InvoiceLine>
+{% endfor %}
 
 </Invoice>
