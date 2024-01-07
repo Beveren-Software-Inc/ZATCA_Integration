@@ -81,22 +81,14 @@ class ComplianceCSID(Document):
 		test_buyer = frappe.get_doc("Customer", self.buyer) 
 		buyer = self.get_buyer_information(frappe.get_doc("Customer", test_buyer) )
 
-		# Issue Invoice and Credit Note
-		self.issue_invoice_and_credit_note(zatca_environment, seller, buyer)
-
-		# Compliance Credit Note
-		# uuid, standard_credit_xml = generate_compliance_standard_invoice()
-		# self.invoke_compliance_invoice(zatca_environment, standard_credit_xml)
-
-		# # Compliance Debit Note
-		# uuid, standard_debit_xml = generate_compliance_standard_invoice()
-		# self.invoke_compliance_invoice(zatca_environment, standard_debit_xml)
+		# Issue Compliance for Invoice, Credit Note and Debit Note
+		self.invoke_complaince_check(zatca_environment, seller, buyer)
 		
 		# Update Zatca Compliance CSID Status
 		self.reset_compliance_csid_status(True)
 		self.save()
 
-	def issue_invoice_and_credit_note(self, zatca_environment, seller, buyer):
+	def invoke_complaince_check(self, zatca_environment, seller, buyer):
 
 		first_invoice_hash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
 
@@ -147,36 +139,6 @@ class ComplianceCSID(Document):
 		print(standard_credit_note["xml"])
 		standard_debit_note_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_credit_note["xml"])
 		print("#################### Compliance Standard Debit Note END ####################")
-		
-	
-	def issue_invoice_and_debit_note(self):
-		pass
-
-	def get_seller_information(self, zatca_settings):
-		return {
-			"registrationScheme": zatca_settings.registration_scheme,
-			"registrationNumber": zatca_settings.registration_number,
-			"streetName": zatca_settings.street_name,
-			"buildingNumber": zatca_settings.building_number,
-			"citySubdivisionName": zatca_settings.city_subdivision_name,
-			"cityName": zatca_settings.city_name,
-			"postalZone": zatca_settings.postal_zone,
-			"countryCode": zatca_settings.csrcountryname,
-			"vatNumber": zatca_settings.csrorganizationidentifier,
-			"organizationName": zatca_settings.csrorganizationname
-		}
-
-	def get_buyer_information(self, customer):
-		return {
-			"streetName": customer.custom_street_name,
-			"buildingNumber":  customer.custom_building_number,
-			"citySubdivisionName":  customer.custom_city_subdivision_name,
-			"cityName":  customer.custom_city_name,
-			"postalZone":  customer.custom_postal_zone,
-			"countryCode":  customer.custom_country_code,
-			"vatNumber":  customer.custom_vat_or_group_vat_registration_number,
-			"organizationName":  customer.custom_organization_name
-		}
 
 	def invoke_compliance_invoice_api(self, zatca_environment, invoice_xml):
 		# Get Invoice Request Body from Backend
@@ -230,6 +192,32 @@ class ComplianceCSID(Document):
 
 		return response_json
 
+	def get_seller_information(self, zatca_settings):
+		return {
+			"registrationScheme": zatca_settings.registration_scheme,
+			"registrationNumber": zatca_settings.registration_number,
+			"streetName": zatca_settings.street_name,
+			"buildingNumber": zatca_settings.building_number,
+			"citySubdivisionName": zatca_settings.city_subdivision_name,
+			"cityName": zatca_settings.city_name,
+			"postalZone": zatca_settings.postal_zone,
+			"countryCode": zatca_settings.csrcountryname,
+			"vatNumber": zatca_settings.csrorganizationidentifier,
+			"organizationName": zatca_settings.csrorganizationname
+		}
+
+	def get_buyer_information(self, customer):
+		return {
+			"streetName": customer.custom_street_name,
+			"buildingNumber":  customer.custom_building_number,
+			"citySubdivisionName":  customer.custom_city_subdivision_name,
+			"cityName":  customer.custom_city_name,
+			"postalZone":  customer.custom_postal_zone,
+			"countryCode":  customer.custom_country_code,
+			"vatNumber":  customer.custom_vat_or_group_vat_registration_number,
+			"organizationName":  customer.custom_organization_name
+		}	
+	
 	def encode_invoice(self, invoice):
 		input_bytes = invoice.encode('utf-8')
 		encoded_bytes = base64.b64encode(input_bytes)
