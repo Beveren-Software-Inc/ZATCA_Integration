@@ -35,7 +35,7 @@ def generate_einvoice(doc, method):
     
     # Set Invoice Date and Time, Delivery Date
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
-    invoice_time = datetime.strptime(doc.posting_time, "%H:%M:%S").strftime("%H:%M:%S")
+    invoice_time = datetime.strptime(doc.posting_time, "%H:%M:%S.%f").strftime("%H:%M:%S")
     delivery_date = datetime.strptime(doc.custom_delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d") 
     
     # Tax Template and Tax Percentage
@@ -119,12 +119,17 @@ def generate_einvoice(doc, method):
         doc.custom_previous_invoice_hash = previousInvoiceHash
         doc.custom_invoice_unique_identifier = uniqueInvoiceIdentifier
         doc.custom_invoice_icv = invoiceCounterValue
-        doc.custom_clearance_status = response_json.get('clearanceStatus', '')
-        validation_results = response_json.get('validationResults', '')
-        doc.custom_validation_results = json.dumps(validation_results)
-        cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice', ''))
-        doc.custom_cleared_invoice = cleared_invoice_xml
-        doc.custom_invoice_xml = invoice_xml
+        doc.custom_clearance_status = response_json.get('clearanceStatus')
+        doc.custom_validation_results = json.dumps(response_json.get('validationResults', ''))
+        cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice'))
+        file_doc = frappe.get_doc({
+            "doctype": "File",
+            "file_name": invoiceNumber + ".xml",
+            "content": cleared_invoice_xml,
+            "is_private": True
+        })
+        file_doc.insert()
+        doc.custom_invoice_xml = file_doc.file_url
     else:
         frappe.throw("Error Clearing Invoice")
 
