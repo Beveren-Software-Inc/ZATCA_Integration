@@ -47,12 +47,12 @@ fixtures = [
             "name": "ZATCA Integrations"
         }
     },
-    {
-        "dt": "Custom Field",
-        "filters": {
-            "dt": "Customer"
-        }
-    }
+    # {
+    #     "dt": "Custom Field",
+    #     "filters": {
+    #         "dt": "Customer"
+    #     }
+    # },
 ]
 
 # Home Pages
@@ -138,7 +138,11 @@ fixtures = [
 # Document Events
 # ---------------
 # Hook on document methods and events
-
+doc_events = {
+	"Sales Invoice": {
+		"before_submit": "zatca_integration.clearence_util.generate_einvoice",
+	}
+}
 # doc_events = {
 #	"*": {
 #		"on_update": "method",
