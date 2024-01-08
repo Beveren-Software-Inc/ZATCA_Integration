@@ -18,7 +18,6 @@
         </ext:UBLExtension>
     </ext:UBLExtensions>
 
-
     <cbc:ProfileID>reporting:1.0</cbc:ProfileID>
     <cbc:ID>{{ invoiceNumber }}</cbc:ID>
     <cbc:UUID>{{ uniqueInvoiceIdentifier }}</cbc:UUID>
@@ -27,7 +26,6 @@
     <cbc:InvoiceTypeCode name="0100000">388</cbc:InvoiceTypeCode>
     <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
     <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
-
     <cac:AdditionalDocumentReference>
         <cbc:ID>ICV</cbc:ID>
         <cbc:UUID>{{ invoiceCounterValue }}</cbc:UUID>
@@ -38,7 +36,6 @@
             <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">{{ previousInvoiceHash }}</cbc:EmbeddedDocumentBinaryObject>
         </cac:Attachment>
     </cac:AdditionalDocumentReference>
-
     <cac:Signature>
         <cbc:ID>urn:oasis:names:specification:ubl:signature:Invoice</cbc:ID>
         <cbc:SignatureMethod>urn:oasis:names:specification:ubl:dsig:enveloped:xades</cbc:SignatureMethod>
@@ -70,7 +67,6 @@
             </cac:PartyLegalEntity>
         </cac:Party>
     </cac:AccountingSupplierParty>
-
     <cac:AccountingCustomerParty>
         <cac:Party>
             <cac:PostalAddress>
@@ -96,17 +92,14 @@
     </cac:AccountingCustomerParty>
 
     <cac:Delivery>
-        <cbc:ActualDeliveryDate>{{ invoiceDeliveryDate }}</cbc:ActualDeliveryDate>
+        <cbc:ActualDeliveryDate>{{ delivery_date }}</cbc:ActualDeliveryDate>
     </cac:Delivery>
-
     <cac:PaymentMeans>
         <cbc:PaymentMeansCode>10</cbc:PaymentMeansCode>
     </cac:PaymentMeans>
-
     <cac:TaxTotal>
         <cbc:TaxAmount currencyID="SAR">{{ taxAmount }}</cbc:TaxAmount>
     </cac:TaxTotal>
-
     <cac:TaxTotal>
         <cbc:TaxAmount currencyID="SAR">{{ taxAmount }}</cbc:TaxAmount>
         <cac:TaxSubtotal>
@@ -121,7 +114,6 @@
             </cac:TaxCategory>
         </cac:TaxSubtotal>
     </cac:TaxTotal>
-
     <cac:LegalMonetaryTotal>
         <cbc:LineExtensionAmount currencyID="SAR">{{ taxableAmount }}</cbc:LineExtensionAmount>
         <cbc:TaxExclusiveAmount currencyID="SAR">{{ taxableAmount }}</cbc:TaxExclusiveAmount>
@@ -130,35 +122,28 @@
         <cbc:PrepaidAmount currencyID="SAR">0.00</cbc:PrepaidAmount>
         <cbc:PayableAmount currencyID="SAR">{{ payableAmount }}</cbc:PayableAmount>
     </cac:LegalMonetaryTotal>
-
 {% for line_item in line_items %}
     <cac:InvoiceLine>
-        <cbc:ID>{{ line_item.lineNumber }}</cbc:ID>
+        <cbc:ID>{{ line_item.line_number }}</cbc:ID>
         <cbc:InvoicedQuantity unitCode="PCE">{{ line_item.quantity }}</cbc:InvoicedQuantity>
-        <cbc:LineExtensionAmount currencyID="SAR">{{ line_item.taxableAmount }}</cbc:LineExtensionAmount>
+        <cbc:LineExtensionAmount currencyID="SAR">{{ line_item.taxable_amount }}</cbc:LineExtensionAmount>
         <cac:TaxTotal>
-            <cbc:TaxAmount currencyID="SAR">{{ line_item.taxAmount }}</cbc:TaxAmount>
-            <cbc:RoundingAmount currencyID="SAR">{{ line_item.payableAmount }}</cbc:RoundingAmount>
+            <cbc:TaxAmount currencyID="SAR">{{ line_item.tax_mount }}</cbc:TaxAmount>
+            <cbc:RoundingAmount currencyID="SAR">{{ line_item.payable_amount }}</cbc:RoundingAmount>
         </cac:TaxTotal>
         <cac:Item>
-            <cbc:Name>{{ line_item.itemName }}</cbc:Name>
+            <cbc:Name>{{ line_item.item_name }}</cbc:Name>
             <cac:ClassifiedTaxCategory>
                 <cbc:ID>S</cbc:ID>
-                <cbc:Percent>{{ line_item.taxPercentage }}</cbc:Percent>
+                <cbc:Percent>{{ line_item.tax_Percentage }}</cbc:Percent>
                 <cac:TaxScheme>
                     <cbc:ID>VAT</cbc:ID>
                 </cac:TaxScheme>
             </cac:ClassifiedTaxCategory>
         </cac:Item>
         <cac:Price>
-            <cbc:PriceAmount currencyID="SAR">{{ line_item.unitPrice }}</cbc:PriceAmount>
-            <cac:AllowanceCharge>
-                <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
-                <cbc:AllowanceChargeReason>discount</cbc:AllowanceChargeReason>
-                <cbc:Amount currencyID="SAR">0.00</cbc:Amount>
-            </cac:AllowanceCharge>
+            <cbc:PriceAmount currencyID="SAR">{{ line_item.unit_price }}</cbc:PriceAmount>
         </cac:Price>
     </cac:InvoiceLine>
 {% endfor %}
-
 </Invoice>
