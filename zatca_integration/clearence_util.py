@@ -120,6 +120,7 @@ def generate_einvoice(doc, method):
         doc.custom_invoice_unique_identifier = uniqueInvoiceIdentifier
         doc.custom_invoice_icv = invoiceCounterValue
         doc.custom_clearance_status = response_json.get('clearanceStatus')
+        doc.custom_clearance_time = frappe.utils.now_datetime()
         doc.custom_validation_results = json.dumps(response_json.get('validationResults', ''))
         cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice'))
         file_doc = frappe.get_doc({
