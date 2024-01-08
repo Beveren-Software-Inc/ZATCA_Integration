@@ -9,9 +9,8 @@ import base64
 from requests.auth import HTTPBasicAuth
 
 def generate_einvoice(doc, method):
-    print("*** generate_einvoice ***")
-    print(doc.name)
-    print(doc.custom_delivery_date)
+    # print("*** generate_einvoice ***")
+    # print(doc.custom_delivery_date)
 
     zatca_settings = frappe.get_doc("Zatca Settings", "Zatca Settings") 
     production_csid = frappe.get_doc("Production CSID", zatca_settings.default_production_csid)
@@ -95,17 +94,17 @@ def generate_einvoice(doc, method):
         # Line Items
         "line_items": line_items,
     })
-    print("####### Standard Invoice XML START #######")
-    print(invoice_xml)
-    print("####### Standard Invoice XML END #######")
+    # print("####### Standard Invoice XML START #######")
+    # print(invoice_xml)
+    # print("####### Standard Invoice XML END #######")
 
-    invoice_details = {
-        "invoiceNumber": invoiceNumber,
-        "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-        "invoiceCounterValue": invoiceCounterValue,
-        "invoiceDeliveryDate": invoiceDeliveryDate,
-        "xml": invoice_xml,
-    }
+    # invoice_details = {
+    #     "invoiceNumber": invoiceNumber,
+    #     "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
+    #     "invoiceCounterValue": invoiceCounterValue,
+    #     "invoiceDeliveryDate": invoiceDeliveryDate,
+    #     "xml": invoice_xml,
+    # }
 
     # Get Invoice Request Body from Backend
     invoice_request = get_invoice_request(
@@ -115,9 +114,9 @@ def generate_einvoice(doc, method):
         invoice_xml
     )
 
-    print("####### Invoice Request START #######")
-    print(json.dumps(invoice_request))
-    print("####### Invoice Request END #######")
+    # print("####### Invoice Request START #######")
+    # print(json.dumps(invoice_request))
+    # print("####### Invoice Request END #######")
 
     #invoice_request = get_sample_request(doc)
 
@@ -131,9 +130,6 @@ def generate_einvoice(doc, method):
     }
 
     # Post Zapca Compliance Invoice API
-    print(zatca_environment.invoice_clearance_api)
-    print(production_csid.binary_security_token)
-    print(production_csid.secret)
     response = requests.post(
         zatca_environment.invoice_clearance_api, 
         headers=headers, 
@@ -141,10 +137,30 @@ def generate_einvoice(doc, method):
         data=json.dumps(invoice_request)
     )
 
-    print(response.status_code)
-    print(response.json())
+    try:
+        response_json = response.json()
+        #print(response_json)
+    except ValueError:
+        # Handle the case where response is not in JSON format
+        response_json = None
 
-    frappe.throw("Pause")
+    if response.status_code == 200 and response_json is not None:
+        doc.custom_invoice_hash = invoice_request.get('invoiceHash')
+        doc.custom_previous_invoice_hash = previousInvoiceHash
+        doc.custom_invoice_unique_identifier = uniqueInvoiceIdentifier
+        doc.custom_invoice_icv = invoiceCounterValue
+        doc.custom_clearance_status = response_json.get('clearanceStatus', '')
+        validation_results = response_json.get('validationResults', '')
+        doc.custom_validation_results = json.dumps(validation_results)
+        cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice', ''))
+        doc.custom_cleared_invoice = cleared_invoice_xml
+        # print("####### Cleared Invoice XML START #######")
+        print(cleared_invoice_xml)
+        # print("####### Cleared Invoice XML END #######")
+        doc.custom_invoice_xml = invoice_xml
+    else:
+        frappe.throw("Error Clearing Invoice")
+
 
 def get_invoice_request(url, clientId, clientSecret, invoice):
     url = url + 'generateInvoiceRequest'
