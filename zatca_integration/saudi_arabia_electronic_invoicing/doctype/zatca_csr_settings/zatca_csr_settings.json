@@ -207,7 +207,7 @@
   },
   {
    "fieldname": "csr",
-   "fieldtype": "Small Text",
+   "fieldtype": "Long Text",
    "label": "CSR",
    "read_only": 1
   },
@@ -226,7 +226,8 @@
   {
    "fieldname": "csr_pem_format",
    "fieldtype": "Long Text",
-   "label": "CSR PEM Format"
+   "label": "CSR PEM Format",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_pyrl",
@@ -234,8 +235,9 @@
   },
   {
    "fieldname": "private_key_pem_format",
-   "fieldtype": "Long Text",
-   "label": "Private Key PEM Format"
+   "fieldtype": "Small Text",
+   "label": "Private Key PEM Format",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
@@ -245,7 +247,7 @@
    "link_fieldname": "csr_settings"
   }
  ],
- "modified": "2024-01-08 15:52:01.497378",
+ "modified": "2024-01-08 15:56:08.398917",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca CSR Settings",
