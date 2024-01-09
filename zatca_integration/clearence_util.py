@@ -8,6 +8,8 @@ import requests
 import base64
 from requests.auth import HTTPBasicAuth
 from lxml import etree
+import base64
+import qrcode
 
 def generate_einvoice(doc, method):
 
@@ -123,6 +125,8 @@ def generate_einvoice(doc, method):
         doc.custom_clearance_status = response_json.get('clearanceStatus')
         doc.custom_clearance_time = frappe.utils.now_datetime()
         doc.custom_validation_results = json.dumps(response_json.get('validationResults', ''))
+        
+        # Save Cleared Invoice XML 
         cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice'))
         file_doc = frappe.get_doc({
             "doctype": "File",
@@ -133,9 +137,16 @@ def generate_einvoice(doc, method):
         file_doc.insert()
         doc.custom_invoice_xml = file_doc.file_url
         
+        # Save Cleared Invoice QR Code
         qr_code = extract_qr_code_from_cleared_invoice(cleared_invoice_xml)
-        print(qr_code)
-        frappe.throw("Pause")
+        qr_doc = frappe.get_doc({
+            "doctype": "File",
+            "file_name": invoiceNumber + ".png",
+            "content": qr_code,
+            "is_private": True
+        })
+        qr_doc.insert()
+        doc.custom_invoice_qr_code = qr_doc.file_url
 
     else:
         frappe.throw("Error Clearing Invoice")
@@ -224,13 +235,38 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
     xml_tree = etree.fromstring(cleared_invoice_xml.encode('utf-8'))
 
     # Search for the QR Code text using relative paths
-    qr_code_text = None
+    qr_code_data = None
     for additional_document_reference in xml_tree.findall('.//cac:AdditionalDocumentReference', namespaces):
         id_element = additional_document_reference.find('./cbc:ID', namespaces)
         if id_element is not None and id_element.text == 'QR':
             embedded_document = additional_document_reference.find('./cac:Attachment/cbc:EmbeddedDocumentBinaryObject', namespaces)
             if embedded_document is not None:
-                qr_code_text = embedded_document.text
+                qr_code_data = embedded_document.text
                 break
 
-    return qr_code_text
+    if qr_code_data is not None:
+        try:
+            qr_code_text = base64.b64decode(qr_code_text).decode('utf-8')
+        except Exception as e:
+            # If there's an error in decoding, use the original data
+            qr_code_text = qr_code_data
+
+    # Generate QR code image
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(qr_code_text)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    # Save the QR code image to a byte stream
+    import io
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr = img_byte_arr.getvalue()
+
+    return img_byte_arr
