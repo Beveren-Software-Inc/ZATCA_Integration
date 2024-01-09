@@ -187,14 +187,14 @@ def get_seller_information(zatca_settings):
 def get_buyer_information(doc): 
     customer = frappe.get_doc("Customer", doc.customer)
     return {
+            "organizationName":  customer.custom_organization_name,
+            "vatNumber":  customer.custom_vat_number,
 			"streetName": customer.custom_street_name,
 			"buildingNumber":  customer.custom_building_number,
 			"citySubdivisionName":  customer.custom_city_subdivision_name,
 			"cityName":  customer.custom_city_name,
 			"postalZone":  customer.custom_postal_zone,
-			"countryCode":  customer.custom_country_code,
-			"vatNumber":  customer.custom_vat_or_group_vat_registration_number,
-			"organizationName":  customer.custom_organization_name
+			"countryCode":  customer.custom_country_code
 		}
 
 def get_clearence_headers():
