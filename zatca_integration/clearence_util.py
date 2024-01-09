@@ -7,6 +7,7 @@ import time
 import requests
 import base64
 from requests.auth import HTTPBasicAuth
+from lxml import etree
 
 def generate_einvoice(doc, method):
 
@@ -131,6 +132,11 @@ def generate_einvoice(doc, method):
         })
         file_doc.insert()
         doc.custom_invoice_xml = file_doc.file_url
+        
+        qr_code = extract_qr_code_from_cleared_invoice(cleared_invoice_xml)
+        print(qr_code)
+        frappe.throw("Pause")
+
     else:
         frappe.throw("Error Clearing Invoice")
 
@@ -205,3 +211,26 @@ def get_clearence_headers():
         'Accept-Version': 'V2',
         'Content-Type': 'application/json'
     }
+
+def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
+
+    # Define the namespaces used in the XML
+    namespaces = {
+        'cac': "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
+        'cbc': "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+    }
+
+    # Parse the XML string
+    xml_tree = etree.fromstring(cleared_invoice_xml.encode('utf-8'))
+
+    # Search for the QR Code text using relative paths
+    qr_code_text = None
+    for additional_document_reference in xml_tree.findall('.//cac:AdditionalDocumentReference', namespaces):
+        id_element = additional_document_reference.find('./cbc:ID', namespaces)
+        if id_element is not None and id_element.text == 'QR':
+            embedded_document = additional_document_reference.find('./cac:Attachment/cbc:EmbeddedDocumentBinaryObject', namespaces)
+            if embedded_document is not None:
+                qr_code_text = embedded_document.text
+                break
+
+    return qr_code_text
