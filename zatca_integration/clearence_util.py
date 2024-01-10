@@ -137,6 +137,13 @@ def generate_einvoice(doc, method):
         doc.custom_clearance_status = response_json.get('clearanceStatus')
         doc.custom_clearance_time = frappe.utils.now_datetime()
         doc.custom_validation_results = json.dumps(response_json.get('validationResults', ''))
+
+        doc.custom_seller_name = seller.get('organizationName')
+        doc.custom_seller_vat = seller.get('vatNumber')
+        doc.custom_seller_address = seller.get('full_address')
+        doc.custom_buyer_name = buyer.get('organizationName')
+        doc.custom_buyer_vat = buyer.get('vatNumber')
+        doc.custom_buyer_address = buyer.get('full_address')
         
         # Save Cleared Invoice XML 
         cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice'))
