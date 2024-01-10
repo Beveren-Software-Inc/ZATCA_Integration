@@ -129,7 +129,7 @@ def generate_einvoice(doc, method):
     except ValueError:
         response_json = None
 
-    if response.status_code == 200:
+    if response.status_code == 200 or response.status_code == 202:
         doc.custom_invoice_hash = invoice_request.get('invoiceHash')
         doc.custom_previous_invoice_hash = previousInvoiceHash
         doc.custom_invoice_unique_identifier = uniqueInvoiceIdentifier
@@ -166,12 +166,27 @@ def generate_einvoice(doc, method):
         })
         qr_doc.insert()
         doc.custom_invoice_qr_code = qr_doc.file_url
-
+    elif response.status_code == 303:
+        update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
+        frappe.throw("Error Clearing Invoice, Clearance is Deactivated")
+    elif response.status_code == 400:
+        update_status_on_error(doc, response_json.get('clearanceStatus'), json.dumps(response_json.get('validationResults', '')))
+        frappe.throw("Error Clearing Invoice, Bad Request")
+    elif response.status_code == 401:
+        update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
+        frappe.throw("Error Clearing Invoice, Invalid Credentials")
+    elif response.status_code == 500:
+        update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
+        frappe.throw("Error Clearing Invoice, Internal Server Error")
     else:
-        # TODO Handle Error
-        print(response.status_code)
-        print(response_json)
-        frappe.throw("Error Clearing Invoice")
+        update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
+        frappe.throw("Error Clearing Invoice, Unknown Error")
+
+def update_status_on_error(doc, status, validation_results):
+    frappe.db.set_value("Sales Invoice", doc.name, "custom_clearance_status", status, update_modified=True)
+    frappe.db.set_value("Sales Invoice", doc.name, "custom_validation_results", validation_results, update_modified=True)
+    frappe.db.set_value("Sales Invoice", doc.name, "custom_clearance_time", frappe.utils.now_datetime(), update_modified=True)
+    frappe.db.commit()
 
 def get_clearence_headers():
     return {
