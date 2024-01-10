@@ -1,0 +1,123 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2024-01-10 21:58:47.946443",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "invoice_id",
+  "invoice_uuid",
+  "invoice_icv",
+  "invoice_hash",
+  "column_break_cbqa",
+  "previous_invoice_hash",
+  "egs_serial_number",
+  "production_csid",
+  "transaction_time",
+  "section_break_iovm",
+  "response_code",
+  "response_body"
+ ],
+ "fields": [
+  {
+   "fieldname": "invoice_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Invoice ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "invoice_uuid",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Invoice UUID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "invoice_icv",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Invoice ICV",
+   "read_only": 1
+  },
+  {
+   "fieldname": "invoice_hash",
+   "fieldtype": "Data",
+   "label": "Invoice Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_cbqa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "previous_invoice_hash",
+   "fieldtype": "Data",
+   "label": "Previous Invoice Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "egs_serial_number",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "EGS Serial Number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "production_csid",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Production CSID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_iovm",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "response_code",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Response Code",
+   "read_only": 1
+  },
+  {
+   "fieldname": "response_body",
+   "fieldtype": "Small Text",
+   "label": "Response Body",
+   "read_only": 1
+  },
+  {
+   "fieldname": "transaction_time",
+   "fieldtype": "Datetime",
+   "label": "Transaction Time",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-01-10 22:33:27.358901",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Zatca Transactions",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

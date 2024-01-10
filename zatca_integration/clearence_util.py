@@ -116,19 +116,37 @@ def generate_einvoice(doc, method):
         invoice_xml
     )
 
-    # Post Clearance Request to ZATCA API
-    response = requests.post(
-        zatca_environment.invoice_clearance_api, 
-        headers=get_clearence_headers(),
-        auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
-        data=json.dumps(invoice_request)
-    )
-
     try:
+        # Post Clearance Request to ZATCA API
+        response = requests.post(
+            zatca_environment.invoice_clearance_api, 
+            headers=get_clearence_headers(),
+            auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
+            data=json.dumps(invoice_request)
+        )
         response_json = response.json()
     except ValueError:
         response_json = None
+    except requests.exceptions.RequestException as e:
+        frappe.throw("Error Clearing Invoice, " + str(e))
 
+    # Save Transaction
+    transaction = frappe.get_doc({
+            'doctype': 'Zatca Transactions',
+            'invoice_id': doc.name,
+            'invoice_uuid': uniqueInvoiceIdentifier,
+            'invoice_icv': invoiceCounterValue,
+            'invoice_hash': invoice_request.get('invoiceHash'),
+            'previous_invoice_hash': previousInvoiceHash,
+            'egs_serial_number': compliance_csr.csrserialnumber,
+            'production_csid': production_csid.name,
+            'response_code': response.status_code,
+            'response_body': json.dumps(response_json),
+            'transaction_time': frappe.utils.now_datetime(),
+        })
+    transaction.insert()
+
+    # Handle Response
     if response.status_code == 200 or response.status_code == 202:
         doc.custom_invoice_hash = invoice_request.get('invoiceHash')
         doc.custom_previous_invoice_hash = previousInvoiceHash
