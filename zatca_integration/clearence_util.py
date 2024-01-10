@@ -8,8 +8,8 @@ import requests
 import base64
 from requests.auth import HTTPBasicAuth
 from lxml import etree
-import base64
 import qrcode
+from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, get_invoice_request
 
 def generate_einvoice(doc, method):
 
@@ -34,7 +34,7 @@ def generate_einvoice(doc, method):
     
     # Fetch Seller and Buyer Information
     seller = get_seller_information(compliance_csr)
-    buyer = get_buyer_information(doc)
+    buyer = get_buyer_information(doc.customer)
     
     # Set Invoice Date and Time, Delivery Date
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
@@ -54,6 +54,18 @@ def generate_einvoice(doc, method):
         frappe.throw("Except Rate is not Supported")
     else:
         frappe.throw("Tax Type is not Supported")
+
+    # Validate Currency, Only SAR is supported
+    currency = doc.currency
+    if currency != "SAR":
+        frappe.throw("Currency is not Supported")
+
+    # PaymentMeansCode TODO
+        
+    # Advance Payment Not Supported
+    total_advance = doc.total_advance
+    if total_advance > 0:
+        frappe.throw("Advance Payment is not Supported")
 
     # Prepare Line Items Details
     line_items = []
@@ -149,70 +161,10 @@ def generate_einvoice(doc, method):
         doc.custom_invoice_qr_code = qr_doc.file_url
 
     else:
+        # TODO Handle Error
+        print(response.status_code)
+        print(response_json)
         frappe.throw("Error Clearing Invoice")
-
-
-def get_invoice_request(url, clientId, clientSecret, invoice):
-    url = url + 'generateInvoiceRequest'
-    # Set the headers
-    headers = {
-        'clientId': clientId,
-        'clientSecret': clientSecret,
-        'Content-Type': 'application/json'
-    }
-
-    # Encode the string into bytes, then encode it using base64
-    data = {
-        'invoice': encode_invoice(invoice)
-    }
-
-    try:
-        # Make the POST request
-        response = requests.post(url, headers=headers, json=data)
-        response_json = response.json()
-    except requests.exceptions.JSONDecodeError:
-        frappe.throw("Error in generating invoice request from backend")
-
-    return response_json
-
-def encode_invoice(invoice):
-    input_bytes = invoice.encode('utf-8')
-    encoded_bytes = base64.b64encode(input_bytes)
-    encoded_string = encoded_bytes.decode('utf-8')
-    return encoded_string
-
-def decode_invoice(encoded_invoice):
-    encoded_bytes = encoded_invoice.encode('utf-8')
-    decoded_bytes = base64.b64decode(encoded_bytes)
-    decoded_string = decoded_bytes.decode('utf-8')
-    return decoded_string
-
-def get_seller_information(zatca_settings):
-    return {
-        "registrationScheme": zatca_settings.registration_scheme, #TODO ShortName and Add to Template
-        "registrationNumber": zatca_settings.registration_number,
-        "streetName": zatca_settings.street_name,
-        "buildingNumber": zatca_settings.building_number,
-        "citySubdivisionName": zatca_settings.city_subdivision_name,
-        "cityName": zatca_settings.city_name,
-        "postalZone": zatca_settings.postal_zone,
-        "countryCode": zatca_settings.csrcountryname,
-        "vatNumber": zatca_settings.csrorganizationidentifier,
-        "organizationName": zatca_settings.csrorganizationname
-    }
-
-def get_buyer_information(doc): 
-    customer = frappe.get_doc("Customer", doc.customer)
-    return {
-            "organizationName":  customer.custom_organization_name,
-            "vatNumber":  customer.custom_vat_number,
-			"streetName": customer.custom_street_name,
-			"buildingNumber":  customer.custom_building_number,
-			"citySubdivisionName":  customer.custom_city_subdivision_name,
-			"cityName":  customer.custom_city_name,
-			"postalZone":  customer.custom_postal_zone,
-			"countryCode":  customer.custom_country_code
-		}
 
 def get_clearence_headers():
     return {

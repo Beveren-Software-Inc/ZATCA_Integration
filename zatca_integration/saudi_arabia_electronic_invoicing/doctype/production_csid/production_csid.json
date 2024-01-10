@@ -9,8 +9,8 @@
  "field_order": [
   "compliance_csid",
   "column_break_qkoy",
-  "zatca_environment",
   "generated_production_csid_section",
+  "is_active",
   "request_id",
   "disposition_message",
   "created_time",
@@ -31,12 +31,14 @@
    "fieldname": "request_id",
    "fieldtype": "Data",
    "label": "Request ID",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "disposition_message",
    "fieldtype": "Data",
    "label": "Disposition Message",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -44,12 +46,14 @@
    "fieldtype": "Datetime",
    "in_list_view": 1,
    "label": "Created Time",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "errors",
    "fieldtype": "Small Text",
    "label": "Errors",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -60,18 +64,21 @@
    "fieldname": "binary_security_token",
    "fieldtype": "Small Text",
    "label": "Binary Security Token",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "secret",
    "fieldtype": "Data",
    "label": "Secret",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "token_type",
    "fieldtype": "Data",
    "label": "Token Type",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -83,20 +90,21 @@
    "reqd": 1
   },
   {
-   "fieldname": "zatca_environment",
-   "fieldtype": "Link",
-   "label": "Zatca Environment",
-   "options": "Zatca Environment",
-   "read_only": 1
-  },
-  {
    "fieldname": "column_break_qkoy",
    "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "no_copy": 1,
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-01-01 23:19:45.474152",
+ "modified": "2024-01-10 13:05:29.797291",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Production CSID",

@@ -2,25 +2,27 @@
 # For license information, please see license.txt
 
 import json
-import base64
 import frappe
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
 from zatca_integration.compliance_util import generate_compliance_standard_invoice, generate_compliance_standard_credit_note
+from zatca_integration.common_util import get_seller_information, get_buyer_information, get_invoice_request
 
 
 class ComplianceCSID(Document):
 
 	def before_save(self):
-		pass
+		csr_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
+		if csr_settings.csr == "":
+			frappe.throw("CSR is not generated. Please generate CSR")
 
 	@frappe.whitelist()
 	def genereate_zatca_compliance_csid(self):
 
 		# Get ZATCA CSR Settings and ZATCA Environment
-		zatca_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
-		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
+		csr_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
+		zatca_environment = frappe.get_doc("Zatca Environment", csr_settings.zatca_environment)
 
 		# Make Call to ZATCA Compliance CSID API to get Compliance CSID
 		headers = {
@@ -30,7 +32,7 @@ class ComplianceCSID(Document):
 			'Content-Type': 'application/json'
 		}
 		data = {
-			"csr": zatca_settings.csr
+			"csr": csr_settings.csr
 		}
 		response = requests.post(zatca_environment.compliance_csid_api, headers=headers, json=data)
 
@@ -71,21 +73,20 @@ class ComplianceCSID(Document):
 	def invoke_zatca_compliance_invoice(self):
 
 		# Get ZATCA Settings and ZATCA Environment
-		zatca_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
-		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
+		csr_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
+		zatca_environment = frappe.get_doc("Zatca Environment", csr_settings.zatca_environment)
 
 		# Seller Information
-		seller = self.get_seller_information(zatca_settings)
+		seller = get_seller_information(csr_settings)
 
 		# Buyer Information
 		test_buyer = frappe.get_doc("Customer", self.buyer) 
-		buyer = self.get_buyer_information(frappe.get_doc("Customer", test_buyer) )
+		buyer = get_buyer_information(test_buyer)
 
 		# Issue Compliance for Invoice, Credit Note and Debit Note
 		self.invoke_complaince_check(zatca_environment, seller, buyer)
 		
 		# Update Zatca Compliance CSID Status
-		self.reset_compliance_csid_status(True)
 		self.save()
 
 	def invoke_complaince_check(self, zatca_environment, seller, buyer):
@@ -100,7 +101,8 @@ class ComplianceCSID(Document):
 			first_invoice_hash
 		)
 		print(standard_invoice["xml"])
-		standard_invoice_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_invoice["xml"])
+		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_invoice["xml"])
+		self.standard_invoice = standard_invoice_status
 		print("#################### Compliance Standard Invoice END ####################")
 
 		# Compliance Standard Credit Note
@@ -113,7 +115,8 @@ class ComplianceCSID(Document):
 			standard_invoice_hash
 		)
 		print(standard_credit_note["xml"])
-		standard_credit_note_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_credit_note["xml"])
+		sstandard_credit_note_status, standard_credit_note_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_credit_note["xml"])
+		self.standard_credit_note = sstandard_credit_note_status
 		print("#################### Compliance Standard Credit Note END ####################")
 
 		# Compliance Standard Invoice
@@ -124,7 +127,7 @@ class ComplianceCSID(Document):
 			standard_credit_note_hash
 		)
 		print(standard_invoice["xml"])
-		standard_invoice_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_invoice["xml"])
+		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_invoice["xml"])
 		print("#################### Compliance Standard Invoice END ####################")
 
 		# Compliance Standard Debit Note
@@ -137,12 +140,13 @@ class ComplianceCSID(Document):
 			standard_invoice_hash
 		)
 		print(standard_credit_note["xml"])
-		standard_debit_note_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_credit_note["xml"])
+		standard_debit_note_status, standard_debit_note_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_credit_note["xml"])
+		self.standard_debit_note = standard_debit_note_status
 		print("#################### Compliance Standard Debit Note END ####################")
 
 	def invoke_compliance_invoice_api(self, zatca_environment, invoice_xml):
 		# Get Invoice Request Body from Backend
-		invoice_request = self.get_invoice_request(
+		invoice_request = get_invoice_request(
 			zatca_environment.csr_generate_api, 
 			zatca_environment.client_id, 
 			zatca_environment.client_secret, 
@@ -164,71 +168,11 @@ class ComplianceCSID(Document):
 			auth=HTTPBasicAuth(self.binary_security_token, self.secret), 
 			data=json.dumps(invoice_request)
 		)
-		print(response.status_code)
-		print(response.json())
 
-		return invoice_request["invoiceHash"]
-	
-	def get_invoice_request(self, url, clientId, clientSecret, invoice):
-		url = url + 'generateInvoiceRequest'
-		# Set the headers
-		headers = {
-			'clientId': clientId,
-			'clientSecret': clientSecret,
-			'Content-Type': 'application/json'
-		}
-
-		# Encode the string into bytes, then encode it using base64
-		data = {
-			'invoice': self.encode_invoice(invoice)
-		}
-
-		try:
-			# Make the POST request
-			response = requests.post(url, headers=headers, json=data)
-			response_json = response.json()
-		except requests.exceptions.JSONDecodeError:
-			frappe.throw("Error in generating invoice request from backend")
-
-		return response_json
-
-	def get_seller_information(self, zatca_settings):
-		return {
-			"registrationScheme": zatca_settings.registration_scheme,
-			"registrationNumber": zatca_settings.registration_number,
-			"streetName": zatca_settings.street_name,
-			"buildingNumber": zatca_settings.building_number,
-			"citySubdivisionName": zatca_settings.city_subdivision_name,
-			"cityName": zatca_settings.city_name,
-			"postalZone": zatca_settings.postal_zone,
-			"countryCode": zatca_settings.csrcountryname,
-			"vatNumber": zatca_settings.csrorganizationidentifier,
-			"organizationName": zatca_settings.csrorganizationname
-		}
-
-	def get_buyer_information(self, customer):
-		return {
-            "organizationName":  customer.custom_organization_name,
-            "vatNumber":  customer.custom_vat_number,
-			"streetName": customer.custom_street_name,
-			"buildingNumber":  customer.custom_building_number,
-			"citySubdivisionName":  customer.custom_city_subdivision_name,
-			"cityName":  customer.custom_city_name,
-			"postalZone":  customer.custom_postal_zone,
-			"countryCode":  customer.custom_country_code
-		}	
-	
-	def encode_invoice(self, invoice):
-		input_bytes = invoice.encode('utf-8')
-		encoded_bytes = base64.b64encode(input_bytes)
-		encoded_string = encoded_bytes.decode('utf-8')
-		return encoded_string
-	
-	def decode_invoice(self, encoded_invoice):
-		encoded_bytes = encoded_invoice.encode('utf-8')
-		decoded_bytes = base64.b64decode(encoded_bytes)
-		decoded_string = decoded_bytes.decode('utf-8')
-		return decoded_string
+		if response.status_code == 200:
+			return True, invoice_request["invoiceHash"]
+		else:
+			return False, None
 		
 	def reset_compliance_csid_status(self, status):
 		self.standard_invoice = status

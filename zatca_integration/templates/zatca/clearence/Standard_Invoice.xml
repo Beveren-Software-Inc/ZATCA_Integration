@@ -44,7 +44,7 @@
     <cac:AccountingSupplierParty>
         <cac:Party>
             <cac:PartyIdentification>
-                <cbc:ID schemeID="CRN">{{ seller.registrationNumber }}</cbc:ID>
+                <cbc:ID schemeID="{{ seller.registrationScheme }}">{{ seller.registrationNumber }}</cbc:ID>
             </cac:PartyIdentification>
             <cac:PostalAddress>
                 <cbc:StreetName>{{ seller.streetName }}</cbc:StreetName>
