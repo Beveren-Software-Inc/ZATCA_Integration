@@ -29,8 +29,8 @@ def generate_einvoice(doc, method):
     invoiceCounterValue  = int(time.time())
     uniqueInvoiceIdentifier = str(uuid.uuid4())
 
-    # Fetch Previous Invoice Hash or use default TODO
-    previousInvoiceHash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
+    # Fetch Previous Invoice Hash
+    previousInvoiceHash = get_previous_invoice_hash(production_csid.name)
     
     # Fetch Seller and Buyer Information
     seller = get_seller_information(compliance_csr)
@@ -214,6 +214,20 @@ def get_clearence_headers():
         'Accept-Version': 'V2',
         'Content-Type': 'application/json'
     }
+
+def get_previous_invoice_hash(production_csid):
+    # Get the latest Zatca Transaction for the given production_csid based on transaction_time
+    latest_transaction = frappe.get_all('Zatca Transactions', 
+                                        filters={'production_csid': production_csid}, 
+                                        fields=['invoice_hash'], 
+                                        order_by='transaction_time desc', 
+                                        limit_page_length=1)
+    if latest_transaction:
+        # Return the invoice_hash of the latest transaction
+        return latest_transaction[0].invoice_hash
+    else:
+        # Return None if there are no Zatca Transactions
+        return "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
 
 def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
 
