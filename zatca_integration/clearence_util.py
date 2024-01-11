@@ -26,16 +26,18 @@ def generate_einvoice(doc, method):
 
     # Check invoice type stndard, credit note or debit note    
     if doc.is_return:
-        invoice_type = "standard_credit_note"
+        invoice_type = "Stnadard Credit Note"
         invoice_type_code = "381"
         invoice_document_reference = doc.return_against
     elif doc.is_debit_note:
-        invoice_type = "standard_debit_note"
+        invoice_type = "Stnadard Debit Note"
         invoice_type_code = "383"
+        invoice_document_reference = doc.debit_to
         frappe.throw("Debit Note is not Supported")
     else:
-        invoice_type = "standard_invoice"
+        invoice_type = "Stnadard Invoice"
         invoice_type_code = "388"
+        invoice_document_reference = ""
     
     # Generate Invoice Number, Unique Identifier and Counter Value
     invoiceNumber = doc.name
@@ -163,8 +165,8 @@ def generate_einvoice(doc, method):
 
     # Handle Response
     if response.status_code == 200 or response.status_code == 202:
+        doc.custom_invoice_type = invoice_type
         doc.custom_invoice_hash = invoice_request.get('invoiceHash')
-        doc.custom_previous_invoice_hash = previousInvoiceHash
         doc.custom_invoice_unique_identifier = uniqueInvoiceIdentifier
         doc.custom_invoice_icv = invoiceCounterValue
         doc.custom_clearance_status = response_json.get('clearanceStatus')
