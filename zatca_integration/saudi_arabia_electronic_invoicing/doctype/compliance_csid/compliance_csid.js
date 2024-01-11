@@ -3,18 +3,23 @@
 
 frappe.ui.form.on("Compliance CSID", {
 	refresh: frm => {
-        frm.trigger("genereate_zatca_compliance_csid");
-        frm.trigger("invoke_zatca_compliance_invoice");
-	},
+        if(!frm.is_new()) {
+            frm.trigger("genereate_zatca_compliance_csid");
+            frm.trigger("invoke_zatca_compliance_invoice");
+        }
+    },
     genereate_zatca_compliance_csid: frm => {
-        frm.add_custom_button(__('Generate Compliance CSID'), function() {
+            frm.add_custom_button(__('Generate Compliance CSID'), function() {
+            // Show a progress message
+            frappe.show_progress(__('Generating Compliance CSID...'));
             // Call the server side function
             frappe.call({
                 method: "genereate_zatca_compliance_csid",
                 doc: frm.doc,
                 callback: function(r) {
+                    frappe.hide_progress();
                     if(!r.exc) {
-                        // Success message or action
+                        frappe.show_alert({message:__('Compliance CSID Generated Successfully!'), indicator:'green'});
                         frm.reload_doc();
                     }
                 }
@@ -22,14 +27,17 @@ frappe.ui.form.on("Compliance CSID", {
         });
     },
     invoke_zatca_compliance_invoice: frm => {
-        frm.add_custom_button(__('Validate Compliance CSID'), function() {
+            frm.add_custom_button(__('Validate Compliance CSID'), function() {
+            // Show a progress message            
+            frappe.show_progress(__('Validating Compliance CSID...'));
             // Call the server side function
             frappe.call({
                 method: "invoke_zatca_compliance_invoice",
                 doc: frm.doc,
                 callback: function(r) {
+                    frappe.hide_progress();
                     if(!r.exc) {
-                        // Success message or action
+                        frappe.show_alert({message:__('Compliance CSID Validated Successfully!'), indicator:'green'});
                         frm.reload_doc();
                     }
                 }

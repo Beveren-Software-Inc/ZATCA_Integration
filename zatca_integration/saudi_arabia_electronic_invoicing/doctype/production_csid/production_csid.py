@@ -13,6 +13,13 @@ from frappe.model.document import Document
 class ProductionCSID(Document):
 
 	def before_save(self):
+		compliance_csid = frappe.get_doc("Compliance CSID", self.compliance_csid)
+		if not compliance_csid.standard_invoice:
+			frappe.throw("Standrd Invoice is not Validated. Please Validate it first.")
+		if not compliance_csid.standard_debit_note:
+			frappe.throw("Standard Debit Note is not Validated. Please Validate it first.")
+		if not compliance_csid.standard_credit_note:
+			frappe.throw("Standard Credit Note is not Validated. Please Validate it first.")
 		pass
 	
 	@frappe.whitelist()
@@ -49,6 +56,7 @@ class ProductionCSID(Document):
 
 		if response.status_code == 200 and response_json is not None:
 			# If response is 200 OK and JSON format, extract the necessary data
+			self.is_active = True
 			self.created_time = frappe.utils.now_datetime()
 			self.request_id = response_json.get('requestID', '')
 			self.disposition_message = response_json.get('dispositionMessage', '')
@@ -56,7 +64,6 @@ class ProductionCSID(Document):
 			self.token_type = response_json.get('tokenType', '')
 			self.secret = response_json.get('secret', '')
 			self.errors = response_json.get('errors', '{}')
-			self.zatca_environment = zatca_environment.name
 			self.save()
 		else:
 			# If response is not 200 OK or not JSON, handle the error case

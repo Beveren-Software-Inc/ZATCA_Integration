@@ -35,7 +35,10 @@
   "generated_csr_section",
   "private_key_column",
   "csr",
+  "csr_pem_format",
+  "column_break_pyrl",
   "private_key",
+  "private_key_pem_format",
   "created_time"
  ],
  "fields": [
@@ -138,6 +141,7 @@
    "fieldname": "csrserialnumber",
    "fieldtype": "Data",
    "label": "EGS Serial Number",
+   "no_copy": 1,
    "read_only": 1,
    "unique": 1
   },
@@ -204,20 +208,41 @@
   },
   {
    "fieldname": "csr",
-   "fieldtype": "Small Text",
+   "fieldtype": "Long Text",
    "label": "CSR",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "private_key",
    "fieldtype": "Small Text",
    "label": "Private Key",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "created_time",
    "fieldtype": "Datetime",
    "label": "Created Time",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "csr_pem_format",
+   "fieldtype": "Long Text",
+   "label": "CSR PEM Format",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_pyrl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "private_key_pem_format",
+   "fieldtype": "Small Text",
+   "label": "Private Key PEM Format",
+   "no_copy": 1,
    "read_only": 1
   }
  ],
@@ -228,7 +253,7 @@
    "link_fieldname": "csr_settings"
   }
  ],
- "modified": "2024-01-04 07:01:04.714068",
+ "modified": "2024-01-10 13:02:45.630612",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca CSR Settings",

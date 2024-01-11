@@ -42,6 +42,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "OTP",
+   "no_copy": 1,
    "reqd": 1
   },
   {
@@ -58,18 +59,21 @@
   {
    "fieldname": "generated_compliance_csid_section",
    "fieldtype": "Section Break",
-   "label": "Generated Compliance CSID"
+   "label": "Generated Compliance CSID",
+   "no_copy": 1
   },
   {
    "fieldname": "request_id",
    "fieldtype": "Data",
    "label": "Request ID",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "disposition_message",
    "fieldtype": "Data",
    "label": "Disposition Message",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -77,12 +81,14 @@
    "fieldtype": "Datetime",
    "in_list_view": 1,
    "label": "Created Time",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "errors",
    "fieldtype": "Small Text",
    "label": "Errors",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -94,18 +100,21 @@
    "fieldname": "binary_security_token",
    "fieldtype": "Small Text",
    "label": "Binary Security Token",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "secret",
    "fieldtype": "Data",
    "label": "Secret",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "compliance_status_section",
    "fieldtype": "Section Break",
    "label": "Compliance CSID Status",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -113,6 +122,7 @@
    "fieldname": "standard_invoice",
    "fieldtype": "Check",
    "label": "Standard Invoice",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -120,6 +130,7 @@
    "fieldname": "standard_debit_note",
    "fieldtype": "Check",
    "label": "Standard Debit Note",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -127,6 +138,7 @@
    "fieldname": "standard_credit_note",
    "fieldtype": "Check",
    "label": "Standard Credit Note",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -138,6 +150,7 @@
    "fieldname": "simplified_invoice",
    "fieldtype": "Check",
    "label": "Simplified Invoice",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -145,6 +158,7 @@
    "fieldname": "simplified_debit_note",
    "fieldtype": "Check",
    "label": "Simplified Debit Note",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -152,6 +166,7 @@
    "fieldname": "simplified_credit_note",
    "fieldtype": "Check",
    "label": "Simplified Credit Note",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -179,7 +194,7 @@
    "link_fieldname": "compliance_csid"
   }
  ],
- "modified": "2024-01-01 22:47:49.690915",
+ "modified": "2024-01-10 13:04:50.900353",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Compliance CSID",

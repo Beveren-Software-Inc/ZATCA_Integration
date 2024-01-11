@@ -61,7 +61,9 @@ class ZatcaCSRSettings(Document):
 		if response.status_code == 200 and response_json is not None:
 			# Save the CSR and Private Key
 			self.csr = response_json['csr']
+			self.csr_pem_format = response_json['csrPemFormat']
 			self.private_key = response_json['privateKey']
+			self.private_key_pem_format = response_json['privateKeyPemFormat']
 			self.created_time = frappe.utils.now_datetime()
 			self.save()
 		else:

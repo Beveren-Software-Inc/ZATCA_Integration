@@ -1,0 +1,41 @@
+[
+ {
+  "company": "Beveren Software",
+  "custom_tax_type": "Zero Rate",
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Sales Taxes and Charges Template",
+  "is_default": 0,
+  "modified": "2024-01-09 00:41:00.856397",
+  "name": "Zero Rate",
+  "tax_category": null,
+  "taxes": [],
+  "title": "Zero Rate"
+ },
+ {
+  "company": "Beveren Software",
+  "custom_tax_type": "Except Rate",
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Sales Taxes and Charges Template",
+  "is_default": 0,
+  "modified": "2024-01-09 00:41:25.464218",
+  "name": "Except Rate",
+  "tax_category": null,
+  "taxes": [],
+  "title": "Except Rate"
+ },
+ {
+  "company": "Beveren Software",
+  "custom_tax_type": "Standard Rate",
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Sales Taxes and Charges Template",
+  "is_default": 1,
+  "modified": "2024-01-08 22:47:26.434083",
+  "name": "Standard Rate",
+  "tax_category": null,
+  "taxes": [],
+  "title": "Standard Rate"
+ }
+]
