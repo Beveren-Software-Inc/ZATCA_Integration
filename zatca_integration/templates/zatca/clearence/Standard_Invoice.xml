@@ -23,9 +23,16 @@
     <cbc:UUID>{{ uniqueInvoiceIdentifier }}</cbc:UUID>
     <cbc:IssueDate>{{ invoice_date }}</cbc:IssueDate>
     <cbc:IssueTime>{{ invoice_time }}</cbc:IssueTime>
-    <cbc:InvoiceTypeCode name="0100000">388</cbc:InvoiceTypeCode>
+    <cbc:InvoiceTypeCode name="0100000">{{ invoice_type_code }}</cbc:InvoiceTypeCode>
     <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
     <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
+    {% if invoice_type_code in ['381', '383'] %}
+    <cac:BillingReference>
+        <cac:InvoiceDocumentReference>
+            <cbc:ID>{{ invoice_document_reference }}</cbc:ID>
+        </cac:InvoiceDocumentReference>
+    </cac:BillingReference>
+    {% endif %}
     <cac:AdditionalDocumentReference>
         <cbc:ID>ICV</cbc:ID>
         <cbc:UUID>{{ invoiceCounterValue }}</cbc:UUID>
@@ -96,6 +103,7 @@
     </cac:Delivery>
     <cac:PaymentMeans>
         <cbc:PaymentMeansCode>10</cbc:PaymentMeansCode>
+        {% if invoice_type_code in ['381', '383'] %}<cbc:InstructionNote>CANCELLATION_OR_TERMINATION</cbc:InstructionNote>{% endif %}
     </cac:PaymentMeans>
     <cac:TaxTotal>
         <cbc:TaxAmount currencyID="SAR">{{ taxAmount }}</cbc:TaxAmount>
@@ -122,7 +130,7 @@
         <cbc:PrepaidAmount currencyID="SAR">0.00</cbc:PrepaidAmount>
         <cbc:PayableAmount currencyID="SAR">{{ payableAmount }}</cbc:PayableAmount>
     </cac:LegalMonetaryTotal>
-{% for line_item in line_items %}
+    {% for line_item in line_items %}
     <cac:InvoiceLine>
         <cbc:ID>{{ line_item.line_number }}</cbc:ID>
         <cbc:InvoicedQuantity unitCode="PCE">{{ line_item.quantity }}</cbc:InvoicedQuantity>
@@ -145,5 +153,5 @@
             <cbc:PriceAmount currencyID="SAR">{{ line_item.unit_price }}</cbc:PriceAmount>
         </cac:Price>
     </cac:InvoiceLine>
-{% endfor %}
+    {% endfor %}
 </Invoice>

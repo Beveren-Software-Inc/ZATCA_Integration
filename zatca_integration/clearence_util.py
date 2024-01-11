@@ -23,6 +23,19 @@ def generate_einvoice(doc, method):
     # Check if E-Invoicing is enabled
     if not zatca_settings.enable_e_invoicing:
         return
+
+    # Check invoice type stndard, credit note or debit note    
+    if doc.is_return:
+        invoice_type = "standard_credit_note"
+        invoice_type_code = "381"
+        invoice_document_reference = doc.return_against
+    elif doc.is_debit_note:
+        invoice_type = "standard_debit_note"
+        invoice_type_code = "383"
+        frappe.throw("Debit Note is not Supported")
+    else:
+        invoice_type = "standard_invoice"
+        invoice_type_code = "388"
     
     # Generate Invoice Number, Unique Identifier and Counter Value
     invoiceNumber = doc.name
@@ -70,15 +83,15 @@ def generate_einvoice(doc, method):
     # Prepare Line Items Details
     line_items = []
     for item in doc.items:
-        taxable_amount = item.base_amount
+        taxable_amount = abs(item.base_amount)
         tax_mount = taxable_amount * tax_percentage / 100
         payable_amount = taxable_amount + tax_mount
         line_item = {
             "line_number": item.idx,
             "item_name": item.item_name,
-            "quantity": item.qty,
+            "quantity": abs(item.qty),
             "unit_code": "C62",  # TODO: From Item
-            "unit_price": item.base_rate,
+            "unit_price": abs(item.base_rate),
             "tax_Percentage": tax_percentage,
             "taxable_amount": taxable_amount,
             "tax_mount": tax_mount,
@@ -88,6 +101,8 @@ def generate_einvoice(doc, method):
 
     # Render Invoice XML from Template
     invoice_xml = frappe.render_template("zatca_integration/templates/zatca/clearence/Standard_Invoice.xml", {
+        "invoice_type_code": invoice_type_code,
+        "invoice_document_reference": invoice_document_reference,
         "invoiceNumber": invoiceNumber,
         "invoiceCounterValue": invoiceCounterValue,
         "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
@@ -99,9 +114,9 @@ def generate_einvoice(doc, method):
         "buyer": buyer,
     
         # TaxTotal and MonetaryTotal
-        "taxableAmount": doc.base_total,
-        "taxAmount": doc.base_total_taxes_and_charges,
-        "payableAmount": doc.base_grand_total,
+        "taxableAmount": abs(doc.base_total),
+        "taxAmount": abs(doc.base_total_taxes_and_charges),
+        "payableAmount": abs(doc.base_grand_total),
         "taxPercentage": tax_percentage,
 
         # Line Items
