@@ -25,7 +25,7 @@
    "hide_border": 0,
    "hide_days": 0,
    "hide_seconds": 0,
-   "idx": 1,
+   "idx": 2,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
    "in_global_search": 0,
@@ -71,7 +71,7 @@
    "_comments": null,
    "_liked_by": null,
    "_user_tags": null,
-   "creation": "2024-01-14 17:05:08.841832",
+   "creation": "2024-01-14 20:31:11.648240",
    "default_value": null,
    "doc_type": "Purchase Taxes and Charges Template",
    "docstatus": 0,
@@ -79,7 +79,7 @@
    "field_name": null,
    "idx": 0,
    "is_system_generated": 0,
-   "modified": "2024-01-14 17:05:08.841832",
+   "modified": "2024-01-14 20:31:11.648240",
    "modified_by": "Administrator",
    "module": null,
    "name": "Purchase Taxes and Charges Template-main-field_order",
@@ -87,8 +87,8 @@
    "property": "field_order",
    "property_type": "Data",
    "row_name": null,
-   "value": "[\"title\", \"tax_type\", \"is_default\", \"disabled\", \"column_break4\", \"company\", \"tax_category\", \"section_break6\", \"taxes\"]"
+   "value": "[\"title\", \"custom_tax_type\", \"is_default\", \"disabled\", \"column_break4\", \"company\", \"tax_category\", \"section_break6\", \"taxes\"]"
   }
  ],
- "sync_on_migrate": 1
+ "sync_on_migrate": 0
 }
