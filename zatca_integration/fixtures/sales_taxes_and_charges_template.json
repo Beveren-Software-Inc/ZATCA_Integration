@@ -1,41 +1,47 @@
 [
  {
   "company": "Beveren Software",
+  "custom_except_rate_reason": null,
   "custom_tax_type": "Zero Rate",
+  "custom_zero_rate_reason": "Export of services(VATEX-SA-33)",
   "disabled": 0,
   "docstatus": 0,
   "doctype": "Sales Taxes and Charges Template",
   "is_default": 0,
-  "modified": "2024-01-09 00:41:00.856397",
-  "name": "Zero Rate",
+  "modified": "2024-01-14 16:06:29.503857",
+  "name": "Zero Rate Sales",
   "tax_category": null,
   "taxes": [],
-  "title": "Zero Rate"
+  "title": "Zero Rate Sales"
  },
  {
   "company": "Beveren Software",
+  "custom_except_rate_reason": "Financial services mentioned in Article 29 of the VAT Regulations(VATEX-SA-29)",
   "custom_tax_type": "Except Rate",
+  "custom_zero_rate_reason": null,
   "disabled": 0,
   "docstatus": 0,
   "doctype": "Sales Taxes and Charges Template",
   "is_default": 0,
-  "modified": "2024-01-09 00:41:25.464218",
-  "name": "Except Rate",
+  "modified": "2024-01-14 16:03:09.961187",
+  "name": "Except Rate Sales",
   "tax_category": null,
   "taxes": [],
-  "title": "Except Rate"
+  "title": "Except Rate Sales"
  },
  {
   "company": "Beveren Software",
+  "custom_except_rate_reason": null,
   "custom_tax_type": "Standard Rate",
+  "custom_zero_rate_reason": null,
   "disabled": 0,
   "docstatus": 0,
   "doctype": "Sales Taxes and Charges Template",
   "is_default": 1,
-  "modified": "2024-01-08 22:47:26.434083",
-  "name": "Standard Rate",
+  "modified": "2024-01-14 16:02:45.375208",
+  "name": "Standard Rate Sales",
   "tax_category": null,
   "taxes": [],
-  "title": "Standard Rate"
+  "title": "Standard Rate Sales"
  }
 ]
