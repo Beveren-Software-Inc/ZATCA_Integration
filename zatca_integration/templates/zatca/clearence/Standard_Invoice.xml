@@ -103,7 +103,7 @@
     </cac:Delivery>
     <cac:PaymentMeans>
         <cbc:PaymentMeansCode>10</cbc:PaymentMeansCode>
-        {%- if invoice_type_code in ['381', '383'] -%}
+        {% if invoice_type_code in ['381', '383'] -%}
         <cbc:InstructionNote>CANCELLATION_OR_TERMINATION</cbc:InstructionNote>
         {% endif -%}
     </cac:PaymentMeans>
@@ -116,10 +116,10 @@
             <cbc:TaxableAmount currencyID="SAR">{{ taxableAmount }}</cbc:TaxableAmount>
             <cbc:TaxAmount currencyID="SAR">{{ taxAmount }}</cbc:TaxAmount>
             <cac:TaxCategory>
-                <cbc:ID schemeID="UN/ECE 5305" schemeAgencyID="6">S</cbc:ID>
+                <cbc:ID>S</cbc:ID>
                 <cbc:Percent>{{ taxPercentage }}</cbc:Percent>
                 <cac:TaxScheme>
-                    <cbc:ID schemeID="UN/ECE 5153" schemeAgencyID="6">VAT</cbc:ID>
+                    <cbc:ID>VAT</cbc:ID>
                 </cac:TaxScheme>
             </cac:TaxCategory>
         </cac:TaxSubtotal>
