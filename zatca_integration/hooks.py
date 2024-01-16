@@ -148,7 +148,10 @@ fixtures = [
 doc_events = {
 	"Sales Invoice": {
 		"before_submit": "zatca_integration.clearence_util.generate_einvoice",
-	}
+	},
+    "Purchase Invoice": {
+        "before_submit": "zatca_integration.common_util.validate_purchase_invoice",
+    }   
 }
 # doc_events = {
 #	"*": {
