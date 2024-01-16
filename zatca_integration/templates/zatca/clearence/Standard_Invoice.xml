@@ -102,7 +102,7 @@
         <cbc:ActualDeliveryDate>{{ delivery_date }}</cbc:ActualDeliveryDate>
     </cac:Delivery>
     <cac:PaymentMeans>
-        <cbc:PaymentMeansCode>10</cbc:PaymentMeansCode>
+        <cbc:PaymentMeansCode>{{ payment_means_code }}</cbc:PaymentMeansCode>
         {% if invoice_type_code in ['381', '383'] -%}
         <cbc:InstructionNote>CANCELLATION_OR_TERMINATION</cbc:InstructionNote>
         {% endif -%}
@@ -155,5 +155,5 @@
             <cbc:PriceAmount currencyID="SAR">{{ line_item.unit_price }}</cbc:PriceAmount>
         </cac:Price>
     </cac:InvoiceLine>
-    {% endfor -%}
+    {% endfor %}
 </Invoice>

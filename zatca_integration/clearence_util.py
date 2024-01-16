@@ -75,7 +75,8 @@ def generate_einvoice(doc, method):
     if currency != "SAR":
         frappe.throw("Currency is not Supported")
 
-    # PaymentMeansCode TODO
+    # PaymentMeansCode
+    payment_means_code = get_payment_means_code(doc.custom_payment_means)
         
     # Advance Payment Not Supported
     total_advance = doc.total_advance
@@ -114,6 +115,9 @@ def generate_einvoice(doc, method):
         "delivery_date": delivery_date,
         "seller": seller,
         "buyer": buyer,
+
+        # Payment
+        "payment_means_code": payment_means_code,
     
         # TaxTotal and MonetaryTotal
         "taxableAmount": abs(doc.base_total),
@@ -222,6 +226,19 @@ def update_status_on_error(doc, status, validation_results):
     frappe.db.set_value("Sales Invoice", doc.name, "custom_validation_results", validation_results, update_modified=True)
     frappe.db.set_value("Sales Invoice", doc.name, "custom_clearance_time", frappe.utils.now_datetime(), update_modified=True)
     frappe.db.commit()
+
+def get_payment_means_code(payment_means):
+    if payment_means == "Cash":
+        payment_means_code = "10"
+    elif payment_means == "Credit":
+        payment_means_code = "30"
+    elif payment_means == "Bank Payment":
+        payment_means_code = "42"
+    elif payment_means == "Bank Card":
+        payment_means_code = "48"
+    else:
+        frappe.throw("Payment Means is not Supported")
+    return payment_means_code
 
 def get_clearence_headers():
     return {
