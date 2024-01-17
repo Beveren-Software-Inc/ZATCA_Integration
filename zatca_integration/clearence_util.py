@@ -62,11 +62,17 @@ def generate_einvoice(doc, method):
         frappe.throw("Sales Taxes and Charges Template must be provided.")
     tax_type = tax_template.custom_tax_type
     if tax_type == "Standard Rate":
-        tax_percentage =  15 #TODO Verify no other standard rate
+        tax_category = "S"
+        tax_percentage =  15
+        tax_exemption_reason, tax_exemption_code = "", ""
     elif tax_type == "Zero Rate":
-        frappe.throw("Zero Rate is not Supported")
+        tax_category = "Z"
+        tax_percentage =  0
+        tax_exemption_reason, tax_exemption_code = get_tax_exemption_code(tax_template.custom_zero_rate_reason)
     elif tax_type == "Except Rate":
-        frappe.throw("Except Rate is not Supported")
+        tax_category = "E"
+        tax_percentage =  0
+        tax_exemption_reason, tax_exemption_code = get_tax_exemption_code(tax_template.custom_except_rate_reason)
     else:
         frappe.throw("Tax Type is not Supported")
 
@@ -124,10 +130,17 @@ def generate_einvoice(doc, method):
         "taxAmount": abs(doc.base_total_taxes_and_charges),
         "payableAmount": abs(doc.base_grand_total),
         "taxPercentage": tax_percentage,
+        "tax_category": tax_category,
+        "tax_exemption_code": tax_exemption_code,
+        "tax_exemption_reason": tax_exemption_reason,
+        
 
         # Line Items
         "line_items": line_items,
     })
+
+    # print(invoice_xml)
+    # frappe.throw("Puase")
 
     # Generate Invoice Request Body from Backend API
     invoice_request = get_invoice_request(
@@ -239,6 +252,12 @@ def get_payment_means_code(payment_means):
     else:
         frappe.throw("Payment Means is not Supported")
     return payment_means_code
+
+def get_tax_exemption_code(exempt_reason):
+    reason, code = exempt_reason.split('(', 1)
+    code = code.rstrip(')')
+    return reason.strip(), code.strip()
+
 
 def get_clearence_headers():
     return {
