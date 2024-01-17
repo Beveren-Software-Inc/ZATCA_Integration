@@ -134,13 +134,9 @@ def generate_einvoice(doc, method):
         "tax_exemption_code": tax_exemption_code,
         "tax_exemption_reason": tax_exemption_reason,
         
-
         # Line Items
         "line_items": line_items,
     })
-
-    # print(invoice_xml)
-    # frappe.throw("Puase")
 
     # Generate Invoice Request Body from Backend API
     invoice_request = get_invoice_request(
