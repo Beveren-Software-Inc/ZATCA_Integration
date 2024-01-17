@@ -258,7 +258,6 @@ def get_tax_exemption_code(exempt_reason):
     code = code.rstrip(')')
     return reason.strip(), code.strip()
 
-
 def get_clearence_headers():
     return {
         'accept': 'application/json',
