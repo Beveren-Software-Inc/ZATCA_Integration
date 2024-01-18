@@ -62,11 +62,17 @@ def generate_einvoice(doc, method):
         frappe.throw("Sales Taxes and Charges Template must be provided.")
     tax_type = tax_template.custom_tax_type
     if tax_type == "Standard Rate":
-        tax_percentage =  15 #TODO Verify no other standard rate
+        tax_category = "S"
+        tax_percentage =  15
+        tax_exemption_reason, tax_exemption_code = "", ""
     elif tax_type == "Zero Rate":
-        frappe.throw("Zero Rate is not Supported")
+        tax_category = "Z"
+        tax_percentage =  0
+        tax_exemption_reason, tax_exemption_code = get_tax_exemption_code(tax_template.custom_zero_rate_reason)
     elif tax_type == "Except Rate":
-        frappe.throw("Except Rate is not Supported")
+        tax_category = "E"
+        tax_percentage =  0
+        tax_exemption_reason, tax_exemption_code = get_tax_exemption_code(tax_template.custom_except_rate_reason)
     else:
         frappe.throw("Tax Type is not Supported")
 
@@ -75,7 +81,8 @@ def generate_einvoice(doc, method):
     if currency != "SAR":
         frappe.throw("Currency is not Supported")
 
-    # PaymentMeansCode TODO
+    # PaymentMeansCode
+    payment_means_code = get_payment_means_code(doc.custom_payment_means)
         
     # Advance Payment Not Supported
     total_advance = doc.total_advance
@@ -114,13 +121,19 @@ def generate_einvoice(doc, method):
         "delivery_date": delivery_date,
         "seller": seller,
         "buyer": buyer,
+
+        # Payment
+        "payment_means_code": payment_means_code,
     
         # TaxTotal and MonetaryTotal
         "taxableAmount": abs(doc.base_total),
         "taxAmount": abs(doc.base_total_taxes_and_charges),
         "payableAmount": abs(doc.base_grand_total),
         "taxPercentage": tax_percentage,
-
+        "tax_category": tax_category,
+        "tax_exemption_code": tax_exemption_code,
+        "tax_exemption_reason": tax_exemption_reason,
+        
         # Line Items
         "line_items": line_items,
     })
@@ -222,6 +235,24 @@ def update_status_on_error(doc, status, validation_results):
     frappe.db.set_value("Sales Invoice", doc.name, "custom_validation_results", validation_results, update_modified=True)
     frappe.db.set_value("Sales Invoice", doc.name, "custom_clearance_time", frappe.utils.now_datetime(), update_modified=True)
     frappe.db.commit()
+
+def get_payment_means_code(payment_means):
+    if payment_means == "Cash":
+        payment_means_code = "10"
+    elif payment_means == "Credit":
+        payment_means_code = "30"
+    elif payment_means == "Bank Payment":
+        payment_means_code = "42"
+    elif payment_means == "Bank Card":
+        payment_means_code = "48"
+    else:
+        frappe.throw("Payment Means is not Supported")
+    return payment_means_code
+
+def get_tax_exemption_code(exempt_reason):
+    reason, code = exempt_reason.split('(', 1)
+    code = code.rstrip(')')
+    return reason.strip(), code.strip()
 
 def get_clearence_headers():
     return {

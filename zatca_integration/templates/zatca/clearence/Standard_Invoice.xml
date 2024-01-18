@@ -102,10 +102,10 @@
         <cbc:ActualDeliveryDate>{{ delivery_date }}</cbc:ActualDeliveryDate>
     </cac:Delivery>
     <cac:PaymentMeans>
-        <cbc:PaymentMeansCode>10</cbc:PaymentMeansCode>
+        <cbc:PaymentMeansCode>{{ payment_means_code }}</cbc:PaymentMeansCode>
         {% if invoice_type_code in ['381', '383'] -%}
         <cbc:InstructionNote>CANCELLATION_OR_TERMINATION</cbc:InstructionNote>
-        {% endif -%}
+        {% endif %}
     </cac:PaymentMeans>
     <cac:TaxTotal>
         <cbc:TaxAmount currencyID="SAR">{{ taxAmount }}</cbc:TaxAmount>
@@ -116,8 +116,12 @@
             <cbc:TaxableAmount currencyID="SAR">{{ taxableAmount }}</cbc:TaxableAmount>
             <cbc:TaxAmount currencyID="SAR">{{ taxAmount }}</cbc:TaxAmount>
             <cac:TaxCategory>
-                <cbc:ID>S</cbc:ID>
+                <cbc:ID>{{ tax_category }}</cbc:ID>
                 <cbc:Percent>{{ taxPercentage }}</cbc:Percent>
+                {% if tax_category in ['Z', 'E'] -%}
+                <cbc:TaxExemptionReasonCode>{{ tax_exemption_code }}</cbc:TaxExemptionReasonCode>
+                <cbc:TaxExemptionReason>{{ tax_exemption_reason }}</cbc:TaxExemptionReason>
+                {% endif -%}
                 <cac:TaxScheme>
                     <cbc:ID>VAT</cbc:ID>
                 </cac:TaxScheme>
@@ -144,7 +148,7 @@
         <cac:Item>
             <cbc:Name>{{ line_item.item_name }}</cbc:Name>
             <cac:ClassifiedTaxCategory>
-                <cbc:ID>S</cbc:ID>
+                <cbc:ID>{{ tax_category }}</cbc:ID>
                 <cbc:Percent>{{ line_item.tax_Percentage }}</cbc:Percent>
                 <cac:TaxScheme>
                     <cbc:ID>VAT</cbc:ID>
@@ -155,5 +159,5 @@
             <cbc:PriceAmount currencyID="SAR">{{ line_item.unit_price }}</cbc:PriceAmount>
         </cac:Price>
     </cac:InvoiceLine>
-    {% endfor -%}
+    {% endfor %}
 </Invoice>
