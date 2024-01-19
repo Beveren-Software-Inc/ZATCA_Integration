@@ -41,19 +41,19 @@ app_license = "mit"
 # bench --site zatca.local export-fixtures
 fixtures = [
     "Zatca Environment",
-    "Sales Taxes and Charges Template",
-    { 
-        "dt": "Zatca CSR Settings",
-        "filters": {
-            "name": "Sandbox Default Supplier"
-        }
-    },
     { 
         "dt": "Workspace",
         "filters": {
             "name": "ZATCA Integrations"
         }
     },
+    # "Sales Taxes and Charges Template",
+    # { 
+    #     "dt": "Zatca CSR Settings",
+    #     "filters": {
+    #         "name": "Sandbox Default Supplier"
+    #     }
+    # },
     # {
     #     "dt": "Custom Field",
     #     "filters": {

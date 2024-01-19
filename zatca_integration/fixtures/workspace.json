@@ -1,7 +1,7 @@
 [
  {
   "charts": [],
-  "content": "[{\"id\":\"-fQK88hAOR\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">ZATCA Integrations</span>\",\"col\":12}},{\"id\":\"QCErUAmhUS\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca Settings\",\"col\":3}},{\"id\":\"wF2aNtcvOR\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca CSR Settings\",\"col\":3}},{\"id\":\"f0SI5v1N6Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Compliance CSID\",\"col\":3}},{\"id\":\"szitNokyn6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production CSID\",\"col\":3}},{\"id\":\"kqYhDBIvrH\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca Environments\",\"col\":3}},{\"id\":\"W1Jx8YKfj9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca Transactions\",\"col\":3}}]",
+  "content": "[{\"id\":\"-fQK88hAOR\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">ZATCA Integrations</span>\",\"col\":12}},{\"id\":\"HopH4okaba\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAT Report\",\"col\":3}},{\"id\":\"QCErUAmhUS\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca Settings\",\"col\":3}},{\"id\":\"wF2aNtcvOR\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca CSR Settings\",\"col\":3}},{\"id\":\"f0SI5v1N6Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Compliance CSID\",\"col\":3}},{\"id\":\"szitNokyn6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production CSID\",\"col\":3}},{\"id\":\"kqYhDBIvrH\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca Environments\",\"col\":3}},{\"id\":\"W1Jx8YKfj9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca Transactions\",\"col\":3}}]",
   "custom_blocks": [],
   "docstatus": 0,
   "doctype": "Workspace",
@@ -12,7 +12,7 @@
   "is_hidden": 0,
   "label": "ZATCA Integrations",
   "links": [],
-  "modified": "2024-01-12 01:33:56.294197",
+  "modified": "2024-01-19 06:17:23.008873",
   "module": null,
   "name": "ZATCA Integrations",
   "number_cards": [],
@@ -23,6 +23,22 @@
   "roles": [],
   "sequence_id": 23.0,
   "shortcuts": [
+   {
+    "color": "Grey",
+    "doc_view": "List",
+    "format": null,
+    "icon": null,
+    "kanban_board": null,
+    "label": "VAT Report",
+    "link_to": "Zatca VAT Report",
+    "parent": "ZATCA Integrations",
+    "parentfield": "shortcuts",
+    "parenttype": "Workspace",
+    "restrict_to_domain": null,
+    "stats_filter": null,
+    "type": "Report",
+    "url": null
+   },
    {
     "color": "Grey",
     "doc_view": "List",
