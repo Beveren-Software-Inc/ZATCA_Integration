@@ -17,7 +17,7 @@ def execute(filters=None):
 									"SUM(base_grand_total) AS base_grand_total", 
 									"is_return", 
 									'taxes_and_charges.custom_tax_type'], 
-							group_by='custom_tax_type, is_return')
+							group_by='custom_tax_type, is_return', ignore_permissions=True)
 		
 	standard_rate = [invoice for invoice in sales_invoices if invoice['custom_tax_type'] == 'Standard Rate' and invoice['is_return'] == 0]
 	standard_rate_sum = get_tax_sum(standard_rate)
@@ -38,7 +38,6 @@ def execute(filters=None):
 	append_data("Zero Rate", data, zero_rate_sum, zero_rate_adjustment_sum)
 
 	# Purchase Invoices Sales and VAT
-	append_heading(" ", data)
 	append_heading("Purchase Invoices and VAT", data)
 	purchase_invoices = frappe.get_all('Purchase Invoice', 
 							fields=["SUM(base_total) AS base_total", 
@@ -46,7 +45,7 @@ def execute(filters=None):
 									"SUM(base_grand_total) AS base_grand_total", 
 									"is_return", 
 									'taxes_and_charges.custom_tax_type'], 
-							group_by='custom_tax_type, is_return')
+							group_by='custom_tax_type, is_return', ignore_permissions=True)
 	
 	standard_rate = [invoice for invoice in purchase_invoices if invoice['custom_tax_type'] == 'Standard Rate' and invoice['is_return'] == 0]
 	standard_rate_sum = get_tax_sum(standard_rate)
