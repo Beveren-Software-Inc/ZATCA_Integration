@@ -14,16 +14,18 @@ from zatca_integration.common_util import decode_invoice, get_seller_information
 def generate_einvoice(doc, method):
 
     # Get Zatca Settings, Environment, CSID and CSR
-    zatca_settings = frappe.get_doc("Zatca Settings", "Zatca Settings") 
+    zatca_settings = frappe.get_doc("Zatca Settings", "Zatca Settings")
+    
+    # Check if E-Invoicing is enabled
+    if not zatca_settings.enable_e_invoicing:
+        return
+    
+    # Get Production CSID, Compliance CSID CSR, and Environment
     production_csid = frappe.get_doc("Production CSID", zatca_settings.default_production_csid)
     compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
     compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
     zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
     
-    # Check if E-Invoicing is enabled
-    if not zatca_settings.enable_e_invoicing:
-        return
-
     # Check invoice type stndard, credit note or debit note    
     if doc.is_return:
         invoice_type = "Stnadard Credit Note"
