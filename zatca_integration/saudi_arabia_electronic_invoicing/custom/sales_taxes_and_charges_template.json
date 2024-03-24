@@ -35,7 +35,7 @@
    "insert_after": "custom_zero_rate_reason",
    "is_system_generated": 0,
    "is_virtual": 0,
-   "label": "Except Rate Reason",
+   "label": "Exempt Rate Reason",
    "length": 0,
    "mandatory_depends_on": "eval:doc.custom_tax_type == 'Except Rate'",
    "modified": "2024-01-14 15:56:11.383888",
