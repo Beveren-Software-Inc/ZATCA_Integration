@@ -14,7 +14,7 @@ class ComplianceCSID(Document):
 
 	def before_save(self):
 		csr_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
-		if csr_settings.csr == "":
+		if csr_settings.csr == "" or csr_settings.csr is None:
 			frappe.throw("CSR is not generated. Please generate CSR")
 
 	@frappe.whitelist()
