@@ -20,7 +20,7 @@ def generate_einvoice(doc, method):
     if not zatca_settings.enable_e_invoicing:
         return
     
-    # Get Production CSID, Compliance CSID CSR, and Environment
+    # Get Production CSID, Compliance CSID CSR, and Environment from Zatca Settings
     production_csid = frappe.get_doc("Production CSID", zatca_settings.default_production_csid)
     compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
     compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
@@ -40,6 +40,29 @@ def generate_einvoice(doc, method):
         invoice_type = "Stnadard Invoice"
         invoice_type_code = "388"
         invoice_document_reference = ""
+
+    # Fetch Buyer Information
+    customer = frappe.get_doc("Customer", doc.customer)
+    customer_type = customer.customer_type
+    if customer_type == "Company":
+        print("Company Type is supported")
+    elif customer_type == "Individual":
+        frappe.throw("Individual Type is not Supported")
+    else :
+        frappe.throw("Customer Type is not Supported")
+
+    buyer = get_buyer_information(doc.customer)
+
+    # Fetch Seller Information
+    company = frappe.get_doc("Company", doc.company)
+    if company.custom_production_csid:
+        # Override CSID, Compliance CSID CSR, and Environment from Company E Invoice Settings
+        production_csid = frappe.get_doc("Production CSID", company.custom_production_csid)
+        compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
+        compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+        zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
+
+    seller = get_seller_information(compliance_csr)
     
     # Generate Invoice Number, Unique Identifier and Counter Value
     invoiceNumber = doc.name
@@ -48,10 +71,6 @@ def generate_einvoice(doc, method):
 
     # Fetch Previous Invoice Hash
     previousInvoiceHash = get_previous_invoice_hash(production_csid.name)
-    
-    # Fetch Seller and Buyer Information
-    seller = get_seller_information(compliance_csr)
-    buyer = get_buyer_information(doc.customer)
     
     # Set Invoice Date and Time, Delivery Date
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
