@@ -20,7 +20,7 @@ def generate_einvoice(doc, method):
     if not zatca_settings.enable_e_invoicing:
         return
     
-    # Get Production CSID, Compliance CSID CSR, and Environment
+    # Get Production CSID, Compliance CSID CSR, and Environment from Zatca Settings
     production_csid = frappe.get_doc("Production CSID", zatca_settings.default_production_csid)
     compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
     compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
@@ -54,8 +54,9 @@ def generate_einvoice(doc, method):
     buyer = get_buyer_information(doc.customer)
 
     # Fetch Seller Information
-    company = frappe.get_doc("Customer", doc.company)
+    company = frappe.get_doc("Company", doc.company)
     if company.custom_production_csid:
+        # Override CSID, Compliance CSID CSR, and Environment from Company E Invoice Settings
         production_csid = frappe.get_doc("Production CSID", company.custom_production_csid)
         compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
         compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
