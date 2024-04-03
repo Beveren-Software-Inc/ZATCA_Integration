@@ -20,11 +20,14 @@ def generate_einvoice(doc, method):
     if not zatca_settings.enable_e_invoicing:
         return
     
-    # Get Production CSID, Compliance CSID CSR, and Environment from Zatca Settings
-    production_csid = frappe.get_doc("Production CSID", zatca_settings.default_production_csid)
-    compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
-    compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
-    zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
+    if zatca_settings.zatca_phase == "ZATCA Phase 2":
+        # Get Default Production CSID, Compliance CSID CSR, and Environment from Zatca Settings
+        production_csid = frappe.get_doc("Production CSID", zatca_settings.default_production_csid)
+        compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
+        compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+        zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
+    else:
+        frappe.throw("ZATCA Phase 1 is not Supported")
     
     # Check invoice type stndard, credit note or debit note    
     if doc.is_return:
@@ -55,7 +58,7 @@ def generate_einvoice(doc, method):
 
     # Fetch Seller Information
     company = frappe.get_doc("Company", doc.company)
-    if company.custom_production_csid:
+    if company.custom_zatca_phase == "ZATCA Phase 2" and company.custom_production_csid:
         # Override CSID, Compliance CSID CSR, and Environment from Company E Invoice Settings
         production_csid = frappe.get_doc("Production CSID", company.custom_production_csid)
         compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)

@@ -8,12 +8,20 @@
  "engine": "InnoDB",
  "field_order": [
   "csr_tab",
-  "zatca_environment_section",
+  "zatca_phase_section",
+  "zatca_phase",
+  "column_break_wbhu",
   "zatca_environment",
   "company_information_section",
   "registration_scheme",
   "column_break_hnpa",
   "registration_number",
+  "vat_information_section",
+  "csrorganizationname",
+  "organization_name_arabic",
+  "column_break_jrte",
+  "csrorganizationidentifier",
+  "csrorganizationunitname",
   "company_address_section",
   "street_name",
   "building_number",
@@ -21,15 +29,12 @@
   "column_break_ovky",
   "city_name",
   "postal_zone",
+  "csrcountryname",
   "csr_configuration_section",
   "csrcommonname",
   "csrserialnumber",
-  "csrorganizationname",
-  "csrorganizationidentifier",
-  "csrorganizationunitname",
-  "column_break_nmew",
-  "csrcountryname",
   "csrinvoicetype",
+  "column_break_nmew",
   "csrlocationaddress",
   "csrindustrybusinesscategory",
   "generated_csr_section",
@@ -48,17 +53,13 @@
    "label": "CSR"
   },
   {
-   "fieldname": "zatca_environment_section",
-   "fieldtype": "Section Break",
-   "label": "Zatca Environment"
-  },
-  {
+   "depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
    "fieldname": "zatca_environment",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Zatca Environment",
-   "options": "Zatca Environment",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
+   "options": "Zatca Environment"
   },
   {
    "fieldname": "company_information_section",
@@ -87,7 +88,7 @@
   {
    "fieldname": "company_address_section",
    "fieldtype": "Section Break",
-   "label": "Company Address"
+   "label": "Organization Address"
   },
   {
    "fieldname": "street_name",
@@ -126,15 +127,17 @@
    "reqd": 1
   },
   {
+   "depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
    "fieldname": "csr_configuration_section",
    "fieldtype": "Section Break",
-   "label": "Tax Infomation"
+   "label": "CSR Information"
   },
   {
+   "depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
    "fieldname": "csrcommonname",
    "fieldtype": "Data",
    "label": "EGS Common Name",
-   "reqd": 1,
+   "mandatory_depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
    "unique": 1
   },
   {
@@ -148,7 +151,7 @@
   {
    "fieldname": "csrorganizationname",
    "fieldtype": "Data",
-   "label": "Organization Name",
+   "label": "Organization Name (English)",
    "reqd": 1
   },
   {
@@ -178,23 +181,26 @@
   },
   {
    "default": "1000",
+   "depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
    "fieldname": "csrinvoicetype",
    "fieldtype": "Select",
    "label": "Invoice Type",
-   "options": "1000",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
+   "options": "1000"
   },
   {
+   "depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
    "fieldname": "csrlocationaddress",
    "fieldtype": "Data",
    "label": "Location(Preferably Short Address)",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'"
   },
   {
+   "depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
    "fieldname": "csrindustrybusinesscategory",
    "fieldtype": "Data",
    "label": "Industry (Business category)",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'"
   },
   {
    "fieldname": "generated_csr_section",
@@ -244,6 +250,36 @@
    "label": "Private Key PEM Format",
    "no_copy": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "vat_information_section",
+   "fieldtype": "Section Break",
+   "label": "VAT Information"
+  },
+  {
+   "fieldname": "organization_name_arabic",
+   "fieldtype": "Data",
+   "label": "Organization Name (Arabic)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_jrte",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "zatca_phase",
+   "fieldtype": "Select",
+   "label": "ZATCA Phase",
+   "options": "ZATCA Phase 1\nZATCA Phase 2"
+  },
+  {
+   "fieldname": "column_break_wbhu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "zatca_phase_section",
+   "fieldtype": "Section Break",
+   "label": "ZATCA Phase"
   }
  ],
  "index_web_pages_for_search": 1,
@@ -253,7 +289,7 @@
    "link_fieldname": "csr_settings"
   }
  ],
- "modified": "2024-01-10 13:02:45.630612",
+ "modified": "2024-04-03 03:06:15.364713",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca CSR Settings",
