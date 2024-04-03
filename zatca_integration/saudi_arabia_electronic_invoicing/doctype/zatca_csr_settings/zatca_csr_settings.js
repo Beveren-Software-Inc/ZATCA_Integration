@@ -10,7 +10,7 @@
 frappe.ui.form.on('Zatca CSR Settings', {
     refresh: function(frm) {
         // Only add the "Generate CSR" button if the document is not a new document
-        if(!frm.is_new()) {
+        if(!frm.is_new() & frm.doc.zatca_phase === "ZATCA Phase 2") {
                 frm.add_custom_button(__('Generate CSR'), function() {
                 // Show a loading indicator
                 frappe.show_progress(__('Generating CSR...'));
