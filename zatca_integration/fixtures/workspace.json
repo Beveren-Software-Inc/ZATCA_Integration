@@ -30,7 +30,7 @@
     "icon": null,
     "kanban_board": null,
     "label": "VAT Report",
-    "link_to": "Zatca VAT Report",
+    "link_to": "Zatca VAT",
     "parent": "ZATCA Integrations",
     "parentfield": "shortcuts",
     "parenttype": "Workspace",
