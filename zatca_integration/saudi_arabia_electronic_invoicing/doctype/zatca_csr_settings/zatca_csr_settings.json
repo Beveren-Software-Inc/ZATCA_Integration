@@ -150,8 +150,9 @@
   },
   {
    "fieldname": "csrorganizationname",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Organization Name (English)",
+   "options": "Company",
    "reqd": 1
   },
   {
@@ -289,7 +290,7 @@
    "link_fieldname": "csr_settings"
   }
  ],
- "modified": "2024-04-03 03:06:15.364713",
+ "modified": "2024-04-08 15:51:57.529006",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca CSR Settings",

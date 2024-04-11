@@ -19,15 +19,16 @@ def generate_einvoice(doc, method):
     # Check if E-Invoicing is enabled
     if not zatca_settings.enable_e_invoicing:
         return
+
+    # Check if Zatca Phase is ZATCA Phase 2
+    if not zatca_settings.zatca_phase == "ZATCA Phase 2":
+        return
     
-    if zatca_settings.zatca_phase == "ZATCA Phase 2":
-        # Get Default Production CSID, Compliance CSID CSR, and Environment from Zatca Settings
-        production_csid = frappe.get_doc("Production CSID", zatca_settings.default_production_csid)
-        compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
-        compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
-        zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
-    else:
-        frappe.throw("ZATCA Phase 1 is not Supported")
+    # Get Default Production CSID, Compliance CSID CSR, and Environment from Zatca Settings
+    production_csid = frappe.get_doc("Production CSID", zatca_settings.default_production_csid)
+    compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
+    compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+    zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
     
     # Check invoice type stndard, credit note or debit note    
     if doc.is_return:
