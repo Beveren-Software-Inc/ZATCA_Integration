@@ -5,8 +5,10 @@ import requests
 def validate_purchase_invoice(doc, method):
     if not doc.taxes_and_charges:
         frappe.throw("Purchase Taxes and Charges Template must be provided.")
-    
-    tax_template = frappe.get_doc("Purchase Taxes and Charges Template", doc.taxes_and_charges)
+
+def validate_sales_invoice(doc, method):
+    if not doc.taxes_and_charges:
+        frappe.throw("Sales Taxes and Charges Template must be provided.")
 
 
 def get_invoice_request(url, clientId, clientSecret, invoice):

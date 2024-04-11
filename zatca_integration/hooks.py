@@ -147,6 +147,7 @@ fixtures = [
 # Hook on document methods and events
 doc_events = {
 	"Sales Invoice": {
+        "before_submit": "zatca_integration.common_util.validate_sales_invoice",
         "on_submit": [
             "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code",
             "zatca_integration.clearence_util.generate_einvoice",
