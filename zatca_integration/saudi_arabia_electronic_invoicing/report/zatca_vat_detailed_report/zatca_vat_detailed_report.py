@@ -17,7 +17,7 @@ def get_columns():
 	return [
 		{
 			"fieldname": "title",
-			"label": _("Title"),
+			"label": _("Title (Tax Reason)"),
 			"fieldtype": "Data",
 			"width": 300,
 		},
@@ -95,7 +95,12 @@ def get_data(filters):
 	total_vat_credited = 0
 	grand_total_vat = 0
 	
-	sales_data = fetch_and_aggregate_data(company, "tabSales Invoice", filters)
+	sales_data = fetch_and_aggregate_data(
+			company, 
+			"tabSales Invoice",
+			"tabSales Taxes and Charges Template", 
+			filters
+			)
 
 	for row in sales_data:
 		data.append({
@@ -145,7 +150,12 @@ def get_data(filters):
 	total_vat_credited = 0
 	grand_total_vat = 0
 
-	purchase_data = fetch_and_aggregate_data(company, "tabPurchase Invoice", filters)
+	purchase_data = fetch_and_aggregate_data(
+			company, 
+			"tabPurchase Invoice",
+			'tabPurchase Taxes and Charges Template',
+			filters
+		)
 	for row in purchase_data:
 		data.append({
 			"title": _(row.tax_reason) if row.tax_reason else None,
@@ -200,14 +210,20 @@ def append_data(data, title, tax_type, collected_amount, credited_amount, total_
 		}
 	)
 
-def fetch_and_aggregate_data(company, doctype_table, filters):
+def fetch_and_aggregate_data(company, doctype_table, tax_template_table, filters):
     from_date = filters['from_date']  # Assuming filters is a dict
     to_date = filters['to_date']
     
     # Validate or ensure doctype_table is safe to use
-    allowed_tables = ['tabSales Invoice', 'tabPurchase Invoice']
-    if doctype_table not in allowed_tables:
+    allowed_doctype_tables = ['tabSales Invoice', 'tabPurchase Invoice']
+    if doctype_table not in allowed_doctype_tables:
         frappe.throw(_("Invalid Database Table Name!"))
+
+	# Validate or ensure doctype_table is safe to use
+    allowed_tax_template_tables = ['tabSales Taxes and Charges Template', 'tabPurchase Taxes and Charges Template']
+    if tax_template_table not in allowed_tax_template_tables:
+        frappe.throw(_("Invalid Database Table Name!"))
+
     
     # Safe to format the table name here since it's controlled or validated
     sql_query = f'''
@@ -216,7 +232,7 @@ def fetch_and_aggregate_data(company, doctype_table, filters):
 			CASE
 				WHEN stct.custom_tax_type = 'Zero Rate' THEN stct.custom_zero_rate_reason
 				WHEN stct.custom_tax_type = 'Except Rate' THEN stct.custom_except_rate_reason
-				ELSE 'Standard Tax'
+				ELSE 'Standard Rate'
 			END as tax_reason,
 			SUM(si.grand_total) as total_grand_total,
 			SUM(si.total_taxes_and_charges) as total_taxes_and_charges,
@@ -228,7 +244,7 @@ def fetch_and_aggregate_data(company, doctype_table, filters):
 		FROM
 			`{doctype_table}` si
 		LEFT JOIN
-			`tabSales Taxes and Charges Template` stct ON stct.name = si.taxes_and_charges
+			`{tax_template_table}` stct ON stct.name = si.taxes_and_charges
 		WHERE
 			si.docstatus = 1 AND
 			si.company = %(company)s AND
