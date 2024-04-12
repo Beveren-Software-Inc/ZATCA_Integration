@@ -140,7 +140,8 @@ def create_qr_code(doc, method=None):
         # assigning to document
         doc.db_set("ksa_einv_qr", _file.file_url)
         doc.notify_update()
-
+    else:
+        print('\n\n =============KSA FAILED=============\n\n')
 
 
 def delete_qr_code_file(doc, method=None):
@@ -164,3 +165,18 @@ def delete_csr_settings_for_company(doc, method=None):
 
     if frappe.db.exists("Zatca CSR Settings", doc.name):
         frappe.delete_doc("Zatca CSR Settings", doc.name)
+
+def setup(company=None, patch=True):
+    # Create Phase 1 QRCode field in Sales Invoice during app installation
+    sales_invoice_fields = [
+        dict(
+            fieldname="ksa_einv_qr",
+            label="KSA E-Invoicing QR",
+            fieldtype="Attach Image",
+            read_only=1,
+            no_copy=1,
+            hidden=1,
+        ),
+    ]
+    custom_fields = {"Sales Invoice": sales_invoice_fields}
+    create_custom_fields(custom_fields, ignore_validate=True, update=True)
