@@ -106,6 +106,7 @@ fixtures = [
 # Name of the app being installed is passed as an argument
 
 # before_app_install = "zatca_integration.utils.before_app_install"
+after_app_install = "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.setup"
 # after_app_install = "zatca_integration.utils.after_app_install"
 
 # Integration Cleanup

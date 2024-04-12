@@ -7,6 +7,8 @@ from frappe.model.document import Document
 
 class ZatcaSettings(Document):
 	def before_save(self):
-		production_csid = frappe.get_doc("Production CSID", self.default_production_csid)
-		if production_csid.is_active == False:
-			frappe.throw("Default Production CSID is not active")
+		# If zatca_phase is ZATCA Phase 2, check if default_production_csid is active
+		if not self.zatca_phase == "ZATCA Phase 1":
+			production_csid = frappe.get_doc("Production CSID", self.default_production_csid)
+			if production_csid.is_active == False:
+				frappe.throw("Default Production CSID is not active")
