@@ -148,10 +148,12 @@ after_app_install = "zatca_integration.saudi_arabia_electronic_invoicing.phase_o
 # Hook on document methods and events
 doc_events = {
 	"Sales Invoice": {
-        "before_submit": "zatca_integration.common_util.validate_sales_invoice",
+        "before_submit": [
+            "zatca_integration.common_util.validate_sales_invoice",
+            "zatca_integration.clearence_util.generate_einvoice"
+        ],
         "on_submit": [
-            "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code",
-            "zatca_integration.clearence_util.generate_einvoice",
+            "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code"
         ],
 		"on_cancel": [
 			"zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.delete_qr_code_file"
