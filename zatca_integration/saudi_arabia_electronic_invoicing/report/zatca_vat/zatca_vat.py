@@ -172,7 +172,7 @@ def get_tax_data_for_each_tax_type(tax_type, filters, doctype):
 
 	
 	for invoice in invoices:
-		total_tax = invoice.total_taxes_and_charges
+		total_tax += invoice.total_taxes_and_charges
 
 		# Summing up total taxable amount
 		if invoice.is_return == 0:
