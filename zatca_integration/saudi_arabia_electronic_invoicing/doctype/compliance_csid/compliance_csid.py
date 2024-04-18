@@ -7,7 +7,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
 from zatca_integration.compliance_util import generate_compliance_standard_invoice, generate_compliance_standard_credit_note, generate_compliance_standard_debit_note
-from zatca_integration.common_util import get_seller_information, get_buyer_information, get_invoice_request
+from zatca_integration.common_util import get_seller_information, get_buyer_information, get_invoice_clearance_request
 
 
 class ComplianceCSID(Document):
@@ -149,7 +149,7 @@ class ComplianceCSID(Document):
 
 	def invoke_compliance_invoice_api(self, zatca_environment, invoice_xml):
 		# Get Invoice Request Body from Backend
-		invoice_request = get_invoice_request(
+		invoice_request = get_invoice_clearance_request(
 			zatca_environment.csr_generate_api, 
 			zatca_environment.client_id, 
 			zatca_environment.client_secret, 

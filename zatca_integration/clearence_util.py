@@ -9,7 +9,7 @@ import base64
 from requests.auth import HTTPBasicAuth
 from lxml import etree
 import qrcode
-from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, get_invoice_request
+from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, get_invoice_clearance_request
 
 def generate_einvoice(doc, method):
 
@@ -164,7 +164,7 @@ def generate_einvoice(doc, method):
     })
 
     # Generate Invoice Request Body from Backend API
-    invoice_request = get_invoice_request(
+    invoice_request = get_invoice_clearance_request(
         zatca_environment.csr_generate_api, 
         zatca_environment.client_id, 
         zatca_environment.client_secret, 

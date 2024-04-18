@@ -11,8 +11,8 @@ def validate_sales_invoice(doc, method):
         frappe.throw("Sales Taxes and Charges Template must be provided.")
 
 
-def get_invoice_request(url, clientId, clientSecret, invoice):
-    url = url + 'generateInvoiceRequest'
+def get_invoice_clearance_request(url, clientId, clientSecret, invoice):
+    url = url + 'generateClearanceRequest'
     # Set the headers
     headers = {
         'clientId': clientId,
