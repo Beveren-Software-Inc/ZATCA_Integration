@@ -70,7 +70,7 @@ class ComplianceCSID(Document):
 			frappe.throw("Error in generating ZATCA Compliance CSID")
 
 	@frappe.whitelist()
-	def invoke_zatca_compliance_invoice(self):
+	def validate_zatca_compliance_csid(self):
 
 		if self.binary_security_token is None or self.binary_security_token == "":
 			frappe.throw("Binary Security Token is not generated. Please Generate ZATCA Compliance CSID")
