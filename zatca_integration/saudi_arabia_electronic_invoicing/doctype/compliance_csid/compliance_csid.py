@@ -86,7 +86,7 @@ class ComplianceCSID(Document):
 		test_buyer = frappe.get_doc("Customer", self.buyer) 
 		buyer = get_buyer_information(test_buyer)
 
-		# Issue Compliance for Invoice, Credit Note and Debit Note
+		# Issue Compliance for Standard Invoice, Credit Note and Debit Note
 		self.invoke_complaince_check(zatca_environment, seller, buyer)
 		
 		# Update Zatca Compliance CSID Status

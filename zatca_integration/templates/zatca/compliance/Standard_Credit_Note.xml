@@ -26,6 +26,7 @@
     <cbc:InvoiceTypeCode name="0100000">381</cbc:InvoiceTypeCode>
     <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
     <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
+    
     <cac:BillingReference>
         <cac:InvoiceDocumentReference>
             <cbc:ID>{{ originalinvoiceNumber }}</cbc:ID>
