@@ -3,11 +3,12 @@
 
 import json
 import frappe
+import base64
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
 from zatca_integration.compliance_util import generate_tax_invoice_xml, generate_credit_note_xml, generate_debit_note_xml
-from zatca_integration.common_util import get_seller_information, get_buyer_information, generate_clearance_request
+from zatca_integration.common_util import get_seller_information, get_buyer_information, generate_clearance_request, generate_reporting_request
 
 
 class ComplianceCSID(Document):
@@ -75,9 +76,8 @@ class ComplianceCSID(Document):
 		if self.binary_security_token is None or self.binary_security_token == "":
 			frappe.throw("Binary Security Token is not generated. Please Generate ZATCA Compliance CSID")
 
-		# Get ZATCA Settings and ZATCA Environment
+		# Get ZATCA Settings
 		csr_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
-		zatca_environment = frappe.get_doc("Zatca Environment", csr_settings.zatca_environment)
 
 		# Seller Information
 		seller = get_seller_information(csr_settings)
@@ -86,15 +86,20 @@ class ComplianceCSID(Document):
 		test_buyer = frappe.get_doc("Customer", self.buyer) 
 		buyer = get_buyer_information(test_buyer)
 
-		invoiceType = "standard"
-
-		# Issue Compliance for Standard Invoice, Credit Note and Debit Note
-		self.invoke_complaince_check(invoiceType, zatca_environment, seller, buyer)
+		if csr_settings.csrinvoicetype == "1100":
+			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
+			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
+		elif csr_settings.csrinvoicetype == "1000":
+			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
+		elif csr_settings.csrinvoicetype == "0100":
+			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
+		else:
+			frappe.throw("Invalid Invoice Type in ZATCA CSR Settings : " + csr_settings.csrinvoicetype)
 		
 		# Update Zatca Compliance CSID Status
 		self.save()
 
-	def invoke_complaince_check(self, invoiceType, zatca_environment, seller, buyer):
+	def invoke_complaince_check(self, invoiceType, csr_settings, seller, buyer):
 
 		first_invoice_hash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
 
@@ -106,7 +111,7 @@ class ComplianceCSID(Document):
 			first_invoice_hash
 		)
 		print(standard_invoice["xml"])
-		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, zatca_environment, standard_invoice["xml"])
+		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, standard_invoice["xml"])
 		self.standard_invoice = standard_invoice_status
 		print("####  Tax Invoice END #### InvoiceType: " + invoiceType + " ####)")
 
@@ -120,7 +125,7 @@ class ComplianceCSID(Document):
 			standard_invoice_hash
 		)
 		print(standard_credit_note["xml"])
-		sstandard_credit_note_status, standard_credit_note_hash = self.invoke_compliance_invoice_api(invoiceType, zatca_environment, standard_credit_note["xml"])
+		sstandard_credit_note_status, standard_credit_note_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, standard_credit_note["xml"])
 		self.standard_credit_note = sstandard_credit_note_status
 		print("####  Credit Note END #### InvoiceType: " + invoiceType + " ####)")
 
@@ -132,7 +137,7 @@ class ComplianceCSID(Document):
 			standard_credit_note_hash
 		)
 		print(standard_invoice["xml"])
-		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, zatca_environment, standard_invoice["xml"])
+		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, standard_invoice["xml"])
 		print("####  Tax Invoice END #### InvoiceType: " + invoiceType + " ####)")
 
 		# Compliance Standard Debit Note
@@ -145,20 +150,35 @@ class ComplianceCSID(Document):
 			standard_invoice_hash
 		)
 		print(standard_credit_note["xml"])
-		standard_debit_note_status, standard_debit_note_hash = self.invoke_compliance_invoice_api(invoiceType, zatca_environment, standard_credit_note["xml"])
+		standard_debit_note_status, standard_debit_note_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, standard_credit_note["xml"])
 		self.standard_debit_note = standard_debit_note_status
 		print("####  Debit Note END #### InvoiceType: " + invoiceType + " ####)")
 
-	def invoke_compliance_invoice_api(self, invoiceType, zatca_environment, invoice_xml):
-		
-		# Get Invoice Request Body from Backend
-		invoice_request = generate_clearance_request(
-			zatca_environment.csr_generate_api, 
-			zatca_environment.client_id, 
-			zatca_environment.client_secret, 
-			invoice_xml
-		)
+	def invoke_compliance_invoice_api(self, invoiceType, csr_settings, invoice_xml):
 
+		zatca_environment = frappe.get_doc("Zatca Environment", csr_settings.zatca_environment)
+
+		if invoiceType == "standard":
+			# Generate Clearance Request from Backend
+			invoice_request = generate_clearance_request(
+				zatca_environment.csr_generate_api,
+				zatca_environment.client_id,
+				zatca_environment.client_secret,
+				invoice_xml
+			)
+		elif invoiceType == "simplified":
+			# Generate Reporting Request from Backend
+			invoice_request = generate_reporting_request(
+				zatca_environment.csr_generate_api,
+				zatca_environment.client_id,
+				zatca_environment.client_secret,
+				csr_settings.private_key,
+				self.decode_certificate(self.binary_security_token),
+				invoice_xml
+			)
+		else:
+			frappe.throw("Invalid Invoice Type, type: " + invoiceType)
+		
 		# Post Invoice Request to Zatca Compliance Invoice API
 		headers = {
 			'accept': 'application/json',
@@ -167,13 +187,15 @@ class ComplianceCSID(Document):
 			'Content-Type': 'application/json'
 		}
 
-		# Post Zapca Compliance Invoice API
+		# Post Zatca Compliance Invoice API
 		response = requests.post(
 			zatca_environment.compliance_invoice_api, 
 			headers=headers, 
 			auth=HTTPBasicAuth(self.binary_security_token, self.secret), 
 			data=json.dumps(invoice_request)
 		)
+
+		print(response.json())
 
 		if response.status_code == 200:
 			return True, invoice_request["invoiceHash"]
@@ -187,3 +209,7 @@ class ComplianceCSID(Document):
 		self.simplified_invoice = status
 		self.simplified_debit_note = status
 		self.simplified_credit_note = status
+
+	def decode_certificate(self, compliance_certificate):
+		decoded_compliance_certificate = base64.b64decode(compliance_certificate.encode('utf-8'))
+		return decoded_compliance_certificate.decode('utf-8')

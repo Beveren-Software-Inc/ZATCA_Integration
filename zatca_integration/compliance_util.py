@@ -105,7 +105,7 @@ def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previous
     elif invoiceType == "simplified":
         template_file = "zatca_integration/templates/zatca/compliance/Simplified_Invoice.xml"
     else:
-        frappe.throw("Invalid Invoice Type")
+        frappe.throw("Invalid Invoice Type, type: " + invoiceType)
 
     standard_invoice_xml = frappe.render_template(template_file, {
         "previousInvoiceHash": previousInvoiceHash,
