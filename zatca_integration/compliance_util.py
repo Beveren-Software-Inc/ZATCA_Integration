@@ -5,8 +5,9 @@ import uuid
 import frappe
 from frappe.model.document import Document
 import time
+import frappe
 
-def generate_compliance_standard_debit_note(invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
+def generate_compliance_standard_debit_note(invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
     
     # Global Unique Identifier
     uniqueInvoiceIdentifier = str(uuid.uuid4())
@@ -17,7 +18,15 @@ def generate_compliance_standard_debit_note(invoiceNumber, seller, buyer, origin
     invoice_date = datetime.date.today().strftime("%Y-%m-%d")
     invoice_time = datetime.datetime.now().strftime("%H:%M:%S")
 
-    standard_debit_note_xml = frappe.render_template("zatca_integration/templates/zatca/compliance/Standard_Debit_Note.xml", {
+    if invoiceType == "standard":
+        template_file = "zatca_integration/templates/zatca/compliance/Standard_Debit_Note.xml"
+    elif invoiceType == "simplified":
+        template_file = "zatca_integration/templates/zatca/compliance/Simplified_Debit_Note.xml"
+    else:
+        frappe.throw("Invalid Invoice Type")
+
+
+    standard_debit_note_xml = frappe.render_template(template_file, {
         "originalinvoiceNumber": originalinvoiceNumber,
         "previousInvoiceHash": previousInvoiceHash,
         "invoiceNumber": invoiceNumber,
@@ -38,7 +47,7 @@ def generate_compliance_standard_debit_note(invoiceNumber, seller, buyer, origin
     }
     return standard_debit_note
 
-def generate_compliance_standard_credit_note(invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
+def generate_compliance_standard_credit_note(invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
     
     # Global Unique Identifier
     uniqueInvoiceIdentifier = str(uuid.uuid4())
@@ -49,7 +58,14 @@ def generate_compliance_standard_credit_note(invoiceNumber, seller, buyer, origi
     invoice_date = datetime.date.today().strftime("%Y-%m-%d")
     invoice_time = datetime.datetime.now().strftime("%H:%M:%S")
 
-    standard_credit_note_xml = frappe.render_template("zatca_integration/templates/zatca/compliance/Standard_Credit_Note.xml", {
+    if invoiceType == "standard":
+        template_file = "zatca_integration/templates/zatca/compliance/Standard_Credit_Note.xml"
+    elif invoiceType == "simplified":
+        template_file = "zatca_integration/templates/zatca/compliance/Simplified_Credit_Note.xml"
+    else:
+        frappe.throw("Invalid Invoice Type")
+
+    standard_credit_note_xml = frappe.render_template(template_file, {
         "originalinvoiceNumber": originalinvoiceNumber,
         "previousInvoiceHash": previousInvoiceHash,
         "invoiceNumber": invoiceNumber,
@@ -70,7 +86,7 @@ def generate_compliance_standard_credit_note(invoiceNumber, seller, buyer, origi
     }
     return standard_credit_note
 
-def generate_compliance_standard_invoice(invoiceNumber, seller, buyer, previousInvoiceHash):
+def generate_compliance_standard_invoice(invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
     
     # Global Unique Identifier
     uniqueInvoiceIdentifier = str(uuid.uuid4())
@@ -84,7 +100,14 @@ def generate_compliance_standard_invoice(invoiceNumber, seller, buyer, previousI
     # Invoice Delivery Date
     invoiceDeliveryDate = (datetime.date.today() + datetime.timedelta(days=10)).strftime("%Y-%m-%d")
 
-    standard_invoice_xml = frappe.render_template("zatca_integration/templates/zatca/compliance/Standard_Invoice.xml", {
+    if invoiceType == "standard":
+        template_file = "zatca_integration/templates/zatca/compliance/Standard_Invoice.xml"
+    elif invoiceType == "simplified":
+        template_file = "zatca_integration/templates/zatca/compliance/Simplified_Invoice.xml"
+    else:
+        frappe.throw("Invalid Invoice Type")
+
+    standard_invoice_xml = frappe.render_template(template_file, {
         "previousInvoiceHash": previousInvoiceHash,
         "invoiceNumber": invoiceNumber,
         "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,

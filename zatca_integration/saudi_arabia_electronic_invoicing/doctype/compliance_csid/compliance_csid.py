@@ -7,7 +7,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
 from zatca_integration.compliance_util import generate_compliance_standard_invoice, generate_compliance_standard_credit_note, generate_compliance_standard_debit_note
-from zatca_integration.common_util import get_seller_information, get_buyer_information, get_invoice_clearance_request
+from zatca_integration.common_util import get_seller_information, get_buyer_information, generate_clearance_request
 
 
 class ComplianceCSID(Document):
@@ -86,70 +86,73 @@ class ComplianceCSID(Document):
 		test_buyer = frappe.get_doc("Customer", self.buyer) 
 		buyer = get_buyer_information(test_buyer)
 
+		invoiceType = "standard"
+
 		# Issue Compliance for Standard Invoice, Credit Note and Debit Note
-		self.invoke_complaince_check(zatca_environment, seller, buyer)
+		self.invoke_complaince_check(invoiceType, zatca_environment, seller, buyer)
 		
 		# Update Zatca Compliance CSID Status
 		self.save()
 
-	def invoke_complaince_check(self, zatca_environment, seller, buyer):
+	def invoke_complaince_check(self, invoiceType, zatca_environment, seller, buyer):
 
 		first_invoice_hash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
 
 		# Compliance Standard Invoice
-		print("#################### Compliance Standard Invoice START ####################")
+		print("####  Tax Invoice START #### InvoiceType: " + invoiceType + " ####)")
 		standard_invoice_number  = "INV-00001"
 		standard_invoice = generate_compliance_standard_invoice(
-			standard_invoice_number, seller, buyer,
+			invoiceType, standard_invoice_number, seller, buyer,
 			first_invoice_hash
 		)
 		print(standard_invoice["xml"])
-		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_invoice["xml"])
+		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, zatca_environment, standard_invoice["xml"])
 		self.standard_invoice = standard_invoice_status
-		print("#################### Compliance Standard Invoice END ####################")
+		print("####  Tax Invoice END #### InvoiceType: " + invoiceType + " ####)")
 
 		# Compliance Standard Credit Note
-		print("#################### Compliance Standard Credit Note START ####################")
+		print("####  Credit Note START #### InvoiceType: " + invoiceType + " ####)")
 		credit_note_invoice_number = "INV-00002"
 		standard_credit_note = generate_compliance_standard_credit_note(
-			credit_note_invoice_number, seller, buyer, 
+			invoiceType, credit_note_invoice_number, seller, buyer, 
 			standard_invoice["invoiceNumber"], 
 			standard_invoice["invoiceDeliveryDate"], 
 			standard_invoice_hash
 		)
 		print(standard_credit_note["xml"])
-		sstandard_credit_note_status, standard_credit_note_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_credit_note["xml"])
+		sstandard_credit_note_status, standard_credit_note_hash = self.invoke_compliance_invoice_api(invoiceType, zatca_environment, standard_credit_note["xml"])
 		self.standard_credit_note = sstandard_credit_note_status
-		print("#################### Compliance Standard Credit Note END ####################")
+		print("####  Credit Note END #### InvoiceType: " + invoiceType + " ####)")
 
 		# Compliance Standard Invoice
-		print("#################### Compliance Standard Invoice START ####################")
+		print("####  Tax Invoice START #### InvoiceType: " + invoiceType + " ####)")
 		standard_invoice_number  = "INV-00003"
 		standard_invoice = generate_compliance_standard_invoice(
-			standard_invoice_number, seller, buyer,
+			invoiceType, standard_invoice_number, seller, buyer,
 			standard_credit_note_hash
 		)
 		print(standard_invoice["xml"])
-		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_invoice["xml"])
-		print("#################### Compliance Standard Invoice END ####################")
+		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, zatca_environment, standard_invoice["xml"])
+		print("####  Tax Invoice END #### InvoiceType: " + invoiceType + " ####)")
 
 		# Compliance Standard Debit Note
-		print("#################### Compliance Standard Debit Note START ####################")
+		print("####  Debit Note START #### InvoiceType: " + invoiceType + " ####)")
 		debit_note_invoice_number = "INV-00004"
 		standard_credit_note = generate_compliance_standard_debit_note(
-			debit_note_invoice_number, seller, buyer, 
+			invoiceType, debit_note_invoice_number, seller, buyer, 
 			standard_invoice["invoiceNumber"], 
 			standard_invoice["invoiceDeliveryDate"], 
 			standard_invoice_hash
 		)
 		print(standard_credit_note["xml"])
-		standard_debit_note_status, standard_debit_note_hash = self.invoke_compliance_invoice_api(zatca_environment, standard_credit_note["xml"])
+		standard_debit_note_status, standard_debit_note_hash = self.invoke_compliance_invoice_api(invoiceType, zatca_environment, standard_credit_note["xml"])
 		self.standard_debit_note = standard_debit_note_status
-		print("#################### Compliance Standard Debit Note END ####################")
+		print("####  Debit Note END #### InvoiceType: " + invoiceType + " ####)")
 
-	def invoke_compliance_invoice_api(self, zatca_environment, invoice_xml):
+	def invoke_compliance_invoice_api(self, invoiceType, zatca_environment, invoice_xml):
+		
 		# Get Invoice Request Body from Backend
-		invoice_request = get_invoice_clearance_request(
+		invoice_request = generate_clearance_request(
 			zatca_environment.csr_generate_api, 
 			zatca_environment.client_id, 
 			zatca_environment.client_secret, 
