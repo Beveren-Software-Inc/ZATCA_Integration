@@ -6,7 +6,7 @@ import frappe
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
-from zatca_integration.compliance_util import generate_compliance_standard_invoice, generate_compliance_standard_credit_note, generate_compliance_standard_debit_note
+from zatca_integration.compliance_util import generate_tax_invoice_xml, generate_credit_note_xml, generate_debit_note_xml
 from zatca_integration.common_util import get_seller_information, get_buyer_information, generate_clearance_request
 
 
@@ -101,7 +101,7 @@ class ComplianceCSID(Document):
 		# Compliance Standard Invoice
 		print("####  Tax Invoice START #### InvoiceType: " + invoiceType + " ####)")
 		standard_invoice_number  = "INV-00001"
-		standard_invoice = generate_compliance_standard_invoice(
+		standard_invoice = generate_tax_invoice_xml(
 			invoiceType, standard_invoice_number, seller, buyer,
 			first_invoice_hash
 		)
@@ -113,7 +113,7 @@ class ComplianceCSID(Document):
 		# Compliance Standard Credit Note
 		print("####  Credit Note START #### InvoiceType: " + invoiceType + " ####)")
 		credit_note_invoice_number = "INV-00002"
-		standard_credit_note = generate_compliance_standard_credit_note(
+		standard_credit_note = generate_credit_note_xml(
 			invoiceType, credit_note_invoice_number, seller, buyer, 
 			standard_invoice["invoiceNumber"], 
 			standard_invoice["invoiceDeliveryDate"], 
@@ -127,7 +127,7 @@ class ComplianceCSID(Document):
 		# Compliance Standard Invoice
 		print("####  Tax Invoice START #### InvoiceType: " + invoiceType + " ####)")
 		standard_invoice_number  = "INV-00003"
-		standard_invoice = generate_compliance_standard_invoice(
+		standard_invoice = generate_tax_invoice_xml(
 			invoiceType, standard_invoice_number, seller, buyer,
 			standard_credit_note_hash
 		)
@@ -138,7 +138,7 @@ class ComplianceCSID(Document):
 		# Compliance Standard Debit Note
 		print("####  Debit Note START #### InvoiceType: " + invoiceType + " ####)")
 		debit_note_invoice_number = "INV-00004"
-		standard_credit_note = generate_compliance_standard_debit_note(
+		standard_credit_note = generate_debit_note_xml(
 			invoiceType, debit_note_invoice_number, seller, buyer, 
 			standard_invoice["invoiceNumber"], 
 			standard_invoice["invoiceDeliveryDate"], 

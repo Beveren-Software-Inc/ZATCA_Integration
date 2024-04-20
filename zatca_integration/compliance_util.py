@@ -7,7 +7,7 @@ from frappe.model.document import Document
 import time
 import frappe
 
-def generate_compliance_standard_debit_note(invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
+def generate_debit_note_xml(invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
     
     # Global Unique Identifier
     uniqueInvoiceIdentifier = str(uuid.uuid4())
@@ -47,7 +47,7 @@ def generate_compliance_standard_debit_note(invoiceType, invoiceNumber, seller, 
     }
     return standard_debit_note
 
-def generate_compliance_standard_credit_note(invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
+def generate_credit_note_xml(invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
     
     # Global Unique Identifier
     uniqueInvoiceIdentifier = str(uuid.uuid4())
@@ -86,7 +86,7 @@ def generate_compliance_standard_credit_note(invoiceType, invoiceNumber, seller,
     }
     return standard_credit_note
 
-def generate_compliance_standard_invoice(invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
+def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
     
     # Global Unique Identifier
     uniqueInvoiceIdentifier = str(uuid.uuid4())
