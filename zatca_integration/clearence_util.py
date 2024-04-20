@@ -9,7 +9,7 @@ import base64
 from requests.auth import HTTPBasicAuth
 from lxml import etree
 import qrcode
-from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, generate_clearance_request
+from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, generate_clearance_request, generate_reporting_request
 
 def generate_einvoice(doc, method):
 
@@ -134,6 +134,7 @@ def generate_einvoice(doc, method):
 
     # Render Invoice XML from Template
     invoice_xml = frappe.render_template("zatca_integration/templates/zatca/clearence/Standard_Invoice.xml", {
+        "invoice_type": invoice_type,
         "invoice_type_code": invoice_type_code,
         "invoice_document_reference": invoice_document_reference,
         "invoiceNumber": invoiceNumber,
@@ -162,22 +163,39 @@ def generate_einvoice(doc, method):
         "line_items": line_items,
     })
 
-    # Generate Invoice Request Body from Backend API
-    invoice_request = generate_clearance_request(
-        zatca_environment.csr_generate_api, 
-        zatca_environment.client_id, 
-        zatca_environment.client_secret, 
-        invoice_xml
-    )
+    print(invoice_xml)
 
     try:
-        # Post Clearance Request to ZATCA API
-        response = requests.post(
-            zatca_environment.invoice_clearance_api, 
-            headers=get_clearence_headers(),
-            auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
-            data=json.dumps(invoice_request)
-        )
+        if customer_type == "Company":
+            invoice_request = generate_clearance_request(
+                zatca_environment.csr_generate_api, 
+                zatca_environment.client_id, 
+                zatca_environment.client_secret, 
+                invoice_xml
+            )
+            response = requests.post(
+                zatca_environment.invoice_clearance_api, 
+                headers=get_clearence_headers(),
+                auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
+                data=json.dumps(invoice_request)
+            )
+        elif customer_type == "Individual":
+            invoice_request = generate_reporting_request(
+                zatca_environment.csr_generate_api, 
+                zatca_environment.client_id, 
+                zatca_environment.client_secret,
+                compliance_csr.private_key,
+                decode_certificate(production_csid.binary_security_token),
+                invoice_xml
+            )
+            response = requests.post(
+                zatca_environment.invoice_reporting_api, 
+                headers=get_clearence_headers(),
+                auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
+                data=json.dumps(invoice_request)
+            )
+        else :
+            frappe.throw("Customer Type is not Supported")
         response_json = response.json()
     except ValueError:
         response_json = None
@@ -207,7 +225,9 @@ def generate_einvoice(doc, method):
         doc.custom_invoice_unique_identifier = uniqueInvoiceIdentifier
         doc.custom_invoice_icv = invoiceCounterValue
         doc.custom_clearance_status = response_json.get('clearanceStatus')
+        doc.custom_reporting_status = response_json.get('reportingStatus')
         doc.custom_clearance_time = frappe.utils.now_datetime()
+        doc.custom_reporting_time = frappe.utils.now_datetime()
         doc.custom_validation_results = json.dumps(response_json.get('validationResults', ''))
 
         doc.custom_seller_name = seller.get('organizationName')
@@ -217,8 +237,8 @@ def generate_einvoice(doc, method):
         doc.custom_buyer_vat = buyer.get('vatNumber')
         doc.custom_buyer_address = buyer.get('full_address')
         
-        # Save Cleared Invoice XML 
-        cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice'))
+        # Save Cleared Invoice XML
+        cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice')) #TODO for Reporting
         file_doc = frappe.get_doc({
             "doctype": "File",
             "file_name": invoiceNumber + ".xml",
@@ -240,19 +260,19 @@ def generate_einvoice(doc, method):
         doc.custom_invoice_qr_code = qr_doc.file_url
     elif response.status_code == 303:
         update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
-        frappe.throw("Error Clearing Invoice, Clearance is Deactivated")
+        frappe.throw("Error submitting invoice, Clearance is Deactivated")
     elif response.status_code == 400:
         update_status_on_error(doc, response_json.get('clearanceStatus'), json.dumps(response_json.get('validationResults', '')))
-        frappe.throw("Error Clearing Invoice, Bad Request")
+        frappe.throw("Error submitting invoice, Bad Request")
     elif response.status_code == 401:
         update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
-        frappe.throw("Error Clearing Invoice, Invalid Credentials")
+        frappe.throw("Error submitting invoice, Invalid Credentials")
     elif response.status_code == 500:
         update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
-        frappe.throw("Error Clearing Invoice, Internal Server Error")
+        frappe.throw("Error submitting invoice, Internal Server Error")
     else:
         update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
-        frappe.throw("Error Clearing Invoice, Unknown Error")
+        frappe.throw("Error submitting invoice, Unknown Error")
 
 def update_status_on_error(doc, status, validation_results):
     frappe.db.set_value("Sales Invoice", doc.name, "custom_clearance_status", status, update_modified=True)
@@ -348,3 +368,7 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
     img_byte_arr = img_byte_arr.getvalue()
 
     return img_byte_arr
+
+def decode_certificate(production_certificate):
+    decoded_production_certificate = base64.b64decode(production_certificate.encode('utf-8'))
+    return decoded_production_certificate.decode('utf-8')

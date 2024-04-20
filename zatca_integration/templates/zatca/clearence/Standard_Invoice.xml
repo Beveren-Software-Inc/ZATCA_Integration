@@ -43,7 +43,7 @@
             <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">{{ previousInvoiceHash }}</cbc:EmbeddedDocumentBinaryObject>
         </cac:Attachment>
     </cac:AdditionalDocumentReference>
-    {% if invoice_type_code == '0200000' -%}
+    {% if invoice_type == '0200000' -%}
     <cac:AdditionalDocumentReference>
         <cbc:ID>QR</cbc:ID>
         <cac:Attachment>
@@ -84,7 +84,7 @@
     </cac:AccountingSupplierParty>
     
     <cac:AccountingCustomerParty>
-        {% if invoice_type_code == '0100000' -%}
+        {% if invoice_type == '0100000' -%}
         <cac:Party>
             <cac:PostalAddress>
                 <cbc:StreetName>{{ buyer.streetName }}</cbc:StreetName>
@@ -106,7 +106,7 @@
                 <cbc:RegistrationName>{{ buyer.organizationName }}</cbc:RegistrationName>
             </cac:PartyLegalEntity>
         </cac:Party>
-        {% if invoice_type_code == '0100000' -%}
+        {% endif -%}
     </cac:AccountingCustomerParty>
 
     <cac:Delivery>
