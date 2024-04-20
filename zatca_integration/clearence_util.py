@@ -32,16 +32,13 @@ def generate_einvoice(doc, method):
     
     # Check invoice type stndard, credit note or debit note    
     if doc.is_return:
-        invoice_type = "Stnadard Credit Note"
         invoice_type_code = "381"
         invoice_document_reference = doc.return_against
     elif doc.is_debit_note:
-        invoice_type = "Stnadard Debit Note"
         invoice_type_code = "383"
         invoice_document_reference = doc.debit_to
         frappe.throw("Debit Note is not Supported")
     else:
-        invoice_type = "Stnadard Invoice"
         invoice_type_code = "388"
         invoice_document_reference = ""
 
@@ -49,9 +46,11 @@ def generate_einvoice(doc, method):
     customer = frappe.get_doc("Customer", doc.customer)
     customer_type = customer.customer_type
     if customer_type == "Company":
+        invoice_type = "0100000"
         print("Company Type is supported")
     elif customer_type == "Individual":
-        frappe.throw("Individual Type is not Supported")
+        invoice_type = "0200000"
+        print("Company Type is Individual")
     else :
         frappe.throw("Customer Type is not Supported")
 

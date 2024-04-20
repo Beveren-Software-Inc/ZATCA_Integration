@@ -23,7 +23,7 @@
     <cbc:UUID>{{ uniqueInvoiceIdentifier }}</cbc:UUID>
     <cbc:IssueDate>{{ invoice_date }}</cbc:IssueDate>
     <cbc:IssueTime>{{ invoice_time }}</cbc:IssueTime>
-    <cbc:InvoiceTypeCode name="0100000">{{ invoice_type_code }}</cbc:InvoiceTypeCode>
+    <cbc:InvoiceTypeCode name="{{ invoice_type }}">{{ invoice_type_code }}</cbc:InvoiceTypeCode>
     <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
     <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
     {% if invoice_type_code in ['381', '383'] -%}
@@ -43,6 +43,14 @@
             <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">{{ previousInvoiceHash }}</cbc:EmbeddedDocumentBinaryObject>
         </cac:Attachment>
     </cac:AdditionalDocumentReference>
+    {% if invoice_type_code == '0200000' -%}
+    <cac:AdditionalDocumentReference>
+        <cbc:ID>QR</cbc:ID>
+        <cac:Attachment>
+            <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">{{ invoice_qr_code }}</cbc:EmbeddedDocumentBinaryObject>
+        </cac:Attachment>
+    </cac:AdditionalDocumentReference>
+    {% endif -%}
     <cac:Signature>
         <cbc:ID>urn:oasis:names:specification:ubl:signature:Invoice</cbc:ID>
         <cbc:SignatureMethod>urn:oasis:names:specification:ubl:dsig:enveloped:xades</cbc:SignatureMethod>
@@ -74,7 +82,9 @@
             </cac:PartyLegalEntity>
         </cac:Party>
     </cac:AccountingSupplierParty>
+    
     <cac:AccountingCustomerParty>
+        {% if invoice_type_code == '0100000' -%}
         <cac:Party>
             <cac:PostalAddress>
                 <cbc:StreetName>{{ buyer.streetName }}</cbc:StreetName>
@@ -96,6 +106,7 @@
                 <cbc:RegistrationName>{{ buyer.organizationName }}</cbc:RegistrationName>
             </cac:PartyLegalEntity>
         </cac:Party>
+        {% if invoice_type_code == '0100000' -%}
     </cac:AccountingCustomerParty>
 
     <cac:Delivery>
