@@ -179,6 +179,7 @@ def generate_einvoice(doc, method):
                 auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
                 data=json.dumps(invoice_request)
             )
+            zatca_status_field = 'clearanceStatus'
         elif customer_type == "Individual":
             invoice_request = generate_reporting_request(
                 zatca_environment.csr_generate_api, 
@@ -194,6 +195,7 @@ def generate_einvoice(doc, method):
                 auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
                 data=json.dumps(invoice_request)
             )
+            zatca_status_field = 'reportingStatus'
         else :
             frappe.throw("Customer Type is not Supported")
         response_json = response.json()
@@ -224,10 +226,9 @@ def generate_einvoice(doc, method):
         doc.custom_invoice_hash = invoice_request.get('invoiceHash')
         doc.custom_invoice_unique_identifier = uniqueInvoiceIdentifier
         doc.custom_invoice_icv = invoiceCounterValue
-        doc.custom_clearance_status = response_json.get('clearanceStatus')
-        doc.custom_reporting_status = response_json.get('reportingStatus')
-        doc.custom_clearance_time = frappe.utils.now_datetime()
-        doc.custom_reporting_time = frappe.utils.now_datetime()
+
+        doc.custom_zatca_submit_status = response_json.get(zatca_status_field)
+        doc.custom_zatca_submit_time = frappe.utils.now_datetime()
         doc.custom_validation_results = json.dumps(response_json.get('validationResults', ''))
 
         doc.custom_seller_name = seller.get('organizationName')
@@ -262,7 +263,7 @@ def generate_einvoice(doc, method):
         update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
         frappe.throw("Error submitting invoice, Clearance is Deactivated")
     elif response.status_code == 400:
-        update_status_on_error(doc, response_json.get('clearanceStatus'), json.dumps(response_json.get('validationResults', '')))
+        update_status_on_error(doc, response_json.get(zatca_status_field), json.dumps(response_json.get('validationResults', '')))
         frappe.throw("Error submitting invoice, Bad Request")
     elif response.status_code == 401:
         update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
@@ -275,9 +276,9 @@ def generate_einvoice(doc, method):
         frappe.throw("Error submitting invoice, Unknown Error")
 
 def update_status_on_error(doc, status, validation_results):
-    frappe.db.set_value("Sales Invoice", doc.name, "custom_clearance_status", status, update_modified=True)
+    frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_status", status, update_modified=True)
     frappe.db.set_value("Sales Invoice", doc.name, "custom_validation_results", validation_results, update_modified=True)
-    frappe.db.set_value("Sales Invoice", doc.name, "custom_clearance_time", frappe.utils.now_datetime(), update_modified=True)
+    frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_time", frappe.utils.now_datetime(), update_modified=True)
     frappe.db.commit()
 
 def get_payment_means_code(payment_means):

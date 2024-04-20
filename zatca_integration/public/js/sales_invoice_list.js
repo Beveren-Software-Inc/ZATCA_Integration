@@ -1,10 +1,12 @@
 frappe.listview_settings['Sales Invoice'] = {
     formatters: {
-        custom_clearance_status: function (value, row, column, data) {
+        custom_zatca_submit_status: function (value, row, column, data) {
             const colorMapping = {
                 "DRAFT": "gray",
-                "NOT_CLEARED": "orange",
                 "CLEARED": "green",
+                "REPORTED": "blue",
+                "NOT_CLEARED": "orange",
+                "NOT_REPORTED": "orange",
                 "FAILED": "red",
                 "undefined": "blue" // This handles any undefined or unexpected status
             };
@@ -18,7 +20,7 @@ frappe.listview_settings['Sales Invoice'] = {
             let colorClass = colorMapping[value] || "blue";
 
             // Build the HTML string with the appropriate color class
-            return `<span class="indicator-pill ${colorClass} filterable no-indicator-dot ellipsis" data-filter="custom_clearance_status,=,${value}">
+            return `<span class="indicator-pill ${colorClass} filterable no-indicator-dot ellipsis" data-filter="custom_zatca_submit_status,=,${value}">
                         <span class="ellipsis">${value}</span>
                     </span>`;
         }
