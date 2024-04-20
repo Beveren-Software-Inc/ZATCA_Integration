@@ -14,12 +14,38 @@ class ProductionCSID(Document):
 
 	def before_save(self):
 		compliance_csid = frappe.get_doc("Compliance CSID", self.compliance_csid)
-		if not compliance_csid.standard_invoice:
-			frappe.throw("Standrd Invoice is not Validated. Please Validate it first.")
-		if not compliance_csid.standard_debit_note:
-			frappe.throw("Standard Debit Note is not Validated. Please Validate it first.")
-		if not compliance_csid.standard_credit_note:
-			frappe.throw("Standard Credit Note is not Validated. Please Validate it first.")
+		csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+
+		if csr_settings.csrinvoicetype == "1100":
+			if not compliance_csid.standard_invoice:
+				frappe.throw("Standrd Invoice is not Validated. Please Validate it first.")
+			if not compliance_csid.standard_debit_note:
+				frappe.throw("Standard Debit Note is not Validated. Please Validate it first.")
+			if not compliance_csid.standard_credit_note:
+				frappe.throw("Standard Credit Note is not Validated. Please Validate it first.")
+			if not compliance_csid.simplified_invoice:
+				frappe.throw("Simplified Invoice is not Validated. Please Validate it first.")
+			if not compliance_csid.simplified_debit_note:
+				frappe.throw("Simplified Debit Note is not Validated. Please Validate it first.")
+			if not compliance_csid.simplified_credit_note:
+				frappe.throw("Simplified Credit Note is not Validated. Please Validate it first.")
+		elif csr_settings.csrinvoicetype == "1000":
+			if not compliance_csid.standard_invoice:
+				frappe.throw("Standrd Invoice is not Validated. Please Validate it first.")
+			if not compliance_csid.standard_debit_note:
+				frappe.throw("Standard Debit Note is not Validated. Please Validate it first.")
+			if not compliance_csid.standard_credit_note:
+				frappe.throw("Standard Credit Note is not Validated. Please Validate it first.")
+		elif csr_settings.csrinvoicetype == "0100":
+			if not compliance_csid.simplified_invoice:
+				frappe.throw("Simplified Invoice is not Validated. Please Validate it first.")
+			if not compliance_csid.simplified_debit_note:
+				frappe.throw("Simplified Debit Note is not Validated. Please Validate it first.")
+			if not compliance_csid.simplified_credit_note:
+				frappe.throw("Simplified Credit Note is not Validated. Please Validate it first.")
+		else:
+			frappe.throw("Invalid Invoice Type in ZATCA CSR Settings : " + csr_settings.csrinvoicetype)
+
 		pass
 	
 	@frappe.whitelist()
