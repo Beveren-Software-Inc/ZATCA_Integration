@@ -105,53 +105,58 @@ class ComplianceCSID(Document):
 
 		# Compliance Standard Invoice
 		print("####  Tax Invoice START #### InvoiceType: " + invoiceType + " ####)")
-		standard_invoice_number  = "INV-00001"
-		standard_invoice = generate_tax_invoice_xml(
-			invoiceType, standard_invoice_number, seller, buyer,
+		tax_invoice = generate_tax_invoice_xml(
+			invoiceType, "INV-00001", seller, buyer,
 			first_invoice_hash
 		)
-		print(standard_invoice["xml"])
-		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, standard_invoice["xml"])
-		self.standard_invoice = standard_invoice_status
+		print(tax_invoice["xml"])
+		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, tax_invoice["xml"])
+		if invoiceType == "standard":
+			self.standard_invoice = tax_invoice_status
+		elif invoiceType == "simplified":
+			self.simplified_invoice = tax_invoice_status
 		print("####  Tax Invoice END #### InvoiceType: " + invoiceType + " ####)")
 
 		# Compliance Standard Credit Note
 		print("####  Credit Note START #### InvoiceType: " + invoiceType + " ####)")
-		credit_note_invoice_number = "INV-00002"
-		standard_credit_note = generate_credit_note_xml(
-			invoiceType, credit_note_invoice_number, seller, buyer, 
-			standard_invoice["invoiceNumber"], 
-			standard_invoice["invoiceDeliveryDate"], 
-			standard_invoice_hash
+		credit_note = generate_credit_note_xml(
+			invoiceType, "INV-00002", seller, buyer, 
+			tax_invoice["invoiceNumber"], 
+			tax_invoice["invoiceDeliveryDate"], 
+			tax_invoice_hash
 		)
-		print(standard_credit_note["xml"])
-		sstandard_credit_note_status, standard_credit_note_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, standard_credit_note["xml"])
-		self.standard_credit_note = sstandard_credit_note_status
+		print(credit_note["xml"])
+		credit_note_status, credit_note_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, credit_note["xml"])
+		if invoiceType == "standard":
+			self.standard_credit_note = credit_note_status
+		elif invoiceType == "simplified":
+			self.simplified_credit_note = credit_note_status
 		print("####  Credit Note END #### InvoiceType: " + invoiceType + " ####)")
 
 		# Compliance Standard Invoice
 		print("####  Tax Invoice START #### InvoiceType: " + invoiceType + " ####)")
-		standard_invoice_number  = "INV-00003"
-		standard_invoice = generate_tax_invoice_xml(
-			invoiceType, standard_invoice_number, seller, buyer,
-			standard_credit_note_hash
+		tax_invoice = generate_tax_invoice_xml(
+			invoiceType, "INV-00003", seller, buyer,
+			credit_note_hash
 		)
-		print(standard_invoice["xml"])
-		standard_invoice_status, standard_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, standard_invoice["xml"])
+		print(tax_invoice["xml"])
+		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, tax_invoice["xml"])
 		print("####  Tax Invoice END #### InvoiceType: " + invoiceType + " ####)")
 
-		# Compliance Standard Debit Note
+		# Compliance Debit Note
 		print("####  Debit Note START #### InvoiceType: " + invoiceType + " ####)")
-		debit_note_invoice_number = "INV-00004"
-		standard_credit_note = generate_debit_note_xml(
-			invoiceType, debit_note_invoice_number, seller, buyer, 
-			standard_invoice["invoiceNumber"], 
-			standard_invoice["invoiceDeliveryDate"], 
-			standard_invoice_hash
+		debit_note = generate_debit_note_xml(
+			invoiceType, "INV-00004", seller, buyer, 
+			tax_invoice["invoiceNumber"], 
+			tax_invoice["invoiceDeliveryDate"], 
+			tax_invoice_hash
 		)
-		print(standard_credit_note["xml"])
-		standard_debit_note_status, standard_debit_note_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, standard_credit_note["xml"])
-		self.standard_debit_note = standard_debit_note_status
+		print(credit_note["xml"])
+		debit_note_status, debit_note_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, debit_note["xml"])
+		if invoiceType == "standard":
+			self.standard_debit_note = debit_note_status
+		elif invoiceType == "simplified":
+			self.simplified_debit_note = debit_note_status
 		print("####  Debit Note END #### InvoiceType: " + invoiceType + " ####)")
 
 	def invoke_compliance_invoice_api(self, invoiceType, csr_settings, invoice_xml):
