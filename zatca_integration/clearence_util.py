@@ -47,10 +47,10 @@ def generate_einvoice(doc, method):
     customer_type = customer.customer_type
     if customer_type == "Company":
         invoice_type = "0100000"
-        print("Company Type is supported")
+        print("Customer type is Company")
     elif customer_type == "Individual":
         invoice_type = "0200000"
-        print("Company Type is Individual")
+        print("Customer type is Individual")
     else :
         frappe.throw("Customer Type is not Supported")
 
@@ -116,15 +116,16 @@ def generate_einvoice(doc, method):
     # Prepare Line Items Details
     line_items = []
     for item in doc.items:
-        taxable_amount = abs(item.base_amount)
-        tax_mount = taxable_amount * tax_percentage / 100
-        payable_amount = taxable_amount + tax_mount
+        unit_price = round_to_two_places(abs(item.base_rate))
+        taxable_amount = round_to_two_places(abs(item.base_amount))
+        tax_mount = round_to_two_places(taxable_amount * tax_percentage / 100)
+        payable_amount = round_to_two_places(taxable_amount + tax_mount)
         line_item = {
             "line_number": item.idx,
             "item_name": item.item_name,
             "quantity": abs(item.qty),
             "unit_code": "C62",  # TODO: From Item
-            "unit_price": abs(item.base_rate),
+            "unit_price": unit_price,
             "tax_Percentage": tax_percentage,
             "taxable_amount": taxable_amount,
             "tax_mount": tax_mount,
@@ -204,6 +205,8 @@ def generate_einvoice(doc, method):
     except requests.exceptions.RequestException as e:
         frappe.throw("Error Clearing Invoice, " + str(e))
 
+    print(response_json)
+
     # Save Transaction
     transaction = frappe.get_doc({
             'doctype': 'Zatca Transactions',
@@ -242,7 +245,7 @@ def generate_einvoice(doc, method):
         if customer_type == "Company":
             cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice'))
         elif customer_type == "Individual":
-            cleared_invoice_xml = invoice_request.get('invoice')
+            cleared_invoice_xml = decode_invoice(invoice_request.get('invoice'))
         else :
             frappe.throw("Customer Type is not Supported")
 
@@ -379,3 +382,6 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
 def decode_certificate(production_certificate):
     decoded_production_certificate = base64.b64decode(production_certificate.encode('utf-8'))
     return decoded_production_certificate.decode('utf-8')
+
+def round_to_two_places(value):
+    return round(value, 2)

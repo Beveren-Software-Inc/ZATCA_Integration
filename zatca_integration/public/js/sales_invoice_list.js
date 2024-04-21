@@ -4,7 +4,7 @@ frappe.listview_settings['Sales Invoice'] = {
             const colorMapping = {
                 "DRAFT": "gray",
                 "CLEARED": "green",
-                "REPORTED": "blue",
+                "REPORTED": "green",
                 "NOT_CLEARED": "orange",
                 "NOT_REPORTED": "orange",
                 "FAILED": "red",
