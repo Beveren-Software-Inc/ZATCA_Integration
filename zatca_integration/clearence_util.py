@@ -102,7 +102,15 @@ def generate_einvoice(doc, method):
 
     # Validate Currency, Only SAR is supported
     currency = doc.currency
-    if currency != "SAR":
+    if currency == "SAR":
+        print("Currency SAR is Supported")
+        document_currency_code = "SAR"
+        tax_currency_code = "SAR"
+    elif currency == "USD":
+        document_currency_code = "USD"
+        tax_currency_code = "SAR"
+        print("Currency USD is Supported")
+    else:
         frappe.throw("Currency is not Supported")
 
     # PaymentMeansCode
@@ -116,8 +124,8 @@ def generate_einvoice(doc, method):
     # Prepare Line Items Details
     line_items = []
     for item in doc.items:
-        unit_price = round_to_two_places(abs(item.base_rate))
-        taxable_amount = round_to_two_places(abs(item.base_amount))
+        unit_price = round_to_two_places(abs(item.rate))
+        taxable_amount = round_to_two_places(abs(item.amount))
         tax_mount = round_to_two_places(taxable_amount * tax_percentage / 100)
         payable_amount = round_to_two_places(taxable_amount + tax_mount)
         line_item = {
@@ -150,11 +158,16 @@ def generate_einvoice(doc, method):
 
         # Payment
         "payment_means_code": payment_means_code,
+
+        # Currency
+        "document_currency_code": document_currency_code,
+        "tax_currency_code": tax_currency_code,
     
         # TaxTotal and MonetaryTotal
-        "taxableAmount": abs(doc.base_total),
-        "taxAmount": abs(doc.base_total_taxes_and_charges),
-        "payableAmount": abs(doc.base_grand_total),
+        "taxableAmount": abs(doc.total),
+        "taxAmount": abs(doc.total_taxes_and_charges),
+        "taxAmountBaseCurrency": abs(doc.base_total_taxes_and_charges),
+        "payableAmount": abs(doc.grand_total),
         "taxPercentage": tax_percentage,
         "tax_category": tax_category,
         "tax_exemption_code": tax_exemption_code,
