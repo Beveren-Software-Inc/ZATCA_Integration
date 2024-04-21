@@ -239,7 +239,13 @@ def generate_einvoice(doc, method):
         doc.custom_buyer_address = buyer.get('full_address')
         
         # Save Cleared Invoice XML
-        cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice')) #TODO for Reporting
+        if customer_type == "Company":
+            cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice'))
+        elif customer_type == "Individual":
+            cleared_invoice_xml = invoice_request.get('invoice')
+        else :
+            frappe.throw("Customer Type is not Supported")
+
         file_doc = frappe.get_doc({
             "doctype": "File",
             "file_name": invoiceNumber + ".xml",
