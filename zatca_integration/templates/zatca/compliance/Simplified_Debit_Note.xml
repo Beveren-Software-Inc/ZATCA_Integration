@@ -23,10 +23,10 @@
     <cbc:UUID>{{ uniqueInvoiceIdentifier }}</cbc:UUID>
     <cbc:IssueDate>{{ invoice_date }}</cbc:IssueDate>
     <cbc:IssueTime>{{ invoice_time }}</cbc:IssueTime>
-    <cbc:InvoiceTypeCode name="0100000">383</cbc:InvoiceTypeCode>
+    <cbc:InvoiceTypeCode name="0200000">383</cbc:InvoiceTypeCode>
     <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
     <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
-    
+
     <cac:BillingReference>
         <cac:InvoiceDocumentReference>
             <cbc:ID>{{ originalinvoiceNumber }}</cbc:ID>
@@ -40,6 +40,12 @@
         <cbc:ID>PIH</cbc:ID>
         <cac:Attachment>
             <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">{{ previousInvoiceHash }}</cbc:EmbeddedDocumentBinaryObject>
+        </cac:Attachment>
+    </cac:AdditionalDocumentReference>
+    <cac:AdditionalDocumentReference>
+        <cbc:ID>QR</cbc:ID>
+        <cac:Attachment>
+            <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">{{ invoice_qr_code }}</cbc:EmbeddedDocumentBinaryObject>
         </cac:Attachment>
     </cac:AdditionalDocumentReference>
 
@@ -76,27 +82,6 @@
     </cac:AccountingSupplierParty>
 
     <cac:AccountingCustomerParty>
-        <cac:Party>
-            <cac:PostalAddress>
-                <cbc:StreetName>{{ buyer.streetName }}</cbc:StreetName>
-                <cbc:BuildingNumber>{{ buyer.buildingNumber }}</cbc:BuildingNumber>
-                <cbc:CitySubdivisionName>{{ buyer.citySubdivisionName }}</cbc:CitySubdivisionName>
-                <cbc:CityName>{{ buyer.cityName }}</cbc:CityName>
-                <cbc:PostalZone>{{ buyer.postalZone }}</cbc:PostalZone>
-                <cac:Country>
-                    <cbc:IdentificationCode>{{ buyer.countryCode }}</cbc:IdentificationCode>
-                </cac:Country>
-            </cac:PostalAddress>
-            <cac:PartyTaxScheme>
-                <cbc:CompanyID>{{ buyer.vatNumber }}</cbc:CompanyID>
-                <cac:TaxScheme>
-                    <cbc:ID>VAT</cbc:ID>
-                </cac:TaxScheme>
-            </cac:PartyTaxScheme>
-            <cac:PartyLegalEntity>
-                <cbc:RegistrationName>{{ buyer.organizationName }}</cbc:RegistrationName>
-            </cac:PartyLegalEntity>
-        </cac:Party>
     </cac:AccountingCustomerParty>
 
     <cac:Delivery>

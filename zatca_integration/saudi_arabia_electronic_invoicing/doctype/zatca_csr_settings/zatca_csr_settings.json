@@ -150,9 +150,8 @@
   },
   {
    "fieldname": "csrorganizationname",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "label": "Organization Name (English)",
-   "options": "Company",
    "reqd": 1
   },
   {
@@ -181,13 +180,14 @@
    "reqd": 1
   },
   {
-   "default": "1000",
+   "default": "1100",
    "depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
+   "description": "1000(B2B), 0100(B2C), 1100(Both)\n",
    "fieldname": "csrinvoicetype",
    "fieldtype": "Select",
    "label": "Invoice Type",
    "mandatory_depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
-   "options": "1000"
+   "options": "1000\n0100\n1100"
   },
   {
    "depends_on": "eval:doc.zatca_phase == 'ZATCA Phase 2'",
@@ -290,7 +290,7 @@
    "link_fieldname": "csr_settings"
   }
  ],
- "modified": "2024-04-08 15:51:57.529006",
+ "modified": "2024-04-20 19:03:44.361343",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca CSR Settings",

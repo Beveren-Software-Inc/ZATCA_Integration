@@ -11,8 +11,8 @@ def validate_sales_invoice(doc, method):
         frappe.throw("Sales Taxes and Charges Template must be provided.")
 
 
-def get_invoice_request(url, clientId, clientSecret, invoice):
-    url = url + 'generateInvoiceRequest'
+def generate_clearance_request(url, clientId, clientSecret, invoice):
+    url = url + 'generateClearanceRequest'
     # Set the headers
     headers = {
         'clientId': clientId,
@@ -30,7 +30,32 @@ def get_invoice_request(url, clientId, clientSecret, invoice):
         response = requests.post(url, headers=headers, json=data)
         response_json = response.json()
     except requests.exceptions.JSONDecodeError:
-        frappe.throw("Error in generating invoice request from backend")
+        frappe.throw("Error in generating clearance request from backend")
+
+    return response_json
+
+def generate_reporting_request(url, clientId, clientSecret, privateKey, pemCertificate, invoice):
+    url = url + 'generateReportingRequest'
+    # Set the headers
+    headers = {
+        'clientId': clientId,
+        'clientSecret': clientSecret,
+        'privateKey': privateKey,
+        'pemCertificate': pemCertificate,
+        'Content-Type': 'application/json'
+    }
+
+    # Encode the string into bytes, then encode it using base64
+    data = {
+        'invoice': encode_invoice(invoice)
+    }
+
+    try:
+        # Make the POST request
+        response = requests.post(url, headers=headers, json=data)
+        response_json = response.json()
+    except requests.exceptions.JSONDecodeError:
+        frappe.throw("Error in generating reporting request from backend")
 
     return response_json
 
