@@ -25,7 +25,7 @@
     <cbc:IssueTime>{{ invoice_time }}</cbc:IssueTime>
     <cbc:InvoiceTypeCode name="{{ invoice_type }}">{{ invoice_type_code }}</cbc:InvoiceTypeCode>
     <cbc:DocumentCurrencyCode>{{ document_currency_code }}</cbc:DocumentCurrencyCode>
-    <cbc:TaxCurrencyCode>{{ tax_currency_code }} </cbc:TaxCurrencyCode>
+    <cbc:TaxCurrencyCode>{{ tax_currency_code }}</cbc:TaxCurrencyCode>
     {% if invoice_type_code in ['381', '383'] -%}
     <cac:BillingReference>
         <cac:InvoiceDocumentReference>
