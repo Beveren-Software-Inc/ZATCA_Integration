@@ -232,6 +232,7 @@ def generate_einvoice(doc, method):
             'previous_invoice_hash': previousInvoiceHash,
             'egs_serial_number': compliance_csr.csrserialnumber,
             'production_csid': production_csid.name,
+            'request_body': json.dumps(invoice_request),
             'response_code': response.status_code,
             'response_body': json.dumps(response_json),
             'transaction_time': frappe.utils.now_datetime(),
