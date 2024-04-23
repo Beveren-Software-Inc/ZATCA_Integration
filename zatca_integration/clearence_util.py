@@ -46,6 +46,8 @@ def generate_einvoice(doc, method):
     customer = frappe.get_doc("Customer", doc.customer)
     customer_type = customer.customer_type
     if customer_type == "Company":
+        if customer.custom_vat_number == None or customer.custom_vat_number == "":
+            frappe.throw("VAT Number must be provided for Customer Type Company")
         invoice_type = "0100000"
         print("Customer type is Company")
     elif customer_type == "Individual":
@@ -124,7 +126,7 @@ def generate_einvoice(doc, method):
     # Prepare Line Items Details
     line_items = []
     for item in doc.items:
-        unit_price = round_to_two_places(abs(item.rate))
+        unit_price = round_to_two_places(abs(item.net_rate))
         taxable_amount = round_to_two_places(abs(item.amount))
         tax_mount = round_to_two_places(taxable_amount * tax_percentage / 100)
         payable_amount = round_to_two_places(taxable_amount + tax_mount)
