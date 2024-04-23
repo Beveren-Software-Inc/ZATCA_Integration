@@ -10,6 +10,9 @@ def validate_sales_invoice(doc, method):
     if not doc.taxes_and_charges:
         frappe.throw("Sales Taxes and Charges Template must be provided.")
 
+def validate_pos_invoice(doc, method):
+    if doc.is_pos == 1:
+        doc.custom_delivery_date = doc.posting_date
 
 def generate_clearance_request(url, clientId, clientSecret, invoice):
     url = url + 'generateClearanceRequest'
