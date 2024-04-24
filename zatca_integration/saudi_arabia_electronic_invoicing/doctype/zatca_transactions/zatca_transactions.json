@@ -9,8 +9,10 @@
   "invoice_id",
   "invoice_uuid",
   "invoice_icv",
-  "invoice_hash",
+  "backend_elapsed_time",
+  "zatca_elapsed_time",
   "column_break_cbqa",
+  "invoice_hash",
   "previous_invoice_hash",
   "egs_serial_number",
   "production_csid",
@@ -114,11 +116,21 @@
    "fieldtype": "Long Text",
    "label": "Request Body",
    "read_only": 1
+  },
+  {
+   "fieldname": "backend_elapsed_time",
+   "fieldtype": "Int",
+   "label": "Backend Elapsed Time"
+  },
+  {
+   "fieldname": "zatca_elapsed_time",
+   "fieldtype": "Int",
+   "label": "ZATCA Elapsed Time"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-04-24 00:21:41.736398",
+ "modified": "2024-04-24 05:01:31.766380",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Transactions",
