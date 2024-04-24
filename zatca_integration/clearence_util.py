@@ -127,7 +127,7 @@ def generate_einvoice(doc, method):
     line_items = []
     for item in doc.items:
         unit_price = round_to_two_places(abs(item.net_rate))
-        taxable_amount = round_to_two_places(abs(item.amount))
+        taxable_amount = round_to_two_places(unit_price * abs(item.qty))
         tax_mount = round_to_two_places(taxable_amount * tax_percentage / 100)
         payable_amount = round_to_two_places(taxable_amount + tax_mount)
         line_item = {
