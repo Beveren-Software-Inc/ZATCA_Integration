@@ -5,15 +5,20 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "request_section",
   "invoice_id",
   "invoice_uuid",
   "invoice_icv",
-  "invoice_hash",
+  "backend_elapsed_time",
+  "zatca_elapsed_time",
   "column_break_cbqa",
+  "invoice_hash",
   "previous_invoice_hash",
   "egs_serial_number",
   "production_csid",
   "transaction_time",
+  "section_break_oetd",
+  "request_body",
   "section_break_iovm",
   "response_code",
   "response_body"
@@ -74,7 +79,8 @@
   },
   {
    "fieldname": "section_break_iovm",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Response"
   },
   {
    "columns": 2,
@@ -95,11 +101,36 @@
    "fieldtype": "Datetime",
    "label": "Transaction Time",
    "read_only": 1
+  },
+  {
+   "fieldname": "request_section",
+   "fieldtype": "Section Break",
+   "label": "Request"
+  },
+  {
+   "fieldname": "section_break_oetd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "request_body",
+   "fieldtype": "Long Text",
+   "label": "Request Body",
+   "read_only": 1
+  },
+  {
+   "fieldname": "backend_elapsed_time",
+   "fieldtype": "Int",
+   "label": "Backend Elapsed Time"
+  },
+  {
+   "fieldname": "zatca_elapsed_time",
+   "fieldtype": "Int",
+   "label": "ZATCA Elapsed Time"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-01-10 22:49:15.914518",
+ "modified": "2024-04-24 05:01:31.766380",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Transactions",

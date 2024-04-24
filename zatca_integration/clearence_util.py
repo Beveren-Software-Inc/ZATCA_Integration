@@ -127,7 +127,7 @@ def generate_einvoice(doc, method):
     line_items = []
     for item in doc.items:
         unit_price = round_to_two_places(abs(item.net_rate))
-        taxable_amount = round_to_two_places(abs(item.amount))
+        taxable_amount = round_to_two_places(unit_price * abs(item.qty))
         tax_mount = round_to_two_places(taxable_amount * tax_percentage / 100)
         payable_amount = round_to_two_places(taxable_amount + tax_mount)
         line_item = {
@@ -166,7 +166,7 @@ def generate_einvoice(doc, method):
         "tax_currency_code": tax_currency_code,
     
         # TaxTotal and MonetaryTotal
-        "taxableAmount": abs(doc.total),
+        "taxableAmount": abs(doc.net_total),
         "taxAmount": abs(doc.total_taxes_and_charges),
         "taxAmountBaseCurrency": abs(doc.base_total_taxes_and_charges),
         "payableAmount": abs(doc.grand_total),
@@ -183,20 +183,31 @@ def generate_einvoice(doc, method):
 
     try:
         if customer_type == "Company":
+
+            backend_start_time = time.time()
             invoice_request = generate_clearance_request(
                 zatca_environment.csr_generate_api, 
                 zatca_environment.client_id, 
                 zatca_environment.client_secret, 
                 invoice_xml
             )
+            backend_end_time = time.time()
+            backend_time_taken = backend_end_time - backend_start_time
+
+            zatca_start_time = time.time()
             response = requests.post(
                 zatca_environment.invoice_clearance_api, 
                 headers=get_clearence_headers(),
                 auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
                 data=json.dumps(invoice_request)
             )
+            zatca_end_time = time.time()
+            zatca_time_taken = zatca_end_time - zatca_start_time
+
             zatca_status_field = 'clearanceStatus'
         elif customer_type == "Individual":
+
+            backend_start_time = time.time()
             invoice_request = generate_reporting_request(
                 zatca_environment.csr_generate_api, 
                 zatca_environment.client_id, 
@@ -205,13 +216,21 @@ def generate_einvoice(doc, method):
                 decode_certificate(production_csid.binary_security_token),
                 invoice_xml
             )
+            backend_end_time = time.time()
+            backend_time_taken = backend_end_time - backend_start_time
+
+            zatca_start_time = time.time()
             response = requests.post(
                 zatca_environment.invoice_reporting_api, 
                 headers=get_clearence_headers(),
                 auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
                 data=json.dumps(invoice_request)
             )
+            zatca_end_time = time.time()
+            zatca_time_taken = zatca_end_time - zatca_start_time
+
             zatca_status_field = 'reportingStatus'
+
         else :
             frappe.throw("Customer Type is not Supported")
         response_json = response.json()
@@ -232,8 +251,11 @@ def generate_einvoice(doc, method):
             'previous_invoice_hash': previousInvoiceHash,
             'egs_serial_number': compliance_csr.csrserialnumber,
             'production_csid': production_csid.name,
+            'request_body': json.dumps(invoice_request),
             'response_code': response.status_code,
             'response_body': json.dumps(response_json),
+            'backend_elapsed_time': backend_time_taken * 1000,
+            'zatca_elapsed_time': zatca_time_taken * 1000,
             'transaction_time': frappe.utils.now_datetime(),
         })
     transaction.insert()
