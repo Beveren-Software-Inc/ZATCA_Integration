@@ -166,7 +166,7 @@ def generate_einvoice(doc, method):
         "tax_currency_code": tax_currency_code,
     
         # TaxTotal and MonetaryTotal
-        "taxableAmount": abs(doc.base_net_total),
+        "taxableAmount": abs(doc.net_total),
         "taxAmount": abs(doc.total_taxes_and_charges),
         "taxAmountBaseCurrency": abs(doc.base_total_taxes_and_charges),
         "payableAmount": abs(doc.grand_total),
