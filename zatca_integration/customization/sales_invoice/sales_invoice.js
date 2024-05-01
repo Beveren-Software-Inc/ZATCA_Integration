@@ -3,6 +3,13 @@ frappe.ui.form.on('Sales Invoice', {
         frm.trigger('set_custom_mode_of_payment')
         frm.trigger('set_delivery_date')
     },
+    refresh: frm => {
+        frm.trigger('set_custom_mode_of_payment')
+        // Trigger update when item is added or removed
+        // frm.fields_dict['items'].grid.get_field('delivery_note').get_query = function(doc) {
+        //     frm.trigger('set_delivery_date')
+        // }
+    },
     set_custom_mode_of_payment: frm => {
         if(frm.doc.customer){
             frappe.call({
