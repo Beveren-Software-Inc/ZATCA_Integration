@@ -21,7 +21,7 @@ frappe.ui.form.on('Sales Invoice', {
                     if (r.message) {
                         console.log(r.message);
                         // Set the earliest delivery date to the invoice
-                        frm.set_value('custom_payment_method', r.message);
+                        frm.set_value('custom_payment_means', r.message);
                     }
                 }
             });

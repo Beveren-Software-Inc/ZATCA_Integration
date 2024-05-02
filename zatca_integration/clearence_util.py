@@ -116,7 +116,7 @@ def generate_einvoice(doc, method):
         frappe.throw("Currency is not Supported")
 
     # PaymentMeansCode
-    payment_means_code = get_payment_means_code(doc.custom_mode_of_payment)
+    payment_means_code = get_payment_means_code(doc.custom_payment_means)
         
     # Advance Payment Not Supported
     total_advance = doc.total_advance
