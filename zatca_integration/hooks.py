@@ -29,8 +29,9 @@ app_license = "mit"
 
 # include js in doctype views
 # doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {"Sales Invoice" : "customization/sales_invoice/sales_invoice.js"}
 
-doctype_list_js = {"Sales Invoice" : "public/js/sales_invoice_list.js"}
+doctype_list_js = {"Sales Invoice" : "customization/sales_invoice/sales_invoice_list.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -150,7 +151,10 @@ after_app_install = "zatca_integration.saudi_arabia_electronic_invoicing.phase_o
 # Hook on document methods and events
 doc_events = {
 	"Sales Invoice": {
-        "validate": "zatca_integration.common_util.validate_pos_invoice",
+        "validate": [
+            "zatca_integration.common_util.validate_pos_invoice",
+            # "zatca_integration.common_util.update_delivery_date",
+        ],
         "before_submit": [
             "zatca_integration.common_util.validate_sales_invoice",
             "zatca_integration.clearence_util.generate_einvoice"

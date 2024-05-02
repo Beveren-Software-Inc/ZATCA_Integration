@@ -337,7 +337,7 @@ def get_payment_means_code(payment_means):
     elif payment_means == "Bank Card":
         payment_means_code = "48"
     else:
-        frappe.throw("Payment Means is not Supported")
+        frappe.throw("Payment Means is not Supported -it must be Cash, Credit, Bank Payment or Bank Card for ZATCA Compliance")
     return payment_means_code
 
 def get_tax_exemption_code(exempt_reason):
