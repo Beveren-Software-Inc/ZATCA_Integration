@@ -20,7 +20,7 @@ frappe.ui.form.on('Sales Invoice', {
                 callback: function(r) {
                     if (r.message) {
                         console.log(r.message);
-                        // Set the earliest delivery date to the invoice
+                        // Set the payment method to the invoice
                         frm.set_value('custom_payment_means', r.message);
                     }
                 }
