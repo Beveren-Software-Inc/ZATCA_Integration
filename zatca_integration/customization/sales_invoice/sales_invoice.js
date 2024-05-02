@@ -1,19 +1,19 @@
 frappe.ui.form.on('Sales Invoice', {
     onload: frm => {
-        frm.trigger('set_custom_mode_of_payment')
+        frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
     },
     refresh: frm => {
-        frm.trigger('set_custom_mode_of_payment')
+        frm.trigger('set_custom_payment_method')
         // Trigger update when item is added or removed
         // frm.fields_dict['items'].grid.get_field('delivery_note').get_query = function(doc) {
         //     frm.trigger('set_delivery_date')
         // }
     },
-    set_custom_mode_of_payment: frm => {
+    set_custom_payment_method: frm => {
         if(frm.doc.customer){
             frappe.call({
-                method: "zatca_integration.customization.sales_invoice.sales_invoice.update_payment_mode",
+                method: "zatca_integration.customization.sales_invoice.sales_invoice.update_payment_method",
                 args: {
                     customer: frm.doc.customer,
                 },
@@ -21,7 +21,7 @@ frappe.ui.form.on('Sales Invoice', {
                     if (r.message) {
                         console.log(r.message);
                         // Set the earliest delivery date to the invoice
-                        frm.set_value('custom_mode_of_payment', r.message);
+                        frm.set_value('custom_payment_method', r.message);
                     }
                 }
             });

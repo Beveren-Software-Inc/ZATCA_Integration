@@ -1,13 +1,13 @@
 import frappe
 
 @frappe.whitelist()
-def update_payment_mode(customer):
+def update_payment_method(customer):
     if not frappe.db.exists('Customer', customer):
         frappe.throw(f"Customer with ID {customer} does not exist.")
-    mode_of_payment = frappe.db.get_value('Customer', customer, 'custom_mode_of_payment')
-    if mode_of_payment is None:
-        frappe.msgprint(f"No mode of payment set for Customer {customer}.")
-    return mode_of_payment
+    payment_method = frappe.db.get_value('Customer', customer, 'custom_payment_method')
+    if payment_method is None:
+        frappe.msgprint(f"No Payment Method set for Customer {customer}.")
+    return payment_method
 
 @frappe.whitelist()
 def update_delivery_date(delivery_note):
