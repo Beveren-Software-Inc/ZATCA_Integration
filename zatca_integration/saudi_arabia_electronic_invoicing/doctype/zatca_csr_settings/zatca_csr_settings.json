@@ -150,8 +150,9 @@
   },
   {
    "fieldname": "csrorganizationname",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Organization Name (English)",
+   "options": "Company",
    "reqd": 1
   },
   {
