@@ -9,7 +9,7 @@ def update_payment_method(customer):
     if customer_type == "Individual":
         return "Cash"
     if payment_method is None:
-        frappe.msgprint(f"No Payment Method set for Customer {customer}.")
+        return "Cash"
     return payment_method
 
 @frappe.whitelist()

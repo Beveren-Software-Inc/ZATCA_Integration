@@ -12,7 +12,7 @@ frappe.ui.form.on('Sales Invoice', {
         if(frm.doc.docstatus == 1 || frm.doc.docstatus == 2){
             return;
         }
-        if(frm.doc.customer && !frm.doc.custom_payment_means){
+        if(frm.doc.customer){
             frappe.call({
                 method: "zatca_integration.customization.sales_invoice.sales_invoice.update_payment_method",
                 args: {
