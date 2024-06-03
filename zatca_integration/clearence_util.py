@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from dateutil.parser import parse
 import uuid
 import frappe
 from frappe.model.document import Document
@@ -79,8 +80,8 @@ def generate_einvoice(doc, method):
     
     # Set Invoice Date and Time, Delivery Date
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
-    invoice_time = datetime.strptime(doc.posting_time, "%H:%M:%S.%f").strftime("%H:%M:%S")
-    delivery_date = datetime.strptime(doc.custom_delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d") 
+    invoice_time = parse(doc.posting_time).time().strftime("%H:%M:%S")
+    delivery_date = datetime.strptime(doc.custom_delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d")
     
     # Tax Template and Tax Percentage
     tax_template = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
@@ -312,13 +313,13 @@ def generate_einvoice(doc, method):
         update_status_on_error(doc, response_json.get(zatca_status_field), json.dumps(response_json.get('validationResults', '')))
         frappe.throw("Error submitting invoice, Bad Request")
     elif response.status_code == 401:
-        update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
+        update_status_on_error(doc, 'FAILED', json.dumps(response_json))
         frappe.throw("Error submitting invoice, Invalid Credentials")
     elif response.status_code == 500:
-        update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
+        update_status_on_error(doc, 'FAILED', json.dumps(response_json))
         frappe.throw("Error submitting invoice, Internal Server Error")
     else:
-        update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
+        update_status_on_error(doc, 'FAILED', json.dumps(response_json))
         frappe.throw("Error submitting invoice, Unknown Error")
 
 def update_status_on_error(doc, status, validation_results):
