@@ -76,21 +76,24 @@ def decode_invoice(encoded_invoice):
 
 def get_buyer_information(customer_name): 
     customer = frappe.get_doc("Customer", customer_name)
+    country_code = get_country_code(customer.custom_country)
     
     full_address = f"{customer.custom_building_number}, {customer.custom_street_name},\n"
     full_address += f"{customer.custom_city_subdivision_name},\n"
     full_address += f"{customer.custom_city_name},\n"
-    full_address += f"{customer.custom_postal_zone}, {customer.custom_country_code}"
+    full_address += f"{customer.custom_postal_zone}, {country_code}"
     
     return {
         "organizationName": customer.custom_organization_name,
         "vatNumber": customer.custom_vat_number,
+        "registrationScheme": get_registration_scheme_code(customer.custom_registration_scheme),
+        "registrationNumber": customer.custom_registration_number,
         "streetName": customer.custom_street_name,
         "buildingNumber": customer.custom_building_number,
         "citySubdivisionName": customer.custom_city_subdivision_name,
         "cityName": customer.custom_city_name,
         "postalZone": customer.custom_postal_zone,
-        "countryCode": customer.custom_country_code,
+        "countryCode": country_code,
         "full_address": full_address
     }
 
@@ -115,7 +118,17 @@ def get_seller_information(csr_settings):
         "registrationNumber": csr_settings.registration_number
     }
 
+def get_country_code(country_name):
+    country_code = frappe.get_value("Country", filters={"name": country_name}, fieldname="code")
+    if country_code:
+        return country_code.upper()
+    else:
+        frappe.throw("Invalid Country Name")
+
 def get_registration_scheme_code(registration_scheme):
+    # If the registration_scheme is empty, return an empty string
+    if registration_scheme is None or registration_scheme == "":
+        return ""
     # Find the start and end indices of the parentheses
     start = registration_scheme.find('(')
     end = registration_scheme.find(')')
