@@ -41,13 +41,9 @@ def generate_einvoice(doc, method):
     customer = frappe.get_doc("Customer", doc.customer)
     customer_type = customer.customer_type
     if customer_type == "Company":
-        if customer.custom_vat_number == None or customer.custom_vat_number == "":
-            frappe.throw("VAT Number must be provided for Customer Type Company")
         invoice_type = "0100000"
-        print("Customer type is Company")
     elif customer_type == "Individual":
         invoice_type = "0200000"
-        print("Customer type is Individual")
     else :
         frappe.throw("Customer Type is not Supported")
 
