@@ -118,7 +118,7 @@ def generate_einvoice(doc, method):
     # Prepare Line Items Details
     line_items = []
     for item in doc.items:
-        unit_price = round_to_two_places(abs(item.net_rate))
+        unit_price = round_to_four_places(abs(item.net_rate))
         taxable_amount = round_to_two_places(unit_price * abs(item.qty))
         tax_mount = round_to_two_places(taxable_amount * tax_percentage / 100)
         payable_amount = round_to_two_places(taxable_amount + tax_mount)
@@ -414,3 +414,6 @@ def decode_certificate(production_certificate):
 
 def round_to_two_places(value):
     return round(value, 2)
+
+def round_to_four_places(value):
+    return round(value, 4)
