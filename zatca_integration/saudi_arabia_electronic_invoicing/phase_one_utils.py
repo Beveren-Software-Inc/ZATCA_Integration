@@ -12,18 +12,20 @@ from erpnext import get_region
 
 
 def create_qr_code(doc, method=None):
-    # Check if E-Invoicing is enabled
-    if not frappe.db.get_single_value('Zatca Settings', 'enable_e_invoicing') == 1:
+    
+    company = frappe.get_doc("Company", doc.company)
+
+    # Check if Company is a Saudi Arabia based company
+    if company.country != "Saudi Arabia":
         return
 
-    # Check if the active Zacta Phase is Phase 1
-    if not frappe.db.get_single_value('Zatca Settings', 'zatca_phase') == "ZATCA Phase 1":
+    # Check if ZATCA E-Invoicing is enabled
+    if not company.custom_enable_zatca_e_invoicing == 1:
         return
     
-    # Check if the company is in Saudi Arabia
-    region = get_region(doc.company)
-    if region not in ["Saudi Arabia"]:
-        return
+    # Check if the active Zacta Phase is Phase 1
+    if not company.custom_zatca_phase == "ZATCA Phase 1":
+        return 
 
 	# if QR Code field not present, create it. Invoices without QR are invalid as per law.
     if not hasattr(doc, ""):

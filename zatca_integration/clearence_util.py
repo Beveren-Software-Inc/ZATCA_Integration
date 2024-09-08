@@ -14,22 +14,40 @@ from zatca_integration.common_util import decode_invoice, get_seller_information
 
 def generate_einvoice(doc, method):
 
-    # Get Zatca Settings, Environment, CSID and CSR
-    zatca_settings = frappe.get_doc("Zatca Settings", "Zatca Settings")
-    
-    # Check if E-Invoicing is enabled
-    if not zatca_settings.enable_e_invoicing:
+    # Seller Information
+    company = frappe.get_doc("Company", doc.company)
+
+    # Check if Company is a Saudi Arabia based company
+    if company.country != "Saudi Arabia":
         return
 
-    # Check if Zatca Phase is ZATCA Phase 2
-    if not zatca_settings.zatca_phase == "ZATCA Phase 2":
+    # Check if ZATCA E-Invoicing is enabled
+    if not company.custom_enable_zatca_e_invoicing == 1:
         return
-    
-    # Get Default Production CSID, Compliance CSID CSR, and Environment from Zatca Settings
-    production_csid = frappe.get_doc("Production CSID", zatca_settings.default_production_csid)
+
+    # Check if the active Zacta Phase is Phase 2
+    if not company.custom_zatca_phase == "ZATCA Phase 2":
+        return 
+        
+    # CSID, Compliance CSID, CSR, and Environment from Company ZATCA Settings
+    production_csid = frappe.get_doc("Production CSID", company.custom_production_csid)
     compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
     compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
     zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
+
+    seller = get_seller_information(compliance_csr)
+
+    # Buyer Information
+    customer = frappe.get_doc("Customer", doc.customer)
+    customer_type = customer.customer_type
+    if customer_type == "Company":
+        invoice_type = "0100000"
+    elif customer_type == "Individual":
+        invoice_type = "0200000"
+    else :
+        frappe.throw("Customer Type is not Supported")
+
+    buyer = get_buyer_information(doc.customer)
     
     # Check invoice type stndard, credit note or debit note    
     if doc.is_return:
@@ -42,33 +60,6 @@ def generate_einvoice(doc, method):
     else:
         invoice_type_code = "388"
         invoice_document_reference = ""
-
-    # Fetch Buyer Information
-    customer = frappe.get_doc("Customer", doc.customer)
-    customer_type = customer.customer_type
-    if customer_type == "Company":
-        if customer.custom_vat_number == None or customer.custom_vat_number == "":
-            frappe.throw("VAT Number must be provided for Customer Type Company")
-        invoice_type = "0100000"
-        print("Customer type is Company")
-    elif customer_type == "Individual":
-        invoice_type = "0200000"
-        print("Customer type is Individual")
-    else :
-        frappe.throw("Customer Type is not Supported")
-
-    buyer = get_buyer_information(doc.customer)
-
-    # Fetch Seller Information
-    company = frappe.get_doc("Company", doc.company)
-    if company.custom_zatca_phase == "ZATCA Phase 2" and company.custom_production_csid:
-        # Override CSID, Compliance CSID CSR, and Environment from Company E Invoice Settings
-        production_csid = frappe.get_doc("Production CSID", company.custom_production_csid)
-        compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
-        compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
-        zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
-
-    seller = get_seller_information(compliance_csr)
     
     # Generate Invoice Number, Unique Identifier and Counter Value
     invoiceNumber = doc.name
@@ -127,7 +118,7 @@ def generate_einvoice(doc, method):
     # Prepare Line Items Details
     line_items = []
     for item in doc.items:
-        unit_price = round_to_two_places(abs(item.net_rate))
+        unit_price = round_to_four_places(abs(item.net_rate))
         taxable_amount = round_to_two_places(unit_price * abs(item.qty))
         tax_mount = round_to_two_places(taxable_amount * tax_percentage / 100)
         payable_amount = round_to_two_places(taxable_amount + tax_mount)
@@ -423,3 +414,6 @@ def decode_certificate(production_certificate):
 
 def round_to_two_places(value):
     return round(value, 2)
+
+def round_to_four_places(value):
+    return round(value, 4)

@@ -86,6 +86,11 @@
     <cac:AccountingCustomerParty>
         {% if invoice_type == '0100000' -%}
         <cac:Party>
+            {% if buyer.registrationScheme and buyer.registrationNumber -%}
+            <cac:PartyIdentification>
+                <cbc:ID schemeID="{{ buyer.registrationScheme }}">{{ buyer.registrationNumber }}</cbc:ID>
+            </cac:PartyIdentification>
+            {% endif %}
             <cac:PostalAddress>
                 <cbc:StreetName>{{ buyer.streetName }}</cbc:StreetName>
                 <cbc:BuildingNumber>{{ buyer.buildingNumber }}</cbc:BuildingNumber>
@@ -96,12 +101,14 @@
                     <cbc:IdentificationCode>{{ buyer.countryCode }}</cbc:IdentificationCode>
                 </cac:Country>
             </cac:PostalAddress>
+            {% if buyer.countryCode == 'SA' and buyer.vatNumber -%}
             <cac:PartyTaxScheme>
                 <cbc:CompanyID>{{ buyer.vatNumber }}</cbc:CompanyID>
                 <cac:TaxScheme>
                     <cbc:ID>VAT</cbc:ID>
                 </cac:TaxScheme>
             </cac:PartyTaxScheme>
+            {% endif %}
             <cac:PartyLegalEntity>
                 <cbc:RegistrationName>{{ buyer.organizationName }}</cbc:RegistrationName>
             </cac:PartyLegalEntity>
