@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, date
 from dateutil.parser import parse
 import uuid
 import frappe
@@ -82,7 +82,7 @@ def generate_einvoice(doc, method):
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
     invoice_time = parse(doc.posting_time).time().strftime("%H:%M:%S")
     
-    if isinstance(doc.custom_delivery_date, datetime.date):
+    if isinstance(doc.custom_delivery_date, date):
     # If it's a datetime.date object, format it as a string
         delivery_date = doc.custom_delivery_date.strftime("%Y-%m-%d")
     elif isinstance(doc.custom_delivery_date, str):
