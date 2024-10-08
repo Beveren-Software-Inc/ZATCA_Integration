@@ -2,10 +2,6 @@ import frappe
 import base64
 import requests
 
-def validate_purchase_invoice(doc, method):
-    if not doc.taxes_and_charges:
-        frappe.throw("Purchase Taxes and Charges Template must be provided.")
-
 def validate_sales_invoice(doc, method):
     if not doc.taxes_and_charges:
         frappe.throw("Sales Taxes and Charges Template must be provided.")

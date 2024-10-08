@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, date
 from dateutil.parser import parse
 import uuid
 import frappe
@@ -72,7 +72,12 @@ def generate_einvoice(doc, method):
     # Set Invoice Date and Time, Delivery Date
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
     invoice_time = parse(doc.posting_time).time().strftime("%H:%M:%S")
-    delivery_date = datetime.strptime(doc.custom_delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d")
+    if isinstance(doc.custom_delivery_date, date):
+    # If it's a datetime.date object, format it as a string
+        delivery_date = doc.custom_delivery_date.strftime("%Y-%m-%d")
+    elif isinstance(doc.custom_delivery_date, str):
+    # If it's a string, parse it into a datetime object
+        delivery_date = datetime.strptime(doc.custom_delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d")
     
     # Tax Template and Tax Percentage
     tax_template = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
