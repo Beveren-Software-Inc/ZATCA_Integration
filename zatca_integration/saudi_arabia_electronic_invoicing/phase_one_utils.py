@@ -61,8 +61,7 @@ def create_qr_code(doc, method=None):
         """
         tlv_array = []
 
-        default_csr_settings = frappe.db.get_single_value("Zatca Settings", "default_csr_settings")
-        organization_settings = frappe.get_doc("Zatca CSR Settings", default_csr_settings)
+        organization_settings = frappe.get_doc("Zatca CSR Settings", company.custom_csr_settings)
 
         # Sellers Name
         seller_name = organization_settings.organization_name_arabic
