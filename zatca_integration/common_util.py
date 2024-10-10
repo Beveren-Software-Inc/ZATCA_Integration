@@ -72,6 +72,29 @@ def decode_invoice(encoded_invoice):
 
 def get_buyer_information(customer_name): 
     customer = frappe.get_doc("Customer", customer_name)
+
+    if customer.customer_type == "Company":
+        # Thel all the fields are required
+        if not customer.custom_organization_name:
+            frappe.throw("Organization Name is required for Company type customer")
+        if not customer.custom_organization_name_arabic:
+            frappe.throw("Organization Name Arabic is required for Company type customer")
+        # Either VAT or Registration Scheme and Registration Number are required
+        if not customer.custom_vat_number and not customer.custom_registration_scheme:
+            frappe.throw("Either VAT Number or Registration Scheme and Registration Number are required for Company type customer")
+        if not customer.custom_vat_number and not customer.custom_registration_number:
+            frappe.throw("Either VAT Number or Registration Scheme and Registration Number are required for Company type customer")
+        if not customer.custom_street_name:
+            frappe.throw("Street Name is required for Company type customer")
+        if not customer.custom_building_number:
+            frappe.throw("Building Number is required for Company type customer")
+        if not customer.custom_city_subdivision_name:
+            frappe.throw("City Subdivision Name is required for Company type customer")
+        if not customer.custom_city_name:
+            frappe.throw("City Name is required for Company type customer")
+        if not customer.custom_postal_zone:
+            frappe.throw("Postal Zone is required for Company type customer")
+
     country_code = get_country_code(customer.custom_country)
     
     full_address = f"{customer.custom_building_number}, {customer.custom_street_name},\n"
