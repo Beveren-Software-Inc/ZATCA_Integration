@@ -471,7 +471,7 @@
    "is_virtual": 0,
    "label": "Payment Method",
    "length": 0,
-   "mandatory_depends_on": "eval:(doc.customer_type == 'Company' && doc.custom_country == 'Saudi Arabia')",
+   "mandatory_depends_on": "",
    "modified": "2024-04-29 01:13:48.093802",
    "modified_by": "Administrator",
    "module": null,
