@@ -167,7 +167,7 @@ def get_tax_data_for_each_tax_type(tax_type, filters, doctype):
 	invoices = frappe.get_all(
 		doctype,
 		filters={"docstatus": 1, "posting_date": ["between", [from_date, to_date]], "taxes_and_charges": tax_type},
-		fields=["name", "taxes_and_charges", "is_return", "total_taxes_and_charges", "base_total"],
+		fields=["name", "taxes_and_charges", "is_return", "total_taxes_and_charges", "base_net_total"],
 	)
 
 	
@@ -176,10 +176,10 @@ def get_tax_data_for_each_tax_type(tax_type, filters, doctype):
 
 		# Summing up total taxable amount
 		if invoice.is_return == 0:
-			total_taxable_amount += invoice.base_total
+			total_taxable_amount += invoice.base_net_total
 
 		if invoice.is_return == 1:
-			total_taxable_adjustment_amount += invoice.base_total
+			total_taxable_adjustment_amount += invoice.base_net_total
 
 	return total_taxable_amount, total_taxable_adjustment_amount, total_tax
 
