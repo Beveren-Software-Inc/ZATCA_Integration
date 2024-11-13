@@ -57,3 +57,166 @@ frappe.ui.form.on('Sales Invoice', {
         }
     }
 });
+
+
+
+// additional customisations for CN.
+frappe.ui.form.on('Sales Invoice', {
+    onload: function(frm) {
+        frm.fields_dict['custom_shipping_address'].get_query = function(doc) {
+            return {
+                filters: {
+                    link_doctype: 'Customer',
+                    link_name: doc.customer
+                }
+
+            };
+        };
+    }
+});
+
+
+frappe.ui.form.on('Sales Invoice', {
+    onload(frm) {
+        frm.fields_dict['custom_credit_details'].grid.get_field('sales_invoice').get_query = function(doc, cdt, cdn) {
+            let row = locals[cdt][cdn];
+            const today = frappe.datetime.get_today();
+            const days = frm.doc.custom_days_count;
+            const fifteen_days_ago = frappe.datetime.add_days(today, -(days));
+    if(!frm.doc.custom_shipping_address){
+            return {
+                filters: [
+                    ["Sales Invoice", "status", "!=", "Cancelled"],
+                    ["Sales Invoice", "status", "!=", "Credit Note Issued"],
+                    ["Sales Invoice", "status", "!=", "Draft"],
+                    ["Sales Invoice", "is_return", "!=", "1"],
+                    ["Sales Invoice", "customer", "=", frm.doc.customer],
+                    ["Sales Invoice", "posting_date", ">=", fifteen_days_ago],
+                    ["Sales Invoice Item", "item_code", "=", row.item]
+                ]
+            };
+        }
+        else if(frm.doc.custom_shipping_address){
+            return {
+                filters: [
+                    ["Sales Invoice", "status", "!=", "Cancelled"],
+                    ["Sales Invoice", "status", "!=", "Credit Note Issued"],
+                    ["Sales Invoice", "status", "!=", "Draft"],
+                    ["Sales Invoice", "is_return", "!=", "1"],
+                    ["Sales Invoice", "customer", "=", frm.doc.customer],
+                    ["Sales Invoice", "shipping_address_name", "=", frm.doc.custom_shipping_address],
+                    ["Sales Invoice", "posting_date", ">=", fifteen_days_ago],
+                    ["Sales Invoice Item", "item_code", "=", row.item]
+                ]
+            };
+
+
+        }
+
+        else{
+
+
+        }
+        };
+    },
+
+    
+});
+
+frappe.ui.form.on('Sales Invoice', {
+    custom_get_all_items: function(frm) {
+        map_items_to_credit_details(frm);
+    }
+});
+    
+    function map_items_to_credit_details(frm) {
+        frm.clear_table("custom_credit_details");
+        frm.doc.items.forEach(item => {
+            let new_row = frm.add_child("custom_credit_details");
+            new_row.item = item.item_code;
+            new_row.qtr = item.qty;
+        });
+        frm.refresh_field('custom_credit_details');
+    }
+
+
+    frappe.ui.form.on("Credit Details", {
+        sales_invoice(frm, cdt, cdn) {
+            let row = frappe.get_doc(cdt, cdn);
+            if(row.item){
+                frappe.call({
+                    "method":"zatca_integration.customization.sales_invoice.sales_invoice.get_batch",
+                    "args":{
+                                         "customer":frm.doc.customer,
+                                    "sales_invoice":row.sales_invoice,
+                                        "item":row.item
+                    },
+            callback: function (r) {
+            console.log(r)
+              r.message.forEach(courses => {
+                
+              frappe.model.set_value(cdt, cdn, "sold_qty", courses.qty);
+              cur_frm.refresh_fields('custom_credit_details')
+            });
+            
+    
+          }
+        
+                })
+            }
+        },
+    });
+
+frappe.ui.form.on("Credit Details", {
+        sales_invoice(frm, cdt, cdn) {
+            let row = frappe.get_doc(cdt, cdn);
+            if (row.item && row.sales_invoice) {
+                frappe.call({
+                    method: "zatca_integration.customization.sales_invoice.sales_invoice.returned_qty",
+                    args: {
+                        customer: frm.doc.customer,
+                        sales_invoice: row.sales_invoice,
+                        item: row.item
+                    },
+                    callback: function (r) {
+                        console.log(r);
+                        if (r.message && r.message.total_returned_qty !== undefined) {
+                            frappe.model.set_value(cdt, cdn, "already_returned_qty", (r.message.total_returned_qty));
+                            frm.refresh_field('custom_credit_details');
+                        } else {
+                            console.error("Unexpected response:", r.message);
+                        }
+
+
+
+                    }
+                });
+            }
+        },
+        
+
+
+        
+    });
+
+function validate_qty(frm, cdt, cdn) {
+        let row = frappe.get_doc(cdt, cdn);
+        if(row.sold_qty < (-((row.qtr) +(row.already_returned_qty))) ){
+            frappe.throw(`Row ${row.idx} Item ${row.item} from Sales Invoice ${row.sales_invoice},
+                cannot be returned More than Sold Quantity ${row.sold_qty},difference qty ${row.sold_qty + ((row.qtr) +(row.already_returned_qty))}.`);                
+        }
+    }
+    
+    frappe.ui.form.on('Sales Invoice', {
+
+        validate(frm) {
+            if(frm.is_return==1){
+                frm.doc.custom_credit_details.forEach(row => {
+                if(row.sold_qty < (-((row.qtr) +(row.already_returned_qty))) ){
+                    frappe.throw(`Row ${row.idx} Item ${row.item} from Sales Invoice ${row.sales_invoice},
+                 cannot be returned More than Sold Quantity ${row.sold_qty},difference qty ${row.sold_qty + ((row.qtr) +(row.already_returned_qty))}.`);                
+            }
+            });
+        } 
+        }
+    });
