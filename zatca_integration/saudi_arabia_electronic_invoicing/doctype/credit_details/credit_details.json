@@ -1,0 +1,65 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2024-11-13 20:43:45.423829",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item",
+  "sales_invoice",
+  "sold_qty",
+  "qtr",
+  "already_returned_qty"
+ ],
+ "fields": [
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Sales Invoice",
+   "options": "Sales Invoice"
+  },
+  {
+   "fieldname": "sold_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Sold Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qtr",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity to Return",
+   "read_only": 1
+  },
+  {
+   "fieldname": "already_returned_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Already Returned Qty",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2024-11-13 21:26:09.926612",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Credit Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -57,12 +57,24 @@ fixtures = [
     #         "name": "Sandbox Default Supplier"
     #     }
     # },
-    # {
-    #     "dt": "Custom Field",
-    #     "filters": {
-    #         "dt": "Customer"
-    #     }
-    # },
+    {"dt": "Custom Field", 
+        "filters": [
+            [
+                "name", "in", {
+                    "Sales Invoice-custom_credit_note_details",
+                    "Sales Invoice-custom_details",
+                    "Sales Invoice-custom_customer",
+                    "Sales Invoice-custom_shipping_address",
+                    "Sales Invoice-custom_column_break_p4qla",
+                    "Sales Invoice-custom_days_count",
+                    "Sales Invoice-custom_get_all_items",
+                    "Sales Invoice-custom_item_details",
+                    "Sales Invoice-custom_credit_details",
+                    
+                }
+            ]
+        ]
+    }
 ]
 
 # Home Pages
