@@ -5,7 +5,7 @@ app_description = "Saudi Arabia Electronic Invoicing Phase 2"
 app_email = "shakir@beverensoftware.com"
 app_license = "mit"
 # required_apps = []
-
+#test comment added
 # Includes in <head>
 # ------------------
 # Test Comment
