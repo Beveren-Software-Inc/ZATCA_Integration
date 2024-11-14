@@ -140,83 +140,75 @@ frappe.ui.form.on('Sales Invoice', {
     }
 
 
-    frappe.ui.form.on("Credit Details", {
-        sales_invoice(frm, cdt, cdn) {
-            let row = frappe.get_doc(cdt, cdn);
-            if(row.item){
-                frappe.call({
-                    "method":"zatca_integration.customization.sales_invoice.sales_invoice.get_batch",
-                    "args":{
-                                         "customer":frm.doc.customer,
-                                    "sales_invoice":row.sales_invoice,
-                                        "item":row.item
-                    },
+
+// Function to validate quantity for a single row
+function validate_qty(row) {
+    if (row.sold_qty < (-(row.qtr + row.already_returned_qty))) {
+        frappe.throw(`Row ${row.idx} Item ${row.item} from Sales Invoice ${row.sales_invoice} cannot be returned more than the sold quantity (${row.sold_qty}). Difference qty: ${row.sold_qty + (row.qtr + row.already_returned_qty)}.`);
+    }
+}
+
+// Fetch and set sold quantity for an item in a sales invoice
+function fetch_sold_qty(frm, cdt, cdn) {
+    let row = frappe.get_doc(cdt, cdn);
+    if (row.item) {
+        frappe.call({
+            method: "zatca_integration.customization.sales_invoice.sales_invoice.get_batch",
+            args: {
+                customer: frm.doc.customer,
+                sales_invoice: row.sales_invoice,
+                item: row.item
+            },
             callback: function (r) {
-            console.log(r)
-              r.message.forEach(courses => {
-                
-              frappe.model.set_value(cdt, cdn, "sold_qty", courses.qty);
-              cur_frm.refresh_fields('custom_credit_details')
-            });
-            
-    
-          }
-        
-                })
+                if (r.message) {
+                    r.message.forEach(item => {
+                        frappe.model.set_value(cdt, cdn, "sold_qty", item.qty);
+                    });
+                    frm.refresh_field('custom_credit_details');
+                }
             }
-        },
-    });
+        });
+    }
+}
+
+// Fetch and set already returned quantity for an item in a sales invoice
+function fetch_returned_qty(frm, cdt, cdn) {
+    let row = frappe.get_doc(cdt, cdn);
+    if (row.item && row.sales_invoice) {
+        frappe.call({
+            method: "zatca_integration.customization.sales_invoice.sales_invoice.returned_qty",
+            args: {
+                customer: frm.doc.customer,
+                sales_invoice: row.sales_invoice,
+                item: row.item
+            },
+            callback: function (r) {
+                if (r.message && r.message.total_returned_qty !== undefined) {
+                    frappe.model.set_value(cdt, cdn, "already_returned_qty", r.message.total_returned_qty);
+                    frm.refresh_field('custom_credit_details');
+                } else {
+                    console.error("Unexpected response:", r.message);
+                }
+            }
+        });
+    }
+}
+
 
 frappe.ui.form.on("Credit Details", {
-        sales_invoice(frm, cdt, cdn) {
-            let row = frappe.get_doc(cdt, cdn);
-            if (row.item && row.sales_invoice) {
-                frappe.call({
-                    method: "zatca_integration.customization.sales_invoice.sales_invoice.returned_qty",
-                    args: {
-                        customer: frm.doc.customer,
-                        sales_invoice: row.sales_invoice,
-                        item: row.item
-                    },
-                    callback: function (r) {
-                        console.log(r);
-                        if (r.message && r.message.total_returned_qty !== undefined) {
-                            frappe.model.set_value(cdt, cdn, "already_returned_qty", (r.message.total_returned_qty));
-                            frm.refresh_field('custom_credit_details');
-                        } else {
-                            console.error("Unexpected response:", r.message);
-                        }
+    sales_invoice(frm, cdt, cdn) {
+        fetch_sold_qty(frm, cdt, cdn);  
+        fetch_returned_qty(frm, cdt, cdn);  
+    }
+});
 
-
-
-                    }
-                });
-            }
-        },
-        
-
-
-        
-    });
-
-function validate_qty(frm, cdt, cdn) {
-        let row = frappe.get_doc(cdt, cdn);
-        if(row.sold_qty < (-((row.qtr) +(row.already_returned_qty))) ){
-            frappe.throw(`Row ${row.idx} Item ${row.item} from Sales Invoice ${row.sales_invoice},
-                cannot be returned More than Sold Quantity ${row.sold_qty},difference qty ${row.sold_qty + ((row.qtr) +(row.already_returned_qty))}.`);                
+// Validate quantities in 'Sales Invoice'
+frappe.ui.form.on('Sales Invoice', {
+    validate(frm) {
+        if (frm.doc.is_return === 1) {
+            frm.doc.custom_credit_details.forEach(row => {
+                validate_qty(row);  
+            });
         }
     }
-    
-    frappe.ui.form.on('Sales Invoice', {
-
-        validate(frm) {
-            if(frm.is_return==1){
-                frm.doc.custom_credit_details.forEach(row => {
-                if(row.sold_qty < (-((row.qtr) +(row.already_returned_qty))) ){
-                    frappe.throw(`Row ${row.idx} Item ${row.item} from Sales Invoice ${row.sales_invoice},
-                 cannot be returned More than Sold Quantity ${row.sold_qty},difference qty ${row.sold_qty + ((row.qtr) +(row.already_returned_qty))}.`);                
-            }
-            });
-        } 
-        }
-    });
+});
