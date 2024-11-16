@@ -212,3 +212,18 @@ frappe.ui.form.on('Sales Invoice', {
         }
     }
 });
+
+frappe.ui.form.on('Sales Invoice', {
+    validate: function (frm) {
+    if (frm.doc.is_return === 1) {
+        let selected_invoices = [];
+        (frm.doc.custom_credit_details || []).forEach(row => {
+            if (row.sales_invoice) {
+                selected_invoices.push(row.sales_invoice);
+            }
+        });
+        frm.set_value('custom_cn_ref', selected_invoices.join(', '));
+    
+    }
+    }
+});

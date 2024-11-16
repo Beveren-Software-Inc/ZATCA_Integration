@@ -34,7 +34,10 @@ def generate_einvoice(doc, method):
     # Check invoice type stndard, credit note or debit note    
     if doc.is_return:
         invoice_type_code = "381"
-        invoice_document_reference = doc.return_against
+        if doc.return_against:
+            invoice_document_reference = doc.return_against
+        elif doc.custom_cn_ref:
+            invoice_document_reference = doc.custom_cn_ref
     elif doc.is_debit_note:
         invoice_type_code = "383"
         invoice_document_reference = doc.debit_to
@@ -429,3 +432,4 @@ def decode_certificate(production_certificate):
 
 def round_to_two_places(value):
     return round(value, 2)
+

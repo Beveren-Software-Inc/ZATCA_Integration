@@ -70,6 +70,7 @@ fixtures = [
                     "Sales Invoice-custom_get_all_items",
                     "Sales Invoice-custom_item_details",
                     "Sales Invoice-custom_credit_details",
+                    "Sales Invoice-custom_cn_ref",
                     
                 }
             ]
