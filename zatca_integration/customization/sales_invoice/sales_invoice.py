@@ -82,3 +82,66 @@ def returned_qty(customer, sales_invoice, item):
     
     return total_returned[0]
 
+
+@frappe.whitelist()
+def get_valid_sales_invoices(doctype, txt, searchfield, start, page_len, filters=None):
+    filters = filters or {}
+
+    customer = filters.get("customer")
+    shipping_address = filters.get("shipping_address")
+    item_code = filters.get("item_code")
+    start_date = filters.get("start_date")
+
+    if not customer or not item_code or not start_date:
+        return []
+
+    # Build dynamic conditions
+    conditions = ["si.docstatus = 1", "si.is_return = 0"]
+    query_params = {
+        "txt": f"%{txt}%",
+        "start": start,
+        "page_len": page_len,
+    }
+
+    if customer:
+        conditions.append("si.customer = %(customer)s")
+        query_params["customer"] = customer
+
+    if shipping_address:
+        conditions.append("si.shipping_address_name = %(shipping_address)s")
+        query_params["shipping_address"] = shipping_address
+
+    if item_code:
+        conditions.append("sii.item_code = %(item_code)s")
+        query_params["item_code"] = item_code
+
+    if start_date:
+        conditions.append("si.posting_date >= %(start_date)s")
+        query_params["start_date"] = start_date
+
+    # Add logic for returned quantities dynamically in SQL
+    conditions.append("""
+        (sii.qty + COALESCE((
+            SELECT SUM(cd.qtr)
+            FROM `tabCredit Details` cd
+            JOIN `tabSales Invoice` rsi ON cd.parent = rsi.name
+            WHERE cd.sales_invoice = si.name
+            AND cd.item = sii.item_code
+            AND rsi.customer = si.customer
+            AND rsi.docstatus = 1
+            AND rsi.status != 'Cancelled'
+        ), 0)) > 0
+    """)
+
+    # Construct query
+    where_clause = " AND ".join(conditions)
+    query = f"""
+        SELECT DISTINCT si.name,si.posting_date,sii.qty
+        FROM `tabSales Invoice` si
+        JOIN `tabSales Invoice Item` sii ON si.name = sii.parent
+        WHERE {where_clause}
+        AND si.name LIKE %(txt)s
+        LIMIT %(start)s, %(page_len)s
+    """
+
+    return frappe.db.sql(query, query_params)

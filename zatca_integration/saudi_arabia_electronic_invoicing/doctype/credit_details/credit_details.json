@@ -10,10 +10,12 @@
   "sales_invoice",
   "sold_qty",
   "qtr",
-  "already_returned_qty"
+  "already_returned_qty",
+  "available_qty_to_return"
  ],
  "fields": [
   {
+   "columns": 2,
    "fieldname": "item",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -22,6 +24,7 @@
    "read_only": 1
   },
   {
+   "columns": 3,
    "fieldname": "sales_invoice",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -29,6 +32,7 @@
    "options": "Sales Invoice"
   },
   {
+   "columns": 1,
    "fieldname": "sold_qty",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -36,24 +40,33 @@
    "read_only": 1
   },
   {
+   "columns": 2,
    "fieldname": "qtr",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Quantity to Return",
-   "read_only": 1
+   "label": "Quantity to Return"
   },
   {
+   "columns": 1,
    "fieldname": "already_returned_qty",
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Already Returned Qty",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "available_qty_to_return",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Available Qty to Return",
    "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-11-13 21:26:09.926612",
+ "modified": "2024-11-24 10:06:49.688999",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Credit Details",

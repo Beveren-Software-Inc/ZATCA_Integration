@@ -76,52 +76,85 @@ frappe.ui.form.on('Sales Invoice', {
 });
 
 
-frappe.ui.form.on('Sales Invoice', {
-    onload(frm) {
-        frm.fields_dict['custom_credit_details'].grid.get_field('sales_invoice').get_query = function(doc, cdt, cdn) {
-            let row = locals[cdt][cdn];
-            const today = frappe.datetime.get_today();
-            const days = frm.doc.custom_days_count;
-            const fifteen_days_ago = frappe.datetime.add_days(today, -(days));
-    if(!frm.doc.custom_shipping_address){
-            return {
-                filters: [
-                    ["Sales Invoice", "status", "!=", "Cancelled"],
-                    ["Sales Invoice", "status", "!=", "Credit Note Issued"],
-                    ["Sales Invoice", "status", "!=", "Draft"],
-                    ["Sales Invoice", "is_return", "!=", "1"],
-                    ["Sales Invoice", "customer", "=", frm.doc.customer],
-                    ["Sales Invoice", "posting_date", ">=", fifteen_days_ago],
-                    ["Sales Invoice Item", "item_code", "=", row.item]
-                ]
-            };
-        }
-        else if(frm.doc.custom_shipping_address){
-            return {
-                filters: [
-                    ["Sales Invoice", "status", "!=", "Cancelled"],
-                    ["Sales Invoice", "status", "!=", "Credit Note Issued"],
-                    ["Sales Invoice", "status", "!=", "Draft"],
-                    ["Sales Invoice", "is_return", "!=", "1"],
-                    ["Sales Invoice", "customer", "=", frm.doc.customer],
-                    ["Sales Invoice", "shipping_address_name", "=", frm.doc.custom_shipping_address],
-                    ["Sales Invoice", "posting_date", ">=", fifteen_days_ago],
-                    ["Sales Invoice Item", "item_code", "=", row.item]
-                ]
-            };
+// frappe.ui.form.on('Sales Invoice', {
+//     onload(frm) {
+//         frm.fields_dict['custom_credit_details'].grid.get_field('sales_invoice').get_query = function(doc, cdt, cdn) {
+//             let row = locals[cdt][cdn];
+//             const today = frappe.datetime.get_today();
+//             const days = frm.doc.custom_days_count;
+//             const fifteen_days_ago = frappe.datetime.add_days(today, -(days));
+//     if(!frm.doc.custom_shipping_address){
+//             return {
+//                 filters: [
+//                     ["Sales Invoice", "status", "!=", "Cancelled"],
+//                     ["Sales Invoice", "status", "!=", "Credit Note Issued"],
+//                     ["Sales Invoice", "status", "!=", "Draft"],
+//                     ["Sales Invoice", "is_return", "!=", "1"],
+//                     ["Sales Invoice", "customer", "=", frm.doc.customer],
+//                     ["Sales Invoice", "posting_date", ">=", fifteen_days_ago],
+//                     ["Sales Invoice Item", "item_code", "=", row.item]
+//                 ]
+//             };
+//         }
+//         else if(frm.doc.custom_shipping_address){
+//             return {
+//                 filters: [
+//                     ["Sales Invoice", "status", "!=", "Cancelled"],
+//                     ["Sales Invoice", "status", "!=", "Credit Note Issued"],
+//                     ["Sales Invoice", "status", "!=", "Draft"],
+//                     ["Sales Invoice", "is_return", "!=", "1"],
+//                     ["Sales Invoice", "customer", "=", frm.doc.customer],
+//                     ["Sales Invoice", "shipping_address_name", "=", frm.doc.custom_shipping_address],
+//                     ["Sales Invoice", "posting_date", ">=", fifteen_days_ago],
+//                     ["Sales Invoice Item", "item_code", "=", row.item]
+//                 ]
+//             };
 
 
-        }
+//         }
 
-        else{
+//         else{
 
 
-        }
-        };
-    },
+//         }
+//         };
+//     },
 
     
+// });
+
+frappe.ui.form.on('Sales Invoice', {
+    onload(frm) {
+        frm.fields_dict['custom_credit_details'].grid.get_field('sales_invoice').get_query = function (doc, cdt, cdn) {
+            let row = locals[cdt][cdn];
+            const today = frappe.datetime.get_today();
+            const days = frm.doc.custom_days_count || 15; // Default to 15 days
+            const start_date = frappe.datetime.add_days(today, -days);
+
+            return {
+                query: "zatca_integration.customization.sales_invoice.sales_invoice.get_valid_sales_invoices",
+                filters: {
+                    customer: frm.doc.customer,
+                    shipping_address: frm.doc.custom_shipping_address || null,
+                    item_code: row.item,
+                    start_date: start_date
+                },
+                callback: function (r) {
+                    // Ensure r.message is not undefined
+                    if (r) {
+                        console.log("Valid Sales Invoices:", r); // Log the result for debugging
+                    } else {
+                        console.error("Error: No data returned from the server.");
+                    }
+                }
+            };
+        };
+    }
 });
+
+
+
+
 
 frappe.ui.form.on('Sales Invoice', {
     custom_get_all_items: function(frm) {
@@ -129,15 +162,41 @@ frappe.ui.form.on('Sales Invoice', {
     }
 });
     
+    // function map_items_to_credit_details(frm) {
+    //     frm.clear_table("custom_credit_details");
+    //     frm.doc.items.forEach(item => {
+    //         let new_row = frm.add_child("custom_credit_details");
+    //         new_row.item = item.item_code;
+    //         new_row.qtr = item.qty;
+    //     });
+    //     frm.refresh_field('custom_credit_details');
+    // }
     function map_items_to_credit_details(frm) {
-        frm.clear_table("custom_credit_details");
         frm.doc.items.forEach(item => {
-            let new_row = frm.add_child("custom_credit_details");
-            new_row.item = item.item_code;
-            new_row.qtr = item.qty;
+            // Calculate the sum of existing rows' qtr for the same item_code and sales_invoice
+            let total_existing_qtr = frm.doc.custom_credit_details
+                .filter(row => row.item === item.item_code && row.sales_invoice)
+                .reduce((sum, row) => sum + row.qtr, 0);
+    
+            // Only add a new row if the total_existing_qtr is less than item.qty
+            if (Math.abs(total_existing_qtr) < Math.abs(item.qty)) {
+                let remaining_qty = item.qty - total_existing_qtr; // Do not use Math.abs() for remaining qty
+                if (remaining_qty !== 0) {
+                    let new_row = frm.add_child("custom_credit_details");
+                    new_row.sales_invoice = item.sales_invoice || ''; // Ensure sales_invoice is assigned correctly
+                    new_row.item = item.item_code;
+                    new_row.qtr = remaining_qty; // Keep the negative sign if needed
+                }
+            }
         });
-        frm.refresh_field('custom_credit_details');
+    
+        frm.refresh_field("custom_credit_details");
     }
+    
+    
+    
+    
+    
 
 
 
@@ -163,6 +222,7 @@ function fetch_sold_qty(frm, cdt, cdn) {
                 if (r.message) {
                     r.message.forEach(item => {
                         frappe.model.set_value(cdt, cdn, "sold_qty", item.qty);
+                        frappe.model.set_value(cdt, cdn, "available_qty_to_return", item.qty-row.total_returned_qty);
                     });
                     frm.refresh_field('custom_credit_details');
                 }
@@ -185,6 +245,7 @@ function fetch_returned_qty(frm, cdt, cdn) {
             callback: function (r) {
                 if (r.message && r.message.total_returned_qty !== undefined) {
                     frappe.model.set_value(cdt, cdn, "already_returned_qty", r.message.total_returned_qty);
+                    frappe.model.set_value(cdt, cdn, "available_qty_to_return", row.sold_qty+r.message.total_returned_qty);
                     frm.refresh_field('custom_credit_details');
                 } else {
                     console.error("Unexpected response:", r.message);
@@ -227,3 +288,24 @@ frappe.ui.form.on('Sales Invoice', {
     }
     }
 });
+frappe.ui.form.on("Sales Invoice Item", {
+    item_code(frm, cdt, cdn) {
+        let row = frappe.get_doc(cdt, cdn); // Get the current row object
+        
+        // Check if the Sales Invoice is a return and update qty accordingly
+        if (frm.doc.is_return) {
+            frappe.model.set_value(cdt, cdn, 'qty', -Math.abs(row.qty)); // Ensure qty is negative
+        }
+    },
+
+    qty(frm, cdt, cdn) {
+        let row = frappe.get_doc(cdt, cdn); // Get the current row object
+        
+        // Ensure qty is negative if the Sales Invoice is a return
+        if (frm.doc.is_return && row.qty > 0) {
+            frappe.model.set_value(cdt, cdn, 'qty', -Math.abs(row.qty)); // Convert to negative if positive
+        }
+    },
+    
+});
+
