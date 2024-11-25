@@ -243,10 +243,31 @@ function fetch_returned_qty(frm, cdt, cdn) {
                 item: row.item
             },
             callback: function (r) {
-                if (r.message && r.message.total_returned_qty !== undefined) {
+                if (r.message ) {
                     frappe.model.set_value(cdt, cdn, "already_returned_qty", r.message.total_returned_qty);
+                    // frappe.model.set_value(cdt, cdn, "available_qty_to_return", row.sold_qty+r.message.total_returned_qty);
+                    // frm.refresh_field('custom_credit_details');
+                } else {
+                    console.error("Unexpected response:", r.message);
+                }
+            }
+        });
+    }
+}
+function fetch_available_qty(frm, cdt, cdn) {
+    let row = frappe.get_doc(cdt, cdn);
+    if (row.item && row.sales_invoice) {
+        frappe.call({
+            method: "zatca_integration.customization.sales_invoice.sales_invoice.returned_qty",
+            args: {
+                customer: frm.doc.customer,
+                sales_invoice: row.sales_invoice,
+                item: row.item
+            },
+            callback: function (r) {
+                if (r.message ) {
                     frappe.model.set_value(cdt, cdn, "available_qty_to_return", row.sold_qty+r.message.total_returned_qty);
-                    frm.refresh_field('custom_credit_details');
+                    // frm.refresh_field('custom_credit_details');
                 } else {
                     console.error("Unexpected response:", r.message);
                 }
@@ -260,6 +281,10 @@ frappe.ui.form.on("Credit Details", {
     sales_invoice(frm, cdt, cdn) {
         fetch_sold_qty(frm, cdt, cdn);  
         fetch_returned_qty(frm, cdt, cdn);  
+        fetch_available_qty(frm, cdt, cdn);  
+    },
+    already_returned_qty(frm, cdt, cdn) {
+        fetch_available_qty(frm, cdt, cdn);  
     }
 });
 
