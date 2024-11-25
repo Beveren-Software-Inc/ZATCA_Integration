@@ -73,45 +73,61 @@ def decode_invoice(encoded_invoice):
 def get_buyer_information(customer_name): 
     customer = frappe.get_doc("Customer", customer_name)
 
+    country_code = get_country_code(customer.custom_country)
+
+    address = frappe.get_doc("Address", customer.customer_primary_address)
+    if not address:
+        frappe.throw("Customer must have a primary address")
+
     if customer.customer_type == "Company":
-        # Thel all the fields are required
-        if not customer.custom_organization_name:
-            frappe.throw("Organization Name is required for Company type customer")
-        if not customer.custom_organization_name_arabic:
-            frappe.throw("Organization Name Arabic is required for Company type customer")
         # Either VAT or Registration Scheme and Registration Number are required
         if not customer.custom_vat_number and not customer.custom_registration_scheme:
-            frappe.throw("Either VAT Number or Registration Scheme and Registration Number are required for Company type customer")
+            frappe.throw("Either VAT Number or Registration Scheme and Registration Number are required for Company")
         if not customer.custom_vat_number and not customer.custom_registration_number:
-            frappe.throw("Either VAT Number or Registration Scheme and Registration Number are required for Company type customer")
-        if not customer.custom_street_name:
+            frappe.throw("Either VAT Number or Registration Scheme and Registration Number are required for Company ")
+        
+        # ZATCA Address Validation
+        # Address Line 1 is required
+        if not address.address_line1:
             frappe.throw("Street Name is required for Company type customer")
-        if not customer.custom_building_number:
-            frappe.throw("Building Number is required for Company type customer")
-        if not customer.custom_city_subdivision_name:
-            frappe.throw("City Subdivision Name is required for Company type customer")
-        if not customer.custom_city_name:
-            frappe.throw("City Name is required for Company type customer")
-        if not customer.custom_postal_zone:
-            frappe.throw("Postal Zone is required for Company type customer")
 
-    country_code = get_country_code(customer.custom_country)
+        # Building Number is required
+        # Building Number must be 4 digits if country_code is SA
+        if not address.address_line2:
+            frappe.throw("Building Number is required for Company type customer")
+        if country_code == "SA" and len(address.address_line2) != 4:
+            frappe.throw("Building Number must be 4 digits for Company type customer in Saudi Arabia")
+
+        # City Subdivision Name is required
+        if not address.city:
+            frappe.throw("City Subdivision Name is required for Company type customer")
+
+        # City Name is required
+        if not address.county:
+            frappe.throw("City Name is required for Company type customer")
+
+        # Postal Zone is required
+        # Postal Zone must be 5 digits if country_code is SA
+        if not address.pincode:
+            frappe.throw("Postal Zone is required for Company type customer")
+        if country_code == "SA" and len(address.pincode) != 5:
+            frappe.throw("Postal Zone must be 5 digits for Company type customer in Saudi Arabia")
     
-    full_address = f"{customer.custom_building_number}, {customer.custom_street_name},\n"
-    full_address += f"{customer.custom_city_subdivision_name},\n"
-    full_address += f"{customer.custom_city_name},\n"
-    full_address += f"{customer.custom_postal_zone}, {country_code}"
+    full_address = f"{address.address_line2}, {address.address_line1},\n"
+    full_address += f"{address.city},\n"
+    full_address += f"{address.county},\n"
+    full_address += f"{address.pincode}, {country_code}"
     
     return {
-        "organizationName": customer.custom_organization_name,
+        "organizationName": customer.customer_name,
         "vatNumber": customer.custom_vat_number,
         "registrationScheme": get_registration_scheme_code(customer.custom_registration_scheme),
         "registrationNumber": customer.custom_registration_number,
-        "streetName": customer.custom_street_name,
-        "buildingNumber": customer.custom_building_number,
-        "citySubdivisionName": customer.custom_city_subdivision_name,
-        "cityName": customer.custom_city_name,
-        "postalZone": customer.custom_postal_zone,
+        "streetName": address.address_line1,
+        "buildingNumber": address.address_line2,
+        "citySubdivisionName": address.city,
+        "cityName": address.county,
+        "postalZone": address.pincode,
         "countryCode": country_code,
         "full_address": full_address
     }
