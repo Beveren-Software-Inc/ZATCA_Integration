@@ -172,6 +172,7 @@ frappe.ui.form.on('Sales Invoice', {
     //     frm.refresh_field('custom_credit_details');
     // }
     function map_items_to_credit_details(frm) {
+        if (frm.doc.custom_credit_details) {
         frm.doc.items.forEach(item => {
             // Calculate the sum of existing rows' qtr for the same item_code and sales_invoice
             let total_existing_qtr = frm.doc.custom_credit_details
@@ -188,9 +189,21 @@ frappe.ui.form.on('Sales Invoice', {
                     new_row.qtr = remaining_qty; // Keep the negative sign if needed
                 }
             }
+        
         });
     
         frm.refresh_field("custom_credit_details");
+    }
+    else {
+         frm.doc.items.forEach(item => {
+            let new_row = frm.add_child("custom_credit_details");
+            new_row.item = item.item_code;
+            new_row.qtr = item.qty;
+        });
+        frm.refresh_field('custom_credit_details');
+    }   
+
+    
     }
     
     
