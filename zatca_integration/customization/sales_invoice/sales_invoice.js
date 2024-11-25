@@ -175,7 +175,7 @@ frappe.ui.form.on('Sales Invoice', {
         frm.doc.items.forEach(item => {
             // Calculate the sum of existing rows' qtr for the same item_code and sales_invoice
             let total_existing_qtr = frm.doc.custom_credit_details
-                .filter(row => row.item === item.item_code && row.sales_invoice)
+                .filter(row => row.item === item.item_code)
                 .reduce((sum, row) => sum + row.qtr, 0);
     
             // Only add a new row if the total_existing_qtr is less than item.qty
@@ -266,7 +266,7 @@ frappe.ui.form.on("Credit Details", {
 // Validate quantities in 'Sales Invoice'
 frappe.ui.form.on('Sales Invoice', {
     validate(frm) {
-        if (frm.doc.is_return === 1) {
+        if (frm.doc.custom_credit_details && frm.doc.is_return === 1) {
             frm.doc.custom_credit_details.forEach(row => {
                 validate_qty(row);  
             });
