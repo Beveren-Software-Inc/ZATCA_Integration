@@ -214,11 +214,11 @@ frappe.ui.form.on('Sales Invoice', {
 
 
 // Function to validate quantity for a single row
-function validate_qty(row) {
-    if (row.sold_qty < (-(row.qtr + row.already_returned_qty))) {
-        frappe.throw(`Row ${row.idx} Item ${row.item} from Sales Invoice ${row.sales_invoice} cannot be returned more than the sold quantity (${row.sold_qty}). Difference qty: ${row.sold_qty + (row.qtr + row.already_returned_qty)}.`);
-    }
-}
+// function validate_qty(row) {
+//     if (row.sold_qty < (-(row.qtr + row.already_returned_qty))) {
+//         frappe.throw(`Row ${row.idx} Item ${row.item} from Sales Invoice ${row.sales_invoice} cannot be returned more than the sold quantity (${row.sold_qty}). Difference qty: ${row.sold_qty + (row.qtr + row.already_returned_qty)}.`);
+//     }
+// }
 
 // Fetch and set sold quantity for an item in a sales invoice
 function fetch_sold_qty(frm, cdt, cdn) {
@@ -302,15 +302,55 @@ frappe.ui.form.on("Credit Details", {
 });
 
 // Validate quantities in 'Sales Invoice'
+// frappe.ui.form.on('Sales Invoice', {
+//     validate(frm) {
+//         if (frm.doc.custom_credit_details && frm.doc.is_return === 1) {
+//             frm.doc.custom_credit_details.forEach(row => {
+//                 validate_qty(row);  
+//             });
+//         }
+//     }
+// });
+// Function to validate quantity for a single row
 frappe.ui.form.on('Sales Invoice', {
     validate(frm) {
         if (frm.doc.custom_credit_details && frm.doc.is_return === 1) {
+            // Create a map for quick lookup of item.qty from the items table
+            let items_map = {};
+            frm.doc.items.forEach(item => {
+                items_map[item.item_code] = item.qty;
+            });
+
+            // Calculate sum of qtr for each item in custom_credit_details
+            let qtr_sum_map = {};
             frm.doc.custom_credit_details.forEach(row => {
-                validate_qty(row);  
+                if (!qtr_sum_map[row.item]) {
+                    qtr_sum_map[row.item] = 0;
+                }
+                qtr_sum_map[row.item] += row.qtr;
+            });
+
+            // Validate sum of qtr for each item
+            Object.keys(qtr_sum_map).forEach(item => {
+                if (qtr_sum_map[item] > items_map[item]) {
+                    frappe.throw(`Total return quantity (${qtr_sum_map[item]}) for Item ${item} cannot less than item qty (${items_map[item]}).`);
+                }
+                if (qtr_sum_map[item] < items_map[item]) {
+                    frappe.throw(`Total return quantity (${qtr_sum_map[item]}) for Item ${item} cannot greater than item qty (${items_map[item]}).`);
+                }
+            });
+
+            // Validate individual rows
+            frm.doc.custom_credit_details.forEach(row => {
+                if (row.sold_qty < (-(row.qtr + row.already_returned_qty))) {
+                    frappe.throw(`Row ${row.idx} Item ${row.item} from Sales Invoice ${row.sales_invoice} cannot be returned more than the sold quantity (${row.sold_qty}). Difference qty: ${row.sold_qty + (row.qtr + row.already_returned_qty)}.`);
+                }
             });
         }
     }
 });
+
+
 
 frappe.ui.form.on('Sales Invoice', {
     validate: function (frm) {
