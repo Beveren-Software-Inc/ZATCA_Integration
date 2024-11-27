@@ -78,8 +78,8 @@ def generate_einvoice(doc, method):
     uniqueInvoiceIdentifier = str(uuid.uuid4())
 
     # Set Invoice Counter Value(ICV)
-    previousInvoiceCounter = get_previous_invoice_counter(production_csid.name)
-    invoiceCounterValue = previousInvoiceCounter + 1 
+    previousInvoiceCounter = int(get_previous_invoice_counter(production_csid.name))
+    invoiceCounterValue = previousInvoiceCounter + 1
     
     # Set Previous Invoice Hash Value(PIH)
     previousInvoiceHash = get_previous_invoice_hash(production_csid.name)
