@@ -267,6 +267,27 @@ function fetch_returned_qty(frm, cdt, cdn) {
         });
     }
 }
+// function fetch_available_qty(frm, cdt, cdn) {
+//     let row = frappe.get_doc(cdt, cdn);
+//     if (row.item && row.sales_invoice) {
+//         frappe.call({
+//             method: "zatca_integration.customization.sales_invoice.sales_invoice.returned_qty",
+//             args: {
+//                 customer: frm.doc.customer,
+//                 sales_invoice: row.sales_invoice,
+//                 item: row.item
+//             },
+//             callback: function (r) {
+//                 if (r.message ) {
+//                     frappe.model.set_value(cdt, cdn, "available_qty_to_return", row.sold_qty+r.message.total_returned_qty);
+//                     // frm.refresh_field('custom_credit_details');
+//                 } else {
+//                     console.error("Unexpected response:", r.message);
+//                 }
+//             }
+//         });
+//     }
+// }
 function fetch_available_qty(frm, cdt, cdn) {
     let row = frappe.get_doc(cdt, cdn);
     if (row.item && row.sales_invoice) {
@@ -278,9 +299,27 @@ function fetch_available_qty(frm, cdt, cdn) {
                 item: row.item
             },
             callback: function (r) {
-                if (r.message ) {
-                    frappe.model.set_value(cdt, cdn, "available_qty_to_return", row.sold_qty+r.message.total_returned_qty);
-                    // frm.refresh_field('custom_credit_details');
+                if (r.message) {
+                    let total_qtr = 0;
+
+                    // Sum up `qtr` from previous rows with the same `sales_invoice` and `item`
+                    (frm.doc.custom_credit_details || []).forEach(function (child_row) {
+                        if (
+                            child_row.sales_invoice === row.sales_invoice &&
+                            child_row.item === row.item &&
+                            child_row.name !== row.name // Exclude the current row
+                        ) {
+                            total_qtr += child_row.qtr || 0;
+                        }
+                    });
+
+                    // Set the available_qty_to_return field
+                    frappe.model.set_value(
+                        cdt,
+                        cdn,
+                        "available_qty_to_return",
+                        row.sold_qty + r.message.total_returned_qty + total_qtr
+                    );
                 } else {
                     console.error("Unexpected response:", r.message);
                 }
@@ -288,6 +327,7 @@ function fetch_available_qty(frm, cdt, cdn) {
         });
     }
 }
+
 
 
 frappe.ui.form.on("Credit Details", {
@@ -373,6 +413,11 @@ frappe.ui.form.on('Sales Invoice', {
                 if (row.sold_qty < -(row.qtr + row.already_returned_qty)) {
                     frappe.throw(
                         `Row ${row.idx}: Item ${row.item} from Sales Invoice ${row.sales_invoice} cannot be returned more than the sold quantity (${row.sold_qty}). Difference qty: ${row.sold_qty + (row.qtr + row.already_returned_qty)}.`
+                    );
+                }
+                if (-(row.qtr) >(row.available_qty_to_return)) {
+                    frappe.throw(
+                        `Row ${row.idx}: Item ${row.item} from Sales Invoice ${row.sales_invoice} cannot be returned more than the Available quantity (${row.available_qty_to_return}). Difference qty: ${row.available_qty_to_return + (row.qtr)}.`
                     );
                 }
             });
