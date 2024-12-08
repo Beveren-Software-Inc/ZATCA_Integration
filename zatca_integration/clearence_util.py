@@ -61,13 +61,20 @@ def generate_einvoice(doc, method):
         invoice_type_code = "388"
         invoice_document_reference = ""
     
-    # Generate Invoice Number, Unique Identifier and Counter Value
+    # Set Invoice Number and Invoice Unique Identifier 
     invoiceNumber = doc.name
-    invoiceCounterValue  = int(time.time())
     uniqueInvoiceIdentifier = str(uuid.uuid4())
 
-    # Fetch Previous Invoice Hash
+    # Set Invoice Counter Value(ICV)
+    previousInvoiceCounter = int(get_previous_invoice_counter(production_csid.name))
+    invoiceCounterValue = previousInvoiceCounter + 1
+
+    # Set Previous Invoice Hash Value(PIH)
     previousInvoiceHash = get_previous_invoice_hash(production_csid.name)
+
+    # Set Posting Date and Time to current date and time
+    doc.posting_date = frappe.utils.now_datetime().strftime("%Y-%m-%d")
+    doc.posting_time = frappe.utils.now_datetime().strftime("%H:%M:%S")
     
     # Set Invoice Date and Time, Delivery Date
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
@@ -351,6 +358,20 @@ def get_clearence_headers():
         'Content-Type': 'application/json'
     }
 
+def get_previous_invoice_counter(production_csid):
+    # Get the latest Zatca Transaction for the given production_csid based on transaction_time
+    latest_transaction = frappe.get_all('Zatca Transactions', 
+                                        filters={'production_csid': production_csid}, 
+                                        fields=['invoice_icv'], 
+                                        order_by='transaction_time desc', 
+                                        limit_page_length=1)
+    if latest_transaction:
+        # Return the invoice_icv of the latest transaction
+        return latest_transaction[0].invoice_icv
+    else:
+        # Return 0 if there are no Zatca Transactions
+        return 0
+
 def get_previous_invoice_hash(production_csid):
     # Get the latest Zatca Transaction for the given production_csid based on transaction_time
     latest_transaction = frappe.get_all('Zatca Transactions', 
@@ -362,7 +383,7 @@ def get_previous_invoice_hash(production_csid):
         # Return the invoice_hash of the latest transaction
         return latest_transaction[0].invoice_hash
     else:
-        # Return None if there are no Zatca Transactions
+        # Return default hash if there are no Zatca Transactions
         return "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
 
 def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
