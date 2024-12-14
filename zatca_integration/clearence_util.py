@@ -76,15 +76,27 @@ def generate_einvoice(doc, method):
     doc.posting_date = frappe.utils.now_datetime().strftime("%Y-%m-%d")
     doc.posting_time = frappe.utils.now_datetime().strftime("%H:%M:%S")
     
-    # Set Invoice Date and Time, Delivery Date
+    # Set Invoice Date and Time
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
     invoice_time = parse(doc.posting_time).time().strftime("%H:%M:%S")
+    
+    # Set Delivery Date
     if isinstance(doc.custom_delivery_date, date):
     # If it's a datetime.date object, format it as a string
         delivery_date = doc.custom_delivery_date.strftime("%Y-%m-%d")
     elif isinstance(doc.custom_delivery_date, str):
     # If it's a string, parse it into a datetime object
         delivery_date = datetime.strptime(doc.custom_delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d")
+    
+    # Validate Delivery Date
+    if customer_type == "Company":  # Standard Tax Invoices (B2B) can be issued and submitted within 15 days from the current date.
+        if (delivery_date - datetime.strptime(invoice_date, "%Y-%m-%d")).days > 15:
+            frappe.throw("Delivery Date is not valid, Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the invoice date.")
+    elif customer_type == "Individual":  # Delivery Date must be today, otherwise throw an error
+        if (delivery_date - datetime.strptime(invoice_date, "%Y-%m-%d")).days != 0:
+            frappe.throw("Delivery Date is not valid, Simplified Tax Invoices (B2C) must be issued and submitted on the same day.")
+    else:
+        frappe.throw("Customer Type is not Supported")
     
     # Tax Template and Tax Percentage
     tax_template = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
