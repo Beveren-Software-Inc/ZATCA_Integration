@@ -137,7 +137,6 @@ def get_buyer_information(customer_name):
     else:
         frappe.throw("Invalid Customer Type")
 
-
 def get_seller_information(csr_settings):
 
     full_address = f"{csr_settings.building_number}, {csr_settings.street_name},\n"

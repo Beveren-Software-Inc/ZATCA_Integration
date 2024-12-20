@@ -10,7 +10,7 @@ import base64
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
-from zatca_integration.common_util import get_seller_information, generate_clearance_request, generate_reporting_request
+from zatca_integration.common_util import generate_clearance_request, generate_reporting_request
 
 
 class ComplianceCSID(Document):
@@ -75,20 +75,14 @@ class ComplianceCSID(Document):
 
 		frappe.throw(f"Error in generating ZATCA Compliance CSID: {error_message}")
 
-
 	@frappe.whitelist()
 	def validate_zatca_compliance_csid(self):
-
-		if self.binary_security_token is None or self.binary_security_token == "":
+		"""Validate ZATCA Compliance CSID."""
+		if not self.binary_security_token:
 			frappe.throw("Binary Security Token is not generated. Please Generate ZATCA Compliance CSID")
 
-		# Get ZATCA Settings
 		csr_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
-
-		# Seller Information
 		seller = get_seller_information(csr_settings)
-
-		# Buyer Information
 		buyer = get_buyer_information()
 
 		if csr_settings.csrinvoicetype == "1100":
@@ -101,95 +95,68 @@ class ComplianceCSID(Document):
 		else:
 			frappe.throw("Invalid Invoice Type in ZATCA CSR Settings : " + csr_settings.csrinvoicetype)
 		
-		# Update Zatca Compliance CSID Status
 		self.save()
+	
+	def set_invoice_status(self, invoice_type, status, note_type):
+		"""Set the status of the invoice or note."""
+		if invoice_type == "standard":
+			if note_type == "invoice":
+				self.standard_invoice = status
+			elif note_type == "credit_note":
+				self.standard_credit_note = status
+			elif note_type == "debit_note":
+				self.standard_debit_note = status
+		elif invoice_type == "simplified":
+			if note_type == "invoice":
+				self.simplified_invoice = status
+			elif note_type == "credit_note":
+				self.simplified_credit_note = status
+			elif note_type == "debit_note":
+				self.simplified_debit_note = status
 
-	def invoke_complaince_check(self, invoiceType, csr_settings, seller, buyer):
-
+	def invoke_complaince_check(self, invoice_type, csr_settings, seller, buyer):
+		"""Invoke compliance check for the given invoice type."""
 		first_invoice_hash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
 
-		# Compliance Standard Invoice
-		print("####  Tax Invoice START #### InvoiceType: " + invoiceType + " ####)")
-		tax_invoice = generate_tax_invoice_xml(
-			invoiceType, "INV-00001", seller, buyer,
-			first_invoice_hash
-		)
-		print(tax_invoice["xml"])
-		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, tax_invoice["xml"])
-		if invoiceType == "standard":
+		# Issue Invoice
+		tax_invoice = generate_tax_invoice_xml(invoice_type, "INV-00001", seller, buyer, first_invoice_hash)
+		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, tax_invoice["xml"])
+		if invoice_type == "standard":
 			self.standard_invoice = tax_invoice_status
-		elif invoiceType == "simplified":
+		elif invoice_type == "simplified":
 			self.simplified_invoice = tax_invoice_status
-		print("####  Tax Invoice END #### InvoiceType: " + invoiceType + " ####)")
 
-		# Compliance Standard Credit Note
-		print("####  Credit Note START #### InvoiceType: " + invoiceType + " ####)")
-		credit_note = generate_credit_note_xml(
-			invoiceType, "INV-00002", seller, buyer, 
-			tax_invoice["invoiceNumber"], 
-			tax_invoice["invoiceDeliveryDate"], 
-			tax_invoice_hash
-		)
-		print(credit_note["xml"])
-		credit_note_status, credit_note_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, credit_note["xml"])
-		if invoiceType == "standard":
+		# Issue Credit Note
+		credit_note = generate_credit_note_xml(invoice_type, "INV-00002", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
+		credit_note_status, credit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, credit_note["xml"])
+		if invoice_type == "standard":
 			self.standard_credit_note = credit_note_status
-		elif invoiceType == "simplified":
+		elif invoice_type == "simplified":
 			self.simplified_credit_note = credit_note_status
-		print("####  Credit Note END #### InvoiceType: " + invoiceType + " ####)")
 
-		# Compliance Standard Invoice
-		print("####  Tax Invoice START #### InvoiceType: " + invoiceType + " ####)")
-		tax_invoice = generate_tax_invoice_xml(
-			invoiceType, "INV-00003", seller, buyer,
-			credit_note_hash
-		)
-		print(tax_invoice["xml"])
-		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, tax_invoice["xml"])
-		print("####  Tax Invoice END #### InvoiceType: " + invoiceType + " ####)")
+		# Issue Invoice
+		tax_invoice = generate_tax_invoice_xml(invoice_type, "INV-00003", seller, buyer, credit_note_hash)
+		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, tax_invoice["xml"])
 
-		# Compliance Debit Note
-		print("####  Debit Note START #### InvoiceType: " + invoiceType + " ####)")
-		debit_note = generate_debit_note_xml(
-			invoiceType, "INV-00004", seller, buyer, 
-			tax_invoice["invoiceNumber"], 
-			tax_invoice["invoiceDeliveryDate"], 
-			tax_invoice_hash
-		)
-		print(credit_note["xml"])
-		debit_note_status, debit_note_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, debit_note["xml"])
-		if invoiceType == "standard":
+		# Issue Debit Note
+		debit_note = generate_debit_note_xml(invoice_type, "INV-00004", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
+		debit_note_status, debit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, debit_note["xml"])
+		if invoice_type == "standard":
 			self.standard_debit_note = debit_note_status
-		elif invoiceType == "simplified":
+		elif invoice_type == "simplified":
 			self.simplified_debit_note = debit_note_status
-		print("####  Debit Note END #### InvoiceType: " + invoiceType + " ####)")
 
 	def invoke_compliance_invoice_api(self, invoiceType, csr_settings, invoice_xml):
-
+		"""Invoke compliance invoice API."""
 		zatca_environment = frappe.get_doc("Zatca Environment", csr_settings.zatca_environment)
 
 		if invoiceType == "standard":
-			# Generate Clearance Request from Backend
-			invoice_request = generate_clearance_request(
-				zatca_environment.csr_generate_api,
-				zatca_environment.client_id,
-				zatca_environment.client_secret,
-				invoice_xml
-			)
+			invoice_request = generate_clearance_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, invoice_xml)
 		elif invoiceType == "simplified":
-			# Generate Reporting Request from Backend
-			invoice_request = generate_reporting_request(
-				zatca_environment.csr_generate_api,
-				zatca_environment.client_id,
-				zatca_environment.client_secret,
-				csr_settings.private_key,
-				self.decode_certificate(self.binary_security_token),
-				invoice_xml
-			)
+			invoice_request = generate_reporting_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, csr_settings.private_key, self.decode_certificate(self.binary_security_token), invoice_xml)
 		else:
 			frappe.throw("Invalid Invoice Type, type: " + invoiceType)
 		
-		# Post Invoice Request to Zatca Compliance Invoice API
 		headers = {
 			'accept': 'application/json',
 			'Accept-Language': 'en',
@@ -197,13 +164,7 @@ class ComplianceCSID(Document):
 			'Content-Type': 'application/json'
 		}
 
-		# Post Zatca Compliance Invoice API
-		response = requests.post(
-			zatca_environment.compliance_invoice_api, 
-			headers=headers, 
-			auth=HTTPBasicAuth(self.binary_security_token, self.secret), 
-			data=json.dumps(invoice_request)
-		)
+		response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
 
 		print(response.json())
 
@@ -213,6 +174,7 @@ class ComplianceCSID(Document):
 			return False, None
 		
 	def reset_compliance_csid_status(self, status):
+		"""Reset the compliance CSID status."""
 		self.standard_invoice = status
 		self.standard_debit_note = status
 		self.standard_credit_note = status
@@ -221,6 +183,7 @@ class ComplianceCSID(Document):
 		self.simplified_credit_note = status
 
 	def decode_certificate(self, compliance_certificate):
+		"""Decode the compliance certificate from base64."""
 		decoded_compliance_certificate = base64.b64decode(compliance_certificate.encode('utf-8'))
 		return decoded_compliance_certificate.decode('utf-8')
 	
@@ -355,3 +318,29 @@ def get_buyer_information():
 		"postalZone": "23511",
 		"countryCode": "SA"
 	}
+
+def get_seller_information(csr_settings):
+    return {
+        "organizationName": csr_settings.csrorganizationname,
+        "vatNumber": csr_settings.csrorganizationidentifier,
+        "streetName": csr_settings.street_name,
+        "buildingNumber": csr_settings.building_number,
+        "citySubdivisionName": csr_settings.city_subdivision_name,
+        "cityName": csr_settings.city_name,
+        "postalZone": csr_settings.postal_zone,
+        "countryCode": csr_settings.csrcountryname,
+        "registrationNumber": csr_settings.registration_number,
+		"registrationScheme": get_registration_scheme_code(csr_settings.registration_scheme),
+		"registration_scheme": csr_settings.registration_scheme
+    }
+
+def get_registration_scheme_code(registration_scheme):
+    # Find the start and end indices of the parentheses
+    start = registration_scheme.find('(')
+    end = registration_scheme.find(')')
+
+    # Extract and return the text inside the parentheses
+    if start != -1 and end != -1:
+        return registration_scheme[start + 1:end]
+    else:
+        frappe.throw("Invalid Registration Scheme")
