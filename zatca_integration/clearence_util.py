@@ -282,7 +282,7 @@ def generate_einvoice(doc, method):
             'response_body': json.dumps(response_json),
             'backend_elapsed_time': backend_time_taken * 1000,
             'zatca_elapsed_time': zatca_time_taken * 1000,
-            'transaction_time': 'transaction_time': frappe.utils.now_datetime(),
+            'transaction_time': frappe.utils.now_datetime(),
         })
     transaction.insert()
 
