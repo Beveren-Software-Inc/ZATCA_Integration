@@ -456,7 +456,7 @@ def validate_delivery_date(delivery_date, invoice_date, customer_type):
         if del_date > inv_date:
             frappe.throw("Delivery Date is not valid, the supply must occur on or before the tax invoice date.")
     elif customer_type == "Individual":  # Delivery Date must be today, otherwise throw an error
-        if (del_date - datetime.now()).days != 0:
+        if del_date.date() != datetime.now().date():
             frappe.throw("Delivery Date is not valid, Delivery Date must be today")
     else:
         frappe.throw("Customer Type is not Supported")
