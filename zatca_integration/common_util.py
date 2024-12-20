@@ -72,14 +72,13 @@ def decode_invoice(encoded_invoice):
 
 def get_buyer_information(customer_name): 
     customer = frappe.get_doc("Customer", customer_name)
-
     country_code = get_country_code(customer.custom_country)
 
-    address = frappe.get_doc("Address", customer.customer_primary_address)
-    if not address:
-        frappe.throw("Customer must have a primary address")
-
     if customer.customer_type == "Company":
+        address = frappe.get_doc("Address", customer.customer_primary_address)
+        if not address:
+            frappe.throw("Customer must have a primary address")
+
         # Either VAT or Registration Scheme and Registration Number are required
         if not customer.custom_vat_number and not customer.custom_registration_scheme:
             frappe.throw("Either VAT Number or Registration Scheme and Registration Number are required for Company")
@@ -113,24 +112,31 @@ def get_buyer_information(customer_name):
         if country_code == "SA" and len(address.pincode) != 5:
             frappe.throw("Postal Zone must be 5 digits for Company type customer in Saudi Arabia")
     
-    full_address = f"{address.address_line2}, {address.address_line1},\n"
-    full_address += f"{address.city},\n"
-    full_address += f"{address.county},\n"
-    full_address += f"{address.pincode}, {country_code}"
+        full_address = f"{address.address_line2}, {address.address_line1},\n"
+        full_address += f"{address.city},\n"
+        full_address += f"{address.county},\n"
+        full_address += f"{address.pincode}, {country_code}"
     
-    return {
-        "organizationName": customer.customer_name,
-        "vatNumber": customer.custom_vat_number,
-        "registrationScheme": get_registration_scheme_code(customer.custom_registration_scheme),
-        "registrationNumber": customer.custom_registration_number,
-        "streetName": address.address_line1,
-        "buildingNumber": address.address_line2,
-        "citySubdivisionName": address.city,
-        "cityName": address.county,
-        "postalZone": address.pincode,
-        "countryCode": country_code,
-        "full_address": full_address
-    }
+        return {
+            "organizationName": customer.customer_name,
+            "vatNumber": customer.custom_vat_number,
+            "registrationScheme": get_registration_scheme_code(customer.custom_registration_scheme),
+            "registrationNumber": customer.custom_registration_number,
+            "streetName": address.address_line1,
+            "buildingNumber": address.address_line2,
+            "citySubdivisionName": address.city,
+            "cityName": address.county,
+            "postalZone": address.pincode,
+            "countryCode": country_code,
+            "full_address": full_address
+        }
+    elif customer.customer_type == "Individual":
+        return {
+            "organizationName": customer.customer_name
+        }
+    else:
+        frappe.throw("Invalid Customer Type")
+
 
 def get_seller_information(csr_settings):
 

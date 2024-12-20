@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from dateutil.parser import parse
 import uuid
 import frappe
@@ -76,15 +76,19 @@ def generate_einvoice(doc, method):
     doc.posting_date = frappe.utils.now_datetime().strftime("%Y-%m-%d")
     doc.posting_time = frappe.utils.now_datetime().strftime("%H:%M:%S")
     
-    # Set Invoice Date and Time, Delivery Date
+    # Set Invoice Date and Time
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
     invoice_time = parse(doc.posting_time).time().strftime("%H:%M:%S")
+    
+    # Set and Validate Delivery Date
     if isinstance(doc.custom_delivery_date, date):
     # If it's a datetime.date object, format it as a string
         delivery_date = doc.custom_delivery_date.strftime("%Y-%m-%d")
     elif isinstance(doc.custom_delivery_date, str):
     # If it's a string, parse it into a datetime object
         delivery_date = datetime.strptime(doc.custom_delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d")
+    # Validate Delivery Date
+    validate_delivery_date(delivery_date, invoice_date, customer_type)
     
     # Tax Template and Tax Percentage
     tax_template = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
@@ -433,6 +437,29 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
     img_byte_arr = img_byte_arr.getvalue()
 
     return img_byte_arr
+
+def validate_delivery_date(delivery_date, invoice_date, customer_type):
+    # Validate Delivery Date
+    del_date = datetime.strptime(delivery_date, "%Y-%m-%d")
+    inv_date = datetime.strptime(invoice_date, "%Y-%m-%d")
+
+    # Calculate the end of the month for the delivery date
+    end_of_month = del_date.replace(day=1) + timedelta(days=32)
+    end_of_month = end_of_month.replace(day=1) - timedelta(days=1)
+
+    # Calculate the last valid date for issuing the invoice
+    last_valid_invoice_date = end_of_month + timedelta(days=15)
+
+    if customer_type == "Company":  # Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the end of the month in which the supply takes place.
+        if inv_date > last_valid_invoice_date:
+            frappe.throw("Delivery Date is not valid, Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the end of the month in which the supply takes place.")
+        if del_date > inv_date:
+            frappe.throw("Delivery Date is not valid, Standard Tax Invoices (B2B) the supply must take place before the invoice date.")
+    elif customer_type == "Individual":  # Delivery Date must be today, otherwise throw an error
+        if del_date.date() != datetime.now().date():
+            frappe.throw("Delivery Date is not valid, Simplified Tax Invoices (B2C) must be issued and submitted on the same day of the supply.")
+    else:
+        frappe.throw("Customer Type is not Supported")
 
 def decode_certificate(production_certificate):
     decoded_production_certificate = base64.b64decode(production_certificate.encode('utf-8'))
