@@ -10,7 +10,12 @@ import base64
 from requests.auth import HTTPBasicAuth
 from lxml import etree
 import qrcode
+import pytz
 from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, generate_clearance_request, generate_reporting_request
+
+DATE_FORMAT = "%Y-%m-%d"
+TIME_FORMAT = "%H:%M:%S"
+RIYADH_TZ = pytz.timezone('Asia/Riyadh')
 
 def generate_einvoice(doc, method):
 
@@ -85,8 +90,9 @@ def generate_einvoice(doc, method):
     previousInvoiceHash = get_previous_invoice_hash(production_csid.name)
 
     # Set Posting Date and Time to current date and time
-    doc.posting_date = frappe.utils.now_datetime().strftime("%Y-%m-%d")
-    doc.posting_time = frappe.utils.now_datetime().strftime("%H:%M:%S")
+    current_datetime = datetime.now(RIYADH_TZ)
+    doc.posting_date = current_datetime.strftime(DATE_FORMAT)
+    doc.posting_time = current_datetime.strftime(TIME_FORMAT)
     
     # Set Invoice Date and Time
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
@@ -276,7 +282,7 @@ def generate_einvoice(doc, method):
             'response_body': json.dumps(response_json),
             'backend_elapsed_time': backend_time_taken * 1000,
             'zatca_elapsed_time': zatca_time_taken * 1000,
-            'transaction_time': frappe.utils.now_datetime(),
+            'transaction_time': datetime.now(RIYADH_TZ),
         })
     transaction.insert()
 
@@ -288,7 +294,7 @@ def generate_einvoice(doc, method):
         doc.custom_invoice_icv = invoiceCounterValue
 
         doc.custom_zatca_submit_status = response_json.get(zatca_status_field)
-        doc.custom_zatca_submit_time = frappe.utils.now_datetime()
+        doc.custom_zatca_submit_time = datetime.now(RIYADH_TZ)
         doc.custom_validation_results = json.dumps(response_json.get('validationResults', ''))
 
         doc.custom_seller_name = seller.get('organizationName')
@@ -344,7 +350,7 @@ def generate_einvoice(doc, method):
 def update_status_on_error(doc, status, validation_results):
     frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_status", status, update_modified=True)
     frappe.db.set_value("Sales Invoice", doc.name, "custom_validation_results", validation_results, update_modified=True)
-    frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_time", frappe.utils.now_datetime(), update_modified=True)
+    frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_time", datetime.now(RIYADH_TZ), update_modified=True)
     frappe.db.commit()
 
 def get_payment_means_code(payment_means):
@@ -469,7 +475,7 @@ def validate_delivery_date(delivery_date, invoice_date, customer_type):
         if del_date > inv_date:
             frappe.throw("Delivery Date is not valid, the supply must occur on or before the tax invoice date.")
     elif customer_type == "Individual":  # Delivery Date must be today, otherwise throw an error
-        if del_date.date() != datetime.now().date():
+        if del_date.date() != datetime.now(RIYADH_TZ).date():
             frappe.throw("Delivery Date is not valid, Delivery Date must be today")
     else:
         frappe.throw("Customer Type is not Supported")
