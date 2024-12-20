@@ -9,11 +9,9 @@
  "field_order": [
   "input_section",
   "column_break_btvk",
-  "otp",
-  "column_break_bmay",
   "csr_settings",
-  "column_break_yqaw",
-  "buyer",
+  "column_break_bmay",
+  "otp",
   "generated_compliance_csid_section",
   "request_id",
   "disposition_message",
@@ -46,17 +44,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "column_break_yqaw",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "buyer",
-   "fieldtype": "Link",
-   "label": "Test Customer",
-   "options": "Customer",
-   "reqd": 1
-  },
-  {
    "fieldname": "generated_compliance_csid_section",
    "fieldtype": "Section Break",
    "label": "Generated Compliance CSID",
@@ -86,7 +73,7 @@
   },
   {
    "fieldname": "errors",
-   "fieldtype": "Small Text",
+   "fieldtype": "Long Text",
    "label": "Errors",
    "no_copy": 1,
    "read_only": 1
@@ -194,7 +181,7 @@
    "link_fieldname": "compliance_csid"
   }
  ],
- "modified": "2024-01-10 13:04:50.900353",
+ "modified": "2024-12-21 00:36:39.365393",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Compliance CSID",

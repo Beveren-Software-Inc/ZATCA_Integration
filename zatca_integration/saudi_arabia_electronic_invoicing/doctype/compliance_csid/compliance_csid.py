@@ -10,7 +10,7 @@ import base64
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
-from zatca_integration.common_util import get_seller_information, get_buyer_information, generate_clearance_request, generate_reporting_request
+from zatca_integration.common_util import get_seller_information, generate_clearance_request, generate_reporting_request
 
 
 class ComplianceCSID(Document):
@@ -22,12 +22,9 @@ class ComplianceCSID(Document):
 
 	@frappe.whitelist()
 	def genereate_zatca_compliance_csid(self):
-
-		# Get ZATCA CSR Settings and ZATCA Environment
 		csr_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
 		zatca_environment = frappe.get_doc("Zatca Environment", csr_settings.zatca_environment)
 
-		# Make Call to ZATCA Compliance CSID API to get Compliance CSID
 		headers = {
 			'accept': 'application/json',
 			'OTP': self.otp,
@@ -37,17 +34,14 @@ class ComplianceCSID(Document):
 		data = {
 			"csr": csr_settings.csr
 		}
-		response = requests.post(zatca_environment.compliance_csid_api, headers=headers, json=data)
 
 		try:
+			response = requests.post(zatca_environment.compliance_csid_api, headers=headers, json=data)
+			response.raise_for_status()  # Raise an HTTPError for bad responses (4xx and 5xx)
+			
 			response_json = response.json()
 			print(response_json)
-		except ValueError:
-			# Handle the case where response is not in JSON format
-			response_json = None
 
-		if response.status_code == 200 and response_json is not None:
-			# If response is 200 OK and JSON format, extract the necessary data
 			self.created_time = frappe.utils.now_datetime()
 			self.request_id = response_json.get('requestID', '')
 			self.disposition_message = response_json.get('dispositionMessage', '')
@@ -55,22 +49,32 @@ class ComplianceCSID(Document):
 			self.secret = response_json.get('secret', '')
 			self.errors = response_json.get('errors', '{}')
 
-			# Update Zatca Compliance CSID Status False
 			self.reset_compliance_csid_status(False)
 			self.save()
-		else:
-			# If response is not 200 OK or not JSON, handle the error case
-			if response_json:
-				# If there is a JSON response, use it
-				self.errors = response_json
-			else:
-				# If there is no JSON response, use the response text or a default error message
-				self.errors = response.text if response.text else 'Error with no response data'
-			self.save()
-			print(response.status_code)
-			print(self.errors)
-			# Raise an exception with the error message	
-			frappe.throw("Error in generating ZATCA Compliance CSID")
+
+		except requests.exceptions.HTTPError as http_err:
+			self.handle_error(response, f"HTTP error occurred: {http_err}")
+		except requests.exceptions.ConnectionError as conn_err:
+			self.handle_error(response, f"Connection error occurred: {conn_err}")
+		except requests.exceptions.Timeout as timeout_err:
+			self.handle_error(response, f"Timeout error occurred: {timeout_err}")
+		except requests.exceptions.RequestException as req_err:
+			self.handle_error(response, f"An error occurred: {req_err}")
+		except ValueError as json_err:
+			self.handle_error(response, f"JSON parsing error: {json_err}")
+	
+	def handle_error(self, response, error_message):
+		"""Handle errors by logging and raising an exception."""
+		error_details = [error_message]
+
+		if response is not None:
+			error_details.append(f"Response Text: {response.text if response.text else 'No response text'}")
+
+		self.errors = "\n".join(error_details)
+		self.save(); frappe.db.commit()
+
+		frappe.throw(f"Error in generating ZATCA Compliance CSID: {error_message}")
+
 
 	@frappe.whitelist()
 	def validate_zatca_compliance_csid(self):
@@ -85,8 +89,7 @@ class ComplianceCSID(Document):
 		seller = get_seller_information(csr_settings)
 
 		# Buyer Information
-		test_buyer = frappe.get_doc("Customer", self.buyer) 
-		buyer = get_buyer_information(test_buyer)
+		buyer = get_buyer_information()
 
 		if csr_settings.csrinvoicetype == "1100":
 			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
@@ -340,3 +343,15 @@ def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previous
         "xml": standard_invoice_xml,
     }
     return standard_invoice
+
+def get_buyer_information():
+	return {
+		"organizationName": "Panda Retail Company",
+		"vatNumber": "300056521610003",
+		"streetName": "Taha Khasiyfan",
+		"buildingNumber": "2444",
+		"citySubdivisionName": "Ash Shati",
+		"cityName": "Jeddah",
+		"postalZone": "23511",
+		"countryCode": "SA"
+	}
