@@ -282,7 +282,7 @@ def generate_einvoice(doc, method):
             'response_body': json.dumps(response_json),
             'backend_elapsed_time': backend_time_taken * 1000,
             'zatca_elapsed_time': zatca_time_taken * 1000,
-            'transaction_time': datetime.now(RIYADH_TZ),
+            'transaction_time': 'transaction_time': frappe.utils.now_datetime(),
         })
     transaction.insert()
 
@@ -294,7 +294,7 @@ def generate_einvoice(doc, method):
         doc.custom_invoice_icv = invoiceCounterValue
 
         doc.custom_zatca_submit_status = response_json.get(zatca_status_field)
-        doc.custom_zatca_submit_time = datetime.now(RIYADH_TZ)
+        doc.custom_zatca_submit_time = frappe.utils.now_datetime()
         doc.custom_validation_results = json.dumps(response_json.get('validationResults', ''))
 
         doc.custom_seller_name = seller.get('organizationName')
@@ -350,7 +350,7 @@ def generate_einvoice(doc, method):
 def update_status_on_error(doc, status, validation_results):
     frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_status", status, update_modified=True)
     frappe.db.set_value("Sales Invoice", doc.name, "custom_validation_results", validation_results, update_modified=True)
-    frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_time", datetime.now(RIYADH_TZ), update_modified=True)
+    frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_time", frappe.utils.now_datetime(), update_modified=True)
     frappe.db.commit()
 
 def get_payment_means_code(payment_means):
