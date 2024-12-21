@@ -88,15 +88,24 @@ class ComplianceCSID(Document):
 		if csr_settings.csrinvoicetype == "1100":
 			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
 			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
+			if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note and self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
+				self.save(); frappe.db.commit()
+				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
 		elif csr_settings.csrinvoicetype == "1000":
 			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
+			if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note):
+				self.save(); frappe.db.commit()
+				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
 		elif csr_settings.csrinvoicetype == "0100":
 			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
+			if not (self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
+				self.save(); frappe.db.commit()
+				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
 		else:
 			frappe.throw("Invalid Invoice Type in ZATCA CSR Settings : " + csr_settings.csrinvoicetype)
 		
 		self.save()
-	
+
 	def set_invoice_status(self, invoice_type, status, note_type):
 		"""Set the status of the invoice or note."""
 		if invoice_type == "standard":
@@ -150,16 +159,13 @@ class ComplianceCSID(Document):
 		"""Invoke compliance invoice API."""
 		zatca_environment = frappe.get_doc("Zatca Environment", csr_settings.zatca_environment)
 
-		try:
-			if invoice_type == "standard":
-				invoice_request = generate_clearance_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, invoice_xml)
-			elif invoice_type == "simplified":
-				invoice_request = generate_reporting_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, csr_settings.private_key, self.decode_certificate(self.binary_security_token), invoice_xml)
-			else:
-				frappe.throw(f"Invalid Invoice Type: {invoice_type}")
-		except requests.exceptions.RequestException as e:
-			frappe.throw(f"Error generating invoice request: {e}")
-		
+		if invoice_type == "standard":
+			invoice_request = generate_clearance_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, invoice_xml)
+		elif invoice_type == "simplified":
+			invoice_request = generate_reporting_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, csr_settings.private_key, self.decode_certificate(self.binary_security_token), invoice_xml)
+		else:
+			frappe.throw(f"Invalid Invoice Type: {invoice_type}")
+
 		headers = {
 			'accept': 'application/json',
 			'Accept-Language': 'en',

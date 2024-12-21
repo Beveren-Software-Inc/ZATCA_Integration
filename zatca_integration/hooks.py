@@ -44,7 +44,7 @@ doctype_list_js = {"Sales Invoice" : "customization/sales_invoice/sales_invoice_
 # include app icons in desk
 # app_include_icons = "zatca_integration/public/icons.svg"
 
-# bench --site zatca.local export-fixtures
+# bench --site amcc.local export-fixtures
 fixtures = [
     "Zatca Environment",
     { 
@@ -53,6 +53,12 @@ fixtures = [
             "name": "ZATCA"
         }
     },
+    {
+        "dt": "Workspace",
+        "filters": {
+            "name": "ZATCA Integrations"
+        }
+    }
     # "Sales Taxes and Charges Template",
     # { 
     #     "dt": "Zatca CSR Settings",

@@ -11,13 +11,17 @@ class ZatcaCSRSettings(Document):
 	def before_save(self):
 		if not self.csrserialnumber:
 			self.csrserialnumber = self.generate_serial_number()
+
+		if not isinstance(self.building_number, int) or not (1000 <= self.building_number <= 9999):
+			frappe.throw("Building Number must be a 4-digit integer")
+
+		if not isinstance(self.postal_zone, int) or not (10000 <= self.postal_zone <= 99999):
+			frappe.throw("Postal Zone must be a 5-digit integer")
 		
-	#self.genereate_csr()
 	def generate_serial_number(self):
 		serial_number = str(uuid.uuid4())
 		return "1-ERPNext|2-V15|3-" + serial_number
 
-	#TODO: Add button Generate CSR
 	@frappe.whitelist()
 	def genereate_csr(self):
 		
