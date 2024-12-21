@@ -37,10 +37,8 @@ class ComplianceCSID(Document):
 
 		try:
 			response = requests.post(zatca_environment.compliance_csid_api, headers=headers, json=data)
-			response.raise_for_status()  # Raise an HTTPError for bad responses (4xx and 5xx)
-			
+			response.raise_for_status()
 			response_json = response.json()
-			print(response_json)
 
 			self.created_time = frappe.utils.now_datetime()
 			self.request_id = response_json.get('requestID', '')
@@ -52,12 +50,6 @@ class ComplianceCSID(Document):
 			self.reset_compliance_csid_status(False)
 			self.save()
 
-		except requests.exceptions.HTTPError as http_err:
-			self.handle_error(response, f"HTTP error occurred: {http_err}")
-		except requests.exceptions.ConnectionError as conn_err:
-			self.handle_error(response, f"Connection error occurred: {conn_err}")
-		except requests.exceptions.Timeout as timeout_err:
-			self.handle_error(response, f"Timeout error occurred: {timeout_err}")
 		except requests.exceptions.RequestException as req_err:
 			self.handle_error(response, f"An error occurred: {req_err}")
 		except ValueError as json_err:
