@@ -146,16 +146,19 @@ class ComplianceCSID(Document):
 		elif invoice_type == "simplified":
 			self.simplified_debit_note = debit_note_status
 
-	def invoke_compliance_invoice_api(self, invoiceType, csr_settings, invoice_xml):
+	def invoke_compliance_invoice_api(self, invoice_type, csr_settings, invoice_xml):
 		"""Invoke compliance invoice API."""
 		zatca_environment = frappe.get_doc("Zatca Environment", csr_settings.zatca_environment)
 
-		if invoiceType == "standard":
-			invoice_request = generate_clearance_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, invoice_xml)
-		elif invoiceType == "simplified":
-			invoice_request = generate_reporting_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, csr_settings.private_key, self.decode_certificate(self.binary_security_token), invoice_xml)
-		else:
-			frappe.throw("Invalid Invoice Type, type: " + invoiceType)
+		try:
+			if invoice_type == "standard":
+				invoice_request = generate_clearance_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, invoice_xml)
+			elif invoice_type == "simplified":
+				invoice_request = generate_reporting_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, csr_settings.private_key, self.decode_certificate(self.binary_security_token), invoice_xml)
+			else:
+				frappe.throw(f"Invalid Invoice Type: {invoice_type}")
+		except requests.exceptions.RequestException as e:
+			frappe.throw(f"Error generating invoice request: {e}")
 		
 		headers = {
 			'accept': 'application/json',
@@ -164,10 +167,30 @@ class ComplianceCSID(Document):
 			'Content-Type': 'application/json'
 		}
 
-		response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
+		try:
+			response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
+			response_code = response.status_code
+			response_text = response.text
+			response_headers = dict(response.headers)
+		except requests.exceptions.RequestException as e:
+			response_code = None
+			response_text = str(e)
+			response_headers = {}
 
-		print(response.json())
-
+		# Save the request and response details
+		transaction = frappe.get_doc({
+			'doctype': 'CSID Transactions',
+			'compliance_csid': self.name,
+			'request_url': zatca_environment.compliance_invoice_api,
+			'request_header': json.dumps(headers),
+			'request_body': json.dumps(invoice_request),
+			'response_code': response_code,
+			'response_header': json.dumps(response_headers),
+			'response_body': response_text,
+			'transaction_time': frappe.utils.now_datetime(),
+		})
+		transaction.insert()
+		
 		if response.status_code == 200:
 			return True, invoice_request["invoiceHash"]
 		else:
