@@ -44,7 +44,7 @@ doctype_list_js = {"Sales Invoice" : "customization/sales_invoice/sales_invoice_
 # include app icons in desk
 # app_include_icons = "zatca_integration/public/icons.svg"
 
-# bench --site amcc.local export-fixtures
+# bench --site zatca.local export-fixtures
 fixtures = [
     "Zatca Environment",
     { 
@@ -58,20 +58,13 @@ fixtures = [
         "filters": {
             "name": "ZATCA Integrations"
         }
+    },
+    {
+        "dt": "Print Format",
+        "filters": {
+            "name": "ZATCA"
+        }
     }
-    # "Sales Taxes and Charges Template",
-    # { 
-    #     "dt": "Zatca CSR Settings",
-    #     "filters": {
-    #         "name": "Sandbox Default Supplier"
-    #     }
-    # },
-    # {
-    #     "dt": "Custom Field",
-    #     "filters": {
-    #         "dt": "Customer"
-    #     }
-    # },
 ]
 
 # Home Pages
