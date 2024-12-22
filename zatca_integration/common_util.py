@@ -12,22 +12,21 @@ def validate_pos_invoice(doc, method):
 
 def generate_clearance_request(url, clientId, clientSecret, invoice):
     url = url + 'generateClearanceRequest'
-    # Set the headers
     headers = {
         'clientId': clientId,
         'clientSecret': clientSecret,
         'Content-Type': 'application/json'
     }
-
-    # Encode the string into bytes, then encode it using base64
     data = {
         'invoice': encode_invoice(invoice)
     }
 
     try:
-        # Make the POST request
         response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
         response_json = response.json()
+    except requests.exceptions.RequestException as e:
+        frappe.throw(f"Error in generating clearance request: {e}")
     except requests.exceptions.JSONDecodeError:
         frappe.throw("Error in generating clearance request from backend")
 
@@ -35,7 +34,6 @@ def generate_clearance_request(url, clientId, clientSecret, invoice):
 
 def generate_reporting_request(url, clientId, clientSecret, privateKey, pemCertificate, invoice):
     url = url + 'generateReportingRequest'
-    # Set the headers
     headers = {
         'clientId': clientId,
         'clientSecret': clientSecret,
@@ -43,16 +41,16 @@ def generate_reporting_request(url, clientId, clientSecret, privateKey, pemCerti
         'pemCertificate': pemCertificate,
         'Content-Type': 'application/json'
     }
-
-    # Encode the string into bytes, then encode it using base64
     data = {
         'invoice': encode_invoice(invoice)
     }
 
     try:
-        # Make the POST request
         response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
         response_json = response.json()
+    except requests.exceptions.RequestException as e:
+        frappe.throw(f"Error in generating reporting request: {e}")
     except requests.exceptions.JSONDecodeError:
         frappe.throw("Error in generating reporting request from backend")
 
@@ -136,7 +134,6 @@ def get_buyer_information(customer_name):
         }
     else:
         frappe.throw("Invalid Customer Type")
-
 
 def get_seller_information(csr_settings):
 

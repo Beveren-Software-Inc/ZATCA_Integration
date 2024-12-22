@@ -21,7 +21,13 @@ frappe.ui.form.on("Compliance CSID", {
                     if(!r.exc) {
                         frappe.show_alert({message:__('Compliance CSID Generated Successfully!'), indicator:'green'});
                         frm.reload_doc();
+                    } else {
+                        frappe.show_alert({ message: __('Failed to Generate Compliance CSID'), indicator: 'red' });
                     }
+                },
+                error: function(r) {
+                    frappe.hide_progress();
+                    frappe.show_alert({ message: __('Failed to Generate Compliance CSID'), indicator: 'red' });
                 }
             });
         });
@@ -39,7 +45,13 @@ frappe.ui.form.on("Compliance CSID", {
                     if(!r.exc) {
                         frappe.show_alert({message:__('Compliance CSID Validated Successfully!'), indicator:'green'});
                         frm.reload_doc();
+                    } else {
+                        frappe.show_alert({ message: __('Failed to Validate Compliance CSID'), indicator: 'red' });
                     }
+                },
+                error: function(r) {
+                    frappe.hide_progress();
+                    frappe.show_alert({ message: __('Failed to Validate Compliance CSID'), indicator: 'red' });
                 }
             });
         })

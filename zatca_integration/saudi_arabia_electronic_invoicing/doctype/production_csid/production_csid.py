@@ -17,47 +17,25 @@ class ProductionCSID(Document):
 		csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
 
 		if csr_settings.csrinvoicetype == "1100":
-			if not compliance_csid.standard_invoice:
-				frappe.throw("Standrd Invoice is not Validated. Please Validate it first.")
-			if not compliance_csid.standard_debit_note:
-				frappe.throw("Standard Debit Note is not Validated. Please Validate it first.")
-			if not compliance_csid.standard_credit_note:
-				frappe.throw("Standard Credit Note is not Validated. Please Validate it first.")
-			if not compliance_csid.simplified_invoice:
-				frappe.throw("Simplified Invoice is not Validated. Please Validate it first.")
-			if not compliance_csid.simplified_debit_note:
-				frappe.throw("Simplified Debit Note is not Validated. Please Validate it first.")
-			if not compliance_csid.simplified_credit_note:
-				frappe.throw("Simplified Credit Note is not Validated. Please Validate it first.")
+			if not (compliance_csid.standard_invoice and compliance_csid.standard_debit_note and compliance_csid.standard_credit_note and
+					compliance_csid.simplified_invoice and compliance_csid.simplified_debit_note and compliance_csid.simplified_credit_note):
+				frappe.throw("All standard and simplified invoices, debit notes, and credit notes must be validated for type 1100.")
 		elif csr_settings.csrinvoicetype == "1000":
-			if not compliance_csid.standard_invoice:
-				frappe.throw("Standrd Invoice is not Validated. Please Validate it first.")
-			if not compliance_csid.standard_debit_note:
-				frappe.throw("Standard Debit Note is not Validated. Please Validate it first.")
-			if not compliance_csid.standard_credit_note:
-				frappe.throw("Standard Credit Note is not Validated. Please Validate it first.")
+			if not (compliance_csid.standard_invoice and compliance_csid.standard_debit_note and compliance_csid.standard_credit_note):
+				frappe.throw("All standard invoices, debit notes, and credit notes must be validated for type 1000.")
 		elif csr_settings.csrinvoicetype == "0100":
-			if not compliance_csid.simplified_invoice:
-				frappe.throw("Simplified Invoice is not Validated. Please Validate it first.")
-			if not compliance_csid.simplified_debit_note:
-				frappe.throw("Simplified Debit Note is not Validated. Please Validate it first.")
-			if not compliance_csid.simplified_credit_note:
-				frappe.throw("Simplified Credit Note is not Validated. Please Validate it first.")
+			if not (compliance_csid.simplified_invoice and compliance_csid.simplified_debit_note and compliance_csid.simplified_credit_note):
+				frappe.throw("All simplified invoices, debit notes, and credit notes must be validated for type 0100.")
 		else:
-			frappe.throw("Invalid Invoice Type in ZATCA CSR Settings : " + csr_settings.csrinvoicetype)
-
-		pass
+			frappe.throw("Invalid Invoice Type in ZATCA CSR Settings: " + csr_settings.csrinvoicetype)
 	
 	@frappe.whitelist()
 	def genereate_zatca_production_csid(self):
 		
-		# Get ZATCA Settings and ZATCA Environment
 		compliance_csid = frappe.get_doc("Compliance CSID", self.compliance_csid)
 		zatca_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
 		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
-		
 
-		# Make Call to ZATCA Production CSID API to get Production CSID
 		headers = {
 			'accept': 'application/json',
 			'Accept-Version': 'V2',
@@ -66,22 +44,12 @@ class ProductionCSID(Document):
 		data = {
 			"compliance_request_id": compliance_csid.request_id
 		}
-		response = requests.post(
-			zatca_environment.production_csid_api, 
-			headers=headers,
-			auth=HTTPBasicAuth(compliance_csid.binary_security_token, compliance_csid.secret), 
-			json=data
-		)
 
 		try:
+			response = requests.post(zatca_environment.production_csid_api, headers=headers, auth=HTTPBasicAuth(compliance_csid.binary_security_token, compliance_csid.secret), json=data)
+			response.raise_for_status()
 			response_json = response.json()
-			print(response_json)
-		except ValueError:
-			# Handle the case where response is not in JSON format
-			response_json = None
-
-		if response.status_code == 200 and response_json is not None:
-			# If response is 200 OK and JSON format, extract the necessary data
+			
 			self.is_active = True
 			self.created_time = frappe.utils.now_datetime()
 			self.request_id = response_json.get('requestID', '')
@@ -90,19 +58,24 @@ class ProductionCSID(Document):
 			self.token_type = response_json.get('tokenType', '')
 			self.secret = response_json.get('secret', '')
 			self.errors = response_json.get('errors', '{}')
+			
 			self.save()
-		else:
-			# If response is not 200 OK or not JSON, handle the error case
-			if response_json:
-				# If there is a JSON response, use it
-				self.errors = response_json
-			else:
-				# If there is no JSON response, use the response text or a default error message
-				self.errors = response.text if response.text else 'Error with no response data'
-			self.save()
-			print(response.status_code)
-			print(self.errors)
-			# Raise an exception with the error message	
-			frappe.throw("Error in generating ZATCA Production CSID")
+		
+		except requests.exceptions.RequestException as req_err:
+			self.handle_error(response, f"An error occurred: {req_err}")
+		except ValueError as json_err:
+			self.handle_error(response, f"JSON parsing error: {json_err}")
+
+	def handle_error(self, response, error_message):
+		"""Handle errors by logging and raising an exception."""
+		error_details = [error_message]
+
+		if response is not None:
+			error_details.append(f"Response Text: {response.text if response.text else 'No response text'}")
+
+		self.errors = "\n".join(error_details)
+		self.save(); frappe.db.commit()
+
+		frappe.throw(f"Error in generating ZATCA Production CSID: {self.errors}")
 
 

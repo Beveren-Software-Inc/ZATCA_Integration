@@ -1,0 +1,120 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:REQ-{compliance_csid}-{####}",
+ "creation": "2024-12-21 21:08:42.589074",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "compliance_csid",
+  "request_header",
+  "column_break_qlxk",
+  "request_url",
+  "request_body",
+  "section_break_lipn",
+  "transaction_time",
+  "response_header",
+  "column_break_pkcm",
+  "response_code",
+  "response_body"
+ ],
+ "fields": [
+  {
+   "fieldname": "compliance_csid",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "CSID",
+   "no_copy": 1,
+   "options": "Compliance CSID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_qlxk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "request_header",
+   "fieldtype": "Small Text",
+   "label": "Request Header",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_body",
+   "fieldtype": "Long Text",
+   "label": "Request Body",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_url",
+   "fieldtype": "Data",
+   "label": "URL",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_lipn",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "transaction_time",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Transaction Time",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "response_header",
+   "fieldtype": "Small Text",
+   "label": "Response Header",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_pkcm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "response_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Response Code",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "response_body",
+   "fieldtype": "Long Text",
+   "label": "Response Body",
+   "no_copy": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-12-21 21:52:21.396780",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "CSID Transactions",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

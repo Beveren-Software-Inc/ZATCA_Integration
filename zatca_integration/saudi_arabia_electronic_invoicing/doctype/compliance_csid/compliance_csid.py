@@ -10,7 +10,7 @@ import base64
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
-from zatca_integration.common_util import get_seller_information, get_buyer_information, generate_clearance_request, generate_reporting_request
+from zatca_integration.common_util import generate_clearance_request, generate_reporting_request
 
 
 class ComplianceCSID(Document):
@@ -22,12 +22,9 @@ class ComplianceCSID(Document):
 
 	@frappe.whitelist()
 	def genereate_zatca_compliance_csid(self):
-
-		# Get ZATCA CSR Settings and ZATCA Environment
 		csr_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
 		zatca_environment = frappe.get_doc("Zatca Environment", csr_settings.zatca_environment)
 
-		# Make Call to ZATCA Compliance CSID API to get Compliance CSID
 		headers = {
 			'accept': 'application/json',
 			'OTP': self.otp,
@@ -37,17 +34,12 @@ class ComplianceCSID(Document):
 		data = {
 			"csr": csr_settings.csr
 		}
-		response = requests.post(zatca_environment.compliance_csid_api, headers=headers, json=data)
 
 		try:
+			response = requests.post(zatca_environment.compliance_csid_api, headers=headers, json=data)
+			response.raise_for_status()
 			response_json = response.json()
-			print(response_json)
-		except ValueError:
-			# Handle the case where response is not in JSON format
-			response_json = None
 
-		if response.status_code == 200 and response_json is not None:
-			# If response is 200 OK and JSON format, extract the necessary data
 			self.created_time = frappe.utils.now_datetime()
 			self.request_id = response_json.get('requestID', '')
 			self.disposition_message = response_json.get('dispositionMessage', '')
@@ -55,138 +47,117 @@ class ComplianceCSID(Document):
 			self.secret = response_json.get('secret', '')
 			self.errors = response_json.get('errors', '{}')
 
-			# Update Zatca Compliance CSID Status False
 			self.reset_compliance_csid_status(False)
 			self.save()
-		else:
-			# If response is not 200 OK or not JSON, handle the error case
-			if response_json:
-				# If there is a JSON response, use it
-				self.errors = response_json
-			else:
-				# If there is no JSON response, use the response text or a default error message
-				self.errors = response.text if response.text else 'Error with no response data'
-			self.save()
-			print(response.status_code)
-			print(self.errors)
-			# Raise an exception with the error message	
-			frappe.throw("Error in generating ZATCA Compliance CSID")
+
+		except requests.exceptions.RequestException as req_err:
+			self.handle_error(response, f"An error occurred: {req_err}")
+		except ValueError as json_err:
+			self.handle_error(response, f"JSON parsing error: {json_err}")
+	
+	def handle_error(self, response, error_message):
+		"""Handle errors by logging and raising an exception."""
+		error_details = [error_message]
+
+		if response is not None:
+			error_details.append(f"Response Text: {response.text if response.text else 'No response text'}")
+
+		self.errors = "\n".join(error_details)
+		self.save(); frappe.db.commit()
+
+		frappe.throw(f"Error in generating ZATCA Compliance CSID: {error_message}")
 
 	@frappe.whitelist()
 	def validate_zatca_compliance_csid(self):
-
-		if self.binary_security_token is None or self.binary_security_token == "":
+		"""Validate ZATCA Compliance CSID."""
+		if not self.binary_security_token:
 			frappe.throw("Binary Security Token is not generated. Please Generate ZATCA Compliance CSID")
 
-		# Get ZATCA Settings
 		csr_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
-
-		# Seller Information
 		seller = get_seller_information(csr_settings)
-
-		# Buyer Information
-		test_buyer = frappe.get_doc("Customer", self.buyer) 
-		buyer = get_buyer_information(test_buyer)
+		buyer = get_buyer_information()
 
 		if csr_settings.csrinvoicetype == "1100":
 			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
 			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
+			if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note and self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
+				self.save(); frappe.db.commit()
+				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
 		elif csr_settings.csrinvoicetype == "1000":
 			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
+			if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note):
+				self.save(); frappe.db.commit()
+				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
 		elif csr_settings.csrinvoicetype == "0100":
 			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
+			if not (self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
+				self.save(); frappe.db.commit()
+				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
 		else:
 			frappe.throw("Invalid Invoice Type in ZATCA CSR Settings : " + csr_settings.csrinvoicetype)
 		
-		# Update Zatca Compliance CSID Status
 		self.save()
 
-	def invoke_complaince_check(self, invoiceType, csr_settings, seller, buyer):
+	def set_invoice_status(self, invoice_type, status, note_type):
+		"""Set the status of the invoice or note."""
+		if invoice_type == "standard":
+			if note_type == "invoice":
+				self.standard_invoice = status
+			elif note_type == "credit_note":
+				self.standard_credit_note = status
+			elif note_type == "debit_note":
+				self.standard_debit_note = status
+		elif invoice_type == "simplified":
+			if note_type == "invoice":
+				self.simplified_invoice = status
+			elif note_type == "credit_note":
+				self.simplified_credit_note = status
+			elif note_type == "debit_note":
+				self.simplified_debit_note = status
 
+	def invoke_complaince_check(self, invoice_type, csr_settings, seller, buyer):
+		"""Invoke compliance check for the given invoice type."""
 		first_invoice_hash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
 
-		# Compliance Standard Invoice
-		print("####  Tax Invoice START #### InvoiceType: " + invoiceType + " ####)")
-		tax_invoice = generate_tax_invoice_xml(
-			invoiceType, "INV-00001", seller, buyer,
-			first_invoice_hash
-		)
-		print(tax_invoice["xml"])
-		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, tax_invoice["xml"])
-		if invoiceType == "standard":
+		# Issue Invoice
+		tax_invoice = generate_tax_invoice_xml(invoice_type, "INV-00001", seller, buyer, first_invoice_hash)
+		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, tax_invoice["xml"])
+		if invoice_type == "standard":
 			self.standard_invoice = tax_invoice_status
-		elif invoiceType == "simplified":
+		elif invoice_type == "simplified":
 			self.simplified_invoice = tax_invoice_status
-		print("####  Tax Invoice END #### InvoiceType: " + invoiceType + " ####)")
 
-		# Compliance Standard Credit Note
-		print("####  Credit Note START #### InvoiceType: " + invoiceType + " ####)")
-		credit_note = generate_credit_note_xml(
-			invoiceType, "INV-00002", seller, buyer, 
-			tax_invoice["invoiceNumber"], 
-			tax_invoice["invoiceDeliveryDate"], 
-			tax_invoice_hash
-		)
-		print(credit_note["xml"])
-		credit_note_status, credit_note_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, credit_note["xml"])
-		if invoiceType == "standard":
+		# Issue Credit Note
+		credit_note = generate_credit_note_xml(invoice_type, "INV-00002", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
+		credit_note_status, credit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, credit_note["xml"])
+		if invoice_type == "standard":
 			self.standard_credit_note = credit_note_status
-		elif invoiceType == "simplified":
+		elif invoice_type == "simplified":
 			self.simplified_credit_note = credit_note_status
-		print("####  Credit Note END #### InvoiceType: " + invoiceType + " ####)")
 
-		# Compliance Standard Invoice
-		print("####  Tax Invoice START #### InvoiceType: " + invoiceType + " ####)")
-		tax_invoice = generate_tax_invoice_xml(
-			invoiceType, "INV-00003", seller, buyer,
-			credit_note_hash
-		)
-		print(tax_invoice["xml"])
-		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, tax_invoice["xml"])
-		print("####  Tax Invoice END #### InvoiceType: " + invoiceType + " ####)")
+		# Issue Invoice
+		tax_invoice = generate_tax_invoice_xml(invoice_type, "INV-00003", seller, buyer, credit_note_hash)
+		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, tax_invoice["xml"])
 
-		# Compliance Debit Note
-		print("####  Debit Note START #### InvoiceType: " + invoiceType + " ####)")
-		debit_note = generate_debit_note_xml(
-			invoiceType, "INV-00004", seller, buyer, 
-			tax_invoice["invoiceNumber"], 
-			tax_invoice["invoiceDeliveryDate"], 
-			tax_invoice_hash
-		)
-		print(credit_note["xml"])
-		debit_note_status, debit_note_hash = self.invoke_compliance_invoice_api(invoiceType, csr_settings, debit_note["xml"])
-		if invoiceType == "standard":
+		# Issue Debit Note
+		debit_note = generate_debit_note_xml(invoice_type, "INV-00004", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
+		debit_note_status, debit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, debit_note["xml"])
+		if invoice_type == "standard":
 			self.standard_debit_note = debit_note_status
-		elif invoiceType == "simplified":
+		elif invoice_type == "simplified":
 			self.simplified_debit_note = debit_note_status
-		print("####  Debit Note END #### InvoiceType: " + invoiceType + " ####)")
 
-	def invoke_compliance_invoice_api(self, invoiceType, csr_settings, invoice_xml):
-
+	def invoke_compliance_invoice_api(self, invoice_type, csr_settings, invoice_xml):
+		"""Invoke compliance invoice API."""
 		zatca_environment = frappe.get_doc("Zatca Environment", csr_settings.zatca_environment)
 
-		if invoiceType == "standard":
-			# Generate Clearance Request from Backend
-			invoice_request = generate_clearance_request(
-				zatca_environment.csr_generate_api,
-				zatca_environment.client_id,
-				zatca_environment.client_secret,
-				invoice_xml
-			)
-		elif invoiceType == "simplified":
-			# Generate Reporting Request from Backend
-			invoice_request = generate_reporting_request(
-				zatca_environment.csr_generate_api,
-				zatca_environment.client_id,
-				zatca_environment.client_secret,
-				csr_settings.private_key,
-				self.decode_certificate(self.binary_security_token),
-				invoice_xml
-			)
+		if invoice_type == "standard":
+			invoice_request = generate_clearance_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, invoice_xml)
+		elif invoice_type == "simplified":
+			invoice_request = generate_reporting_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, csr_settings.private_key, self.decode_certificate(self.binary_security_token), invoice_xml)
 		else:
-			frappe.throw("Invalid Invoice Type, type: " + invoiceType)
-		
-		# Post Invoice Request to Zatca Compliance Invoice API
+			frappe.throw(f"Invalid Invoice Type: {invoice_type}")
+
 		headers = {
 			'accept': 'application/json',
 			'Accept-Language': 'en',
@@ -194,22 +165,37 @@ class ComplianceCSID(Document):
 			'Content-Type': 'application/json'
 		}
 
-		# Post Zatca Compliance Invoice API
-		response = requests.post(
-			zatca_environment.compliance_invoice_api, 
-			headers=headers, 
-			auth=HTTPBasicAuth(self.binary_security_token, self.secret), 
-			data=json.dumps(invoice_request)
-		)
+		try:
+			response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
+			response_code = response.status_code
+			response_text = response.text
+			response_headers = dict(response.headers)
+		except requests.exceptions.RequestException as e:
+			response_code = None
+			response_text = str(e)
+			response_headers = {}
 
-		print(response.json())
-
+		# Save the request and response details
+		transaction = frappe.get_doc({
+			'doctype': 'CSID Transactions',
+			'compliance_csid': self.name,
+			'request_url': zatca_environment.compliance_invoice_api,
+			'request_header': json.dumps(headers),
+			'request_body': json.dumps(invoice_request),
+			'response_code': response_code,
+			'response_header': json.dumps(response_headers),
+			'response_body': response_text,
+			'transaction_time': frappe.utils.now_datetime(),
+		})
+		transaction.insert()
+		
 		if response.status_code == 200:
 			return True, invoice_request["invoiceHash"]
 		else:
 			return False, None
 		
 	def reset_compliance_csid_status(self, status):
+		"""Reset the compliance CSID status."""
 		self.standard_invoice = status
 		self.standard_debit_note = status
 		self.standard_credit_note = status
@@ -218,6 +204,7 @@ class ComplianceCSID(Document):
 		self.simplified_credit_note = status
 
 	def decode_certificate(self, compliance_certificate):
+		"""Decode the compliance certificate from base64."""
 		decoded_compliance_certificate = base64.b64decode(compliance_certificate.encode('utf-8'))
 		return decoded_compliance_certificate.decode('utf-8')
 	
@@ -340,3 +327,41 @@ def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previous
         "xml": standard_invoice_xml,
     }
     return standard_invoice
+
+def get_buyer_information():
+	return {
+		"organizationName": "Panda Retail Company",
+		"vatNumber": "300056521610003",
+		"streetName": "Taha Khasiyfan",
+		"buildingNumber": "2444",
+		"citySubdivisionName": "Ash Shati",
+		"cityName": "Jeddah",
+		"postalZone": "23511",
+		"countryCode": "SA"
+	}
+
+def get_seller_information(csr_settings):
+    return {
+        "organizationName": csr_settings.csrorganizationname,
+        "vatNumber": csr_settings.csrorganizationidentifier,
+        "streetName": csr_settings.street_name,
+        "buildingNumber": csr_settings.building_number,
+        "citySubdivisionName": csr_settings.city_subdivision_name,
+        "cityName": csr_settings.city_name,
+        "postalZone": csr_settings.postal_zone,
+        "countryCode": csr_settings.csrcountryname,
+        "registrationNumber": csr_settings.registration_number,
+		"registrationScheme": get_registration_scheme_code(csr_settings.registration_scheme),
+		"registration_scheme": csr_settings.registration_scheme
+    }
+
+def get_registration_scheme_code(registration_scheme):
+    # Find the start and end indices of the parentheses
+    start = registration_scheme.find('(')
+    end = registration_scheme.find(')')
+
+    # Extract and return the text inside the parentheses
+    if start != -1 and end != -1:
+        return registration_scheme[start + 1:end]
+    else:
+        frappe.throw("Invalid Registration Scheme")
