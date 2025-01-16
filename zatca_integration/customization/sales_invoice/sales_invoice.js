@@ -3,13 +3,13 @@ frappe.ui.form.on('Sales Invoice', {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
         frm.trigger('filter_custom_shipping_address')
+        frm.trigger('get_valid_sales_invoices')
         
     },
     refresh: frm => {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
         frm.trigger('filter_custom_shipping_address')
-        frm.trigger('get_valid_sales_invoices')
     },
     validate: frm => {
         if (frm.doc.is_return === 1) {
