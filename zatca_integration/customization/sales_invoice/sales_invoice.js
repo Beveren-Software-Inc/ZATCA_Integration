@@ -3,13 +3,39 @@ frappe.ui.form.on('Sales Invoice', {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
         frm.trigger('filter_custom_shipping_address')
-        frm.trigger('get_valid_sales_invoices')
         
     },
     refresh: frm => {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
         frm.trigger('filter_custom_shipping_address')
+        
+        // Fetch valid sales invoices
+        frm.fields_dict['custom_credit_details'].grid.get_field('sales_invoice').get_query = function (doc, cdt, cdn) {
+            let row = locals[cdt][cdn];
+            const today = frappe.datetime.get_today();
+            const days = frm.doc.custom_days_count || 360; // Default to 360 days
+            const start_date = frappe.datetime.add_days(today, -days);
+
+            return {
+                query: "zatca_integration.customization.sales_invoice.sales_invoice.get_valid_sales_invoices",
+                filters: {
+                    customer: frm.doc.customer,
+                    shipping_address: frm.doc.custom_shipping_address || null,
+                    item_code: row.item,
+                    start_date: start_date
+                },
+                callback: function (r) {
+                    // Ensure r.message is not undefined
+                    if (r) {
+
+                    } else {
+                        frappe.msgprint(__('No data returned or an error occurred while fetching sales invoices.'));
+                    }
+                }
+            };
+        };
+        
     },
     validate: frm => {
         if (frm.doc.is_return === 1) {
@@ -44,7 +70,6 @@ frappe.ui.form.on('Sales Invoice', {
                 },
                 callback: function(r) {
                     if (r.message) {
-                        console.log(r.message);
                         // Set the payment method to the invoice
                         frm.set_value('custom_payment_means', r.message);
                     }
@@ -59,8 +84,6 @@ frappe.ui.form.on('Sales Invoice', {
         if(!frm.doc.custom_delivery_date){
             const items = frm.doc.items || [];
             const deliveryNotes = [...new Set(items.map(item => item.delivery_note).filter(Boolean))];
-
-            console.log(deliveryNotes);
 
             if (deliveryNotes.length > 0) {
                 frappe.call({
@@ -110,7 +133,7 @@ frappe.ui.form.on('Sales Invoice', {
                 },
                 callback: function(r) {
                     if (r && r.message) {
-                        console.log("Valid Sales Invoices:", r.message);
+
                     } else {
                         frappe.msgprint(__('No data returned or an error occurred while fetching sales invoices.'));
                     }
@@ -185,77 +208,79 @@ frappe.ui.form.on("Credit Details", {
         if (frm.doc.custom_credit_details) {
             frappe.model.set_value(cdt, cdn, 'qtr', -Math.abs(row.qtr)); // Ensure qty is negative
         }
-    },
-    fetch_sold_qty(frm, cdt, cdn) {
-        let row = frappe.get_doc(cdt, cdn);
-        if (row.item) {
-            frappe.call({
-                method: "zatca_integration.customization.sales_invoice.sales_invoice.get_batch",
-                args: {
-                    customer: frm.doc.customer,
-                    sales_invoice: row.sales_invoice,
-                    item: row.item
-                },
-                callback: function (r) {
-                    if (r.message) {
-                        r.message.forEach(item => {
-                            frappe.model.set_value(cdt, cdn, "sold_qty", item.qty);
-                            frappe.model.set_value(cdt, cdn, "available_qty_to_return", item.qty-row.total_returned_qty);
-                        });
-                        frm.refresh_field('custom_credit_details');
-                    }
-                }
-            });
-        }
-    },
-    fetch_returned_qty(frm, cdt, cdn) {
-        let row = frappe.get_doc(cdt, cdn);
-        if (row.item && row.sales_invoice) {
-            frappe.call({
-                method: "zatca_integration.customization.sales_invoice.sales_invoice.returned_qty",
-                args: {
-                    customer: frm.doc.customer,
-                    sales_invoice: row.sales_invoice,
-                    item: row.item
-                },
-                callback: function (r) {
-                    if (r.message ) {
-                        frappe.model.set_value(cdt, cdn, "already_returned_qty", r.message.total_returned_qty);
-                    } else {
-                        console.error("Unexpected response:", r.message);
-                    }
-                }
-            });
-        }
-    },
-    fetch_available_qty(frm, cdt, cdn) {
-        let row = frappe.get_doc(cdt, cdn);
-        if (row.item && row.sales_invoice) {
-            frappe.call({
-                method: "zatca_integration.customization.sales_invoice.sales_invoice.returned_qty",
-                args: {
-                    customer: frm.doc.customer,
-                    sales_invoice: row.sales_invoice,
-                    item: row.item
-                },
-                callback: function (r) {
-                    if (r.message) {
-                        let total_qtr = 0;
-                        (frm.doc.custom_credit_details || []).forEach(function (child_row) {
-                            if (
-                                child_row.sales_invoice === row.sales_invoice &&
-                                child_row.item === row.item &&
-                                child_row.name !== row.name 
-                            ) {
-                                total_qtr += child_row.qtr || 0;
-                            }
-                        });
-                        frappe.model.set_value(cdt, cdn, "available_qty_to_return", row.sold_qty + r.message.total_returned_qty + total_qtr);
-                    } else {
-                        console.error("Unexpected response:", r.message);
-                    }
-                }
-            });
-        }
     }
 });
+
+// HELPER FUNCTIONS To FETCH QUANTITIES IN CREDIT DETAILS TABLE
+function fetch_sold_qty(frm, cdt, cdn) {
+    let row = frappe.get_doc(cdt, cdn);
+    if (row.item) {
+        frappe.call({
+            method: "zatca_integration.customization.sales_invoice.sales_invoice.get_batch",
+            args: {
+                customer: frm.doc.customer,
+                sales_invoice: row.sales_invoice,
+                item: row.item
+            },
+            callback: function (r) {
+                if (r.message) {
+                    r.message.forEach(item => {
+                        frappe.model.set_value(cdt, cdn, "sold_qty", item.qty);
+                        frappe.model.set_value(cdt, cdn, "available_qty_to_return", item.qty-row.total_returned_qty);
+                    });
+                    frm.refresh_field('custom_credit_details');
+                }
+            }
+        });
+    }
+}
+function fetch_returned_qty(frm, cdt, cdn) {
+    let row = frappe.get_doc(cdt, cdn);
+    if (row.item && row.sales_invoice) {
+        frappe.call({
+            method: "zatca_integration.customization.sales_invoice.sales_invoice.returned_qty",
+            args: {
+                customer: frm.doc.customer,
+                sales_invoice: row.sales_invoice,
+                item: row.item
+            },
+            callback: function (r) {
+                if (r.message ) {
+                    frappe.model.set_value(cdt, cdn, "already_returned_qty", r.message.total_returned_qty);
+                } else {
+                    frappe.msgprint(__('No data returned or an error occurred while fetching sales invoices.'));
+                }
+            }
+        });
+    }
+}
+function fetch_available_qty(frm, cdt, cdn) {
+    let row = frappe.get_doc(cdt, cdn);
+    if (row.item && row.sales_invoice) {
+        frappe.call({
+            method: "zatca_integration.customization.sales_invoice.sales_invoice.returned_qty",
+            args: {
+                customer: frm.doc.customer,
+                sales_invoice: row.sales_invoice,
+                item: row.item
+            },
+            callback: function (r) {
+                if (r.message) {
+                    let total_qtr = 0;
+                    (frm.doc.custom_credit_details || []).forEach(function (child_row) {
+                        if (
+                            child_row.sales_invoice === row.sales_invoice &&
+                            child_row.item === row.item &&
+                            child_row.name !== row.name 
+                        ) {
+                            total_qtr += child_row.qtr || 0;
+                        }
+                    });
+                    frappe.model.set_value(cdt, cdn, "available_qty_to_return", row.sold_qty + r.message.total_returned_qty + total_qtr);
+                } else {
+                    frappe.msgprint(__('No data returned or an error occurred while fetching sales invoices.'));
+                }
+            }
+        });
+    }
+}

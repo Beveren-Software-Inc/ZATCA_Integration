@@ -35,17 +35,17 @@ def update_delivery_date(delivery_note):
 def get_batch(customer,sales_invoice,item):
 	values = {'customer': customer,'sales_invoice': sales_invoice,'item':item}
 	batch_list = frappe.db.sql("""
-    SELECT `tabsales invoice`.NAME,
-       `tabsales invoice`.customer,
-       `tabsales invoice item`.qty
-    FROM `tabsales invoice`
-    JOIN `tabsales invoice item`
-    ON `tabsales invoice`.NAME = `tabsales invoice item`.parent
-    WHERE `tabsales invoice`.customer = %(customer)s
-    AND `tabsales invoice`.NAME = %(sales_invoice)s
-    AND `tabsales invoice item`.item_code = %(item)s
-    AND `tabsales invoice`.docstatus = 1
-    AND `tabsales invoice`.status != "Cancelled"
+    SELECT `tabSales Invoice`.NAME,
+       `tabSales Invoice`.customer,
+       `tabSales Invoice Item`.qty
+    FROM `tabSales Invoice`
+    JOIN `tabSales Invoice Item`
+    ON `tabSales Invoice`.NAME = `tabSales Invoice Item`.parent
+    WHERE `tabSales Invoice`.customer = %(customer)s
+    AND `tabSales Invoice`.NAME = %(sales_invoice)s
+    AND `tabSales Invoice Item`.item_code = %(item)s
+    AND `tabSales Invoice`.docstatus = 1
+    AND `tabSales Invoice`.status != "Cancelled"
             """,
     values=values, as_dict = 1)
 	return batch_list
