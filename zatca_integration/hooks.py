@@ -162,7 +162,8 @@ doc_events = {
             "zatca_integration.clearence_util.generate_einvoice"
         ],
         "on_submit": [
-            "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code"
+            "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code",
+            "zatca_integration.customization.sales_invoice.sales_invoice.create_je_for_retention_amount"
         ],
 		"on_cancel": [
 			"zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.delete_qr_code_file"

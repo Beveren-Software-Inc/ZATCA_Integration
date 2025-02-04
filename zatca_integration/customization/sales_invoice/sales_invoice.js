@@ -7,6 +7,20 @@ frappe.ui.form.on('Sales Invoice', {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
     },
+    custom_retention_percentage: function(frm) {
+        if (!frm.doc.custom_retention_account) {
+            frappe.msgprint(__("Please select a Retention Account"));
+            return
+        }
+        if ( frm.doc.custom_retention_account && frm.doc.custom_retention_percentage) {
+            frm.trigger('set_retention_amount');
+        }
+    },
+    set_retention_amount: function(frm) {
+        const retention = (frm.doc.net_total * frm.doc.custom_retention_percentage / 100);
+        frm.set_value('custom_retention_amount', retention);
+        frm.refresh_field('custom_retention_amount');
+    },
     set_custom_payment_method: frm => {
         //check the frm is submitted or not
         if(frm.doc.docstatus == 1 || frm.doc.docstatus == 2){
