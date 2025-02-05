@@ -148,11 +148,18 @@ after_app_install = "zatca_integration.saudi_arabia_electronic_invoicing.phase_o
 #	"ToDo": "custom_app.overrides.CustomToDo"
 # }
 
+override_doctype_class = {
+	"Sales Invoice": "zatca_integration.overrides.sales_invoice.CustomSalesInvoice",
+}
+
 # Document Events
 # ---------------
 # Hook on document methods and events
 doc_events = {
 	"Sales Invoice": {
+        "before_save": [
+            "zatca_integration.customization.sales_invoice.sales_invoice.set_grand_total_with_retention",
+        ],
         "validate": [
             "zatca_integration.common_util.validate_pos_invoice",
             # "zatca_integration.common_util.update_delivery_date",
@@ -163,7 +170,6 @@ doc_events = {
         ],
         "on_submit": [
             "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code",
-            "zatca_integration.customization.sales_invoice.sales_invoice.create_je_for_retention_amount"
         ],
 		"on_cancel": [
 			"zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.delete_qr_code_file"

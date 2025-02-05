@@ -1,4 +1,12 @@
+# Copyright (c) 2025, Simon Wanyama and contributors
+# For license information, please see license.txt
+
+import json
 import frappe
+from frappe.model.document import Document
+from frappe.utils import flt
+
+import erpnext
 
 @frappe.whitelist()
 def update_payment_method(customer):
@@ -22,31 +30,68 @@ def update_delivery_date(delivery_note):
 	return delivery_date
 
 
-def create_je_for_retention_amount(doc, method):
-	'''
-		On Submit: Create a JE for the retention amount with Reference to this Sales Invoice
-		Check the Outstanding Amount for this Retention Amount in Account Receivables Report	
-	'''
-	doc = frappe.parse_json(doc)
-	je = frappe.new_doc('Journal Entry')
-	je.company = doc.company
-	je.posting_date = doc.posting_date
-	je.append('accounts', {
-		'account': doc.custom_retention_account,
-		'debit_in_account_currency': doc.custom_retention_amount,
-		'credit_in_account_currency': 0,
-		'party_type': 'Customer',
-		'party': doc.customer
-	})
-	je.append('accounts', {
-		'account': doc.debit_to,
-		'debit_in_account_currency': 0,
-		'credit_in_account_currency': doc.custom_retention_amount,
-		'party_type': 'Customer',
-		'party': doc.customer,
-		'reference_type': doc.doctype,
-		'reference_name': doc.name,
-		'reference_due_date': doc.due_date
-	})
-	je.insert()
-	je.submit()
+def set_grand_total_with_retention(doc, method):
+	from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals
+
+	if not doc.custom_retention_amount:
+		return
+
+	# Monkey Patch calculate_totals method
+	calculate_taxes_and_totals.calculate_totals = custom_calculate_totals
+
+def custom_calculate_totals(self):
+	if self.doc.get("taxes"):
+		self.doc.grand_total = flt(self.doc.get("taxes")[-1].total) + flt(
+			self.doc.get("grand_total_diff")
+		)
+	else:
+		self.doc.grand_total = flt(self.doc.net_total)
+
+	if self.doc.get("taxes"):
+		self.doc.total_taxes_and_charges = flt(
+			self.doc.grand_total - self.doc.net_total - flt(self.doc.get("grand_total_diff")),
+			self.doc.precision("total_taxes_and_charges"),
+		)
+	else:
+		self.doc.total_taxes_and_charges = 0.0
+
+	if self.doc.custom_retention_amount:
+		self.doc.grand_total -= self.doc.custom_retention_amount
+
+	self._set_in_company_currency(self.doc, ["total_taxes_and_charges", "rounding_adjustment"])
+
+	if self.doc.doctype in [
+		"Quotation",
+		"Sales Order",
+		"Delivery Note",
+		"Sales Invoice",
+		"POS Invoice",
+	]:
+		self.doc.base_grand_total = (
+			flt(self.doc.grand_total * self.doc.conversion_rate, self.doc.precision("base_grand_total"))
+			if self.doc.total_taxes_and_charges
+			else self.doc.base_net_total
+		)
+	else:
+		self.doc.taxes_and_charges_added = self.doc.taxes_and_charges_deducted = 0.0
+		for tax in self.doc.get("taxes"):
+			if tax.category in ["Valuation and Total", "Total"]:
+				if tax.add_deduct_tax == "Add":
+					self.doc.taxes_and_charges_added += flt(tax.tax_amount_after_discount_amount)
+				else:
+					self.doc.taxes_and_charges_deducted += flt(tax.tax_amount_after_discount_amount)
+
+		self.doc.round_floats_in(self.doc, ["taxes_and_charges_added", "taxes_and_charges_deducted"])
+
+		self.doc.base_grand_total = (
+			flt(self.doc.grand_total * self.doc.conversion_rate)
+			if (self.doc.taxes_and_charges_added or self.doc.taxes_and_charges_deducted)
+			else self.doc.base_net_total
+		)
+
+		self._set_in_company_currency(self.doc, ["taxes_and_charges_added", "taxes_and_charges_deducted"])
+
+	self.doc.round_floats_in(self.doc, ["grand_total", "base_grand_total"])
+
+	self.set_rounded_total()
+

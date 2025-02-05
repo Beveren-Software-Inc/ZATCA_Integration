@@ -7,6 +7,10 @@ frappe.ui.form.on('Sales Invoice', {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
     },
+    on_submit: frm => {
+        // Reload to show Correct Status
+        if(frm.doc.docstatus == 1 && frm.doc.custom_retention_amount) frm.reload_doc();
+    },
     custom_retention_percentage: function(frm) {
         if (!frm.doc.custom_retention_account) {
             frappe.msgprint(__("Please select a Retention Account"));
@@ -20,6 +24,10 @@ frappe.ui.form.on('Sales Invoice', {
         const retention = (frm.doc.net_total * frm.doc.custom_retention_percentage / 100);
         frm.set_value('custom_retention_amount', retention);
         frm.refresh_field('custom_retention_amount');
+
+        // Update the grand total
+        let grand_total = frm.doc.grand_total;
+        frm.set_value('grand_total', grand_total - retention);
     },
     set_custom_payment_method: frm => {
         //check the frm is submitted or not
