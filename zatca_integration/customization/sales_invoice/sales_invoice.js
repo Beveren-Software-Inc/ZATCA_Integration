@@ -6,10 +6,6 @@ frappe.ui.form.on('Sales Invoice', {
     refresh: frm => {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
-
-        if ( frm.doc.custom_retention_account && frm.doc.custom_retention_percentage) {
-            frm.trigger('set_retention_amount');
-        }
     },
     on_submit: frm => {
         // Reload to show Correct Status
@@ -32,6 +28,7 @@ frappe.ui.form.on('Sales Invoice', {
         // Update the grand total
         let grand_total = frm.doc.grand_total;
         frm.set_value('grand_total', grand_total - retention);
+        frm.refresh_field('grand_total');
     },
     set_custom_payment_method: frm => {
         //check the frm is submitted or not
