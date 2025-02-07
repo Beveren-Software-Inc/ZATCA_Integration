@@ -55,7 +55,9 @@ def custom_calculate_totals(self):
 	else:
 		self.doc.total_taxes_and_charges = 0.0
 
-	if self.doc.custom_retention_amount:
+	# Make Grand Total Less Retention
+	has_retention = (self.doc.custom_retention_account and self.doc.custom_retention_percentage and self.doc.custom_retention_amount)
+	if self.doc.doctype == "Sales Invoice" and has_retention:
 		self.doc.grand_total -= self.doc.custom_retention_amount
 
 	self._set_in_company_currency(self.doc, ["total_taxes_and_charges", "rounding_adjustment"])
