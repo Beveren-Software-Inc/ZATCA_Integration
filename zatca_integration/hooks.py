@@ -157,12 +157,11 @@ override_doctype_class = {
 # Hook on document methods and events
 doc_events = {
 	"Sales Invoice": {
-        "before_save": [
-            "zatca_integration.customization.sales_invoice.sales_invoice.set_grand_total_with_retention",
-        ],
         "validate": [
             "zatca_integration.common_util.validate_pos_invoice",
             # "zatca_integration.common_util.update_delivery_date",
+            "zatca_integration.customization.sales_invoice.sales_invoice.set_grand_total_with_retention",
+
         ],
         "before_submit": [
             "zatca_integration.common_util.validate_sales_invoice",

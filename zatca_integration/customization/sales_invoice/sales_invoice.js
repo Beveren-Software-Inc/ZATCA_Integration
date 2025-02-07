@@ -6,6 +6,10 @@ frappe.ui.form.on('Sales Invoice', {
     refresh: frm => {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
+
+        if ( frm.doc.custom_retention_account && frm.doc.custom_retention_percentage) {
+            frm.trigger('set_retention_amount');
+        }
     },
     on_submit: frm => {
         // Reload to show Correct Status
