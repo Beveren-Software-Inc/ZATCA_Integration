@@ -7,6 +7,16 @@ frappe.ui.form.on('Sales Invoice', {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
     },
+    validate: frm => {
+        frm.trigger('set_retention_amount')
+
+        if (frm.__islocal && frm.doc.custom_retention_amount) {
+            let grand_total = frm.doc.grand_total;
+            let retention_amount = frm.doc.custom_retention_amount;
+            let new_grand_total = grand_total - retention_amount;
+            frm.set_value('grand_total', new_grand_total);
+        }
+    },
     on_submit: frm => {
         // Reload to show Correct Status
         if(frm.doc.docstatus == 1 && frm.doc.custom_retention_amount) frm.reload_doc();
