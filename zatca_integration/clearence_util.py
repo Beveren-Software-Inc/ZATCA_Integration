@@ -154,9 +154,11 @@ def generate_einvoice(doc, method):
     
     # Make GrandTotal if there is Retention Amount
     grand_total = doc.grand_total
-    has_retention = (doc.custom_retention_account and doc.custom_retention_percentage and doc.custom_retention_amount)
-    if has_retention:
-        grand_total = doc.grand_total + doc.custom_retention_amount
+    if (doc.doctype == "Sales Invoice" 
+        and doc.custom_retention_account 
+        and doc.custom_retention_percentage 
+        and doc.custom_retention_amount):
+        grand_total = doc.grand_total + doc.custom_retention_amount  
 
     # Render Invoice XML from Template
     invoice_xml = frappe.render_template("zatca_integration/templates/zatca/clearence/Standard_Invoice.xml", {

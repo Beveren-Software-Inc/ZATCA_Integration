@@ -33,6 +33,8 @@ def update_delivery_date(delivery_note):
 def set_grand_total_with_retention(doc, method):
 	from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals
 
+	if not doc.doctype == 'Sales Invoice':
+		return
 	if not doc.custom_retention_amount:
 		return
 
@@ -56,8 +58,10 @@ def custom_calculate_totals(self):
 		self.doc.total_taxes_and_charges = 0.0
 
 	# Make Grand Total Less Retention
-	has_retention = (self.doc.custom_retention_account and self.doc.custom_retention_percentage and self.doc.custom_retention_amount)
-	if self.doc.doctype == "Sales Invoice" and has_retention:
+	if (self.doc.doctype == "Sales Invoice" 
+		and self.doc.custom_retention_account 
+		and self.doc.custom_retention_percentage 
+		and self.doc.custom_retention_amount):
 		self.doc.grand_total -= self.doc.custom_retention_amount
 
 	self._set_in_company_currency(self.doc, ["total_taxes_and_charges", "rounding_adjustment"])
