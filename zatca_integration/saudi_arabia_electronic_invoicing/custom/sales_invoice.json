@@ -43,7 +43,7 @@
    "modified_by": "Administrator",
    "module": null,
    "name": "Sales Invoice-custom_retention_amount",
-   "no_copy": 1,
+   "no_copy": 0,
    "non_negative": 0,
    "options": null,
    "owner": "Administrator",

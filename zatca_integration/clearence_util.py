@@ -155,8 +155,7 @@ def generate_einvoice(doc, method):
     # Make GrandTotal if there is Retention Amount
     grand_total = doc.grand_total
     if (doc.doctype == "Sales Invoice" 
-        and doc.custom_retention_account 
-        and doc.custom_retention_percentage 
+        and doc.custom_retention_account  
         and doc.custom_retention_amount):
         grand_total = doc.grand_total + doc.custom_retention_amount  
 

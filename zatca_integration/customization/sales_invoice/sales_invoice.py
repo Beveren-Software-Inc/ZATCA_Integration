@@ -35,7 +35,7 @@ def set_grand_total_with_retention(doc, method):
 
 	if not doc.doctype == 'Sales Invoice':
 		return
-	if not doc.custom_retention_amount:
+	if not doc.custom_retention_account or not doc.custom_retention_amount:
 		return
 
 	# Monkey Patch calculate_totals method
@@ -60,7 +60,6 @@ def custom_calculate_totals(self):
 	# Make Grand Total Less Retention
 	if (self.doc.doctype == "Sales Invoice" 
 		and self.doc.custom_retention_account 
-		and self.doc.custom_retention_percentage 
 		and self.doc.custom_retention_amount):
 		self.doc.grand_total -= self.doc.custom_retention_amount
 

@@ -4,7 +4,7 @@ frappe.ui.form.on('Sales Invoice', {
         frm.trigger('set_delivery_date')
 
         // negate the retention amount if is_return and custom_retention_amount is set
-        if (frm.doc.is_return && frm.doc.custom_retention_amount && frm.is_new()) {
+        if (frm.doc.is_return && frm.doc.custom_retention_account && frm.doc.custom_retention_amount && frm.is_new()) {
             frm.set_value('custom_retention_amount', (-1 * frm.doc.custom_retention_amount));
         }
     },
@@ -13,36 +13,50 @@ frappe.ui.form.on('Sales Invoice', {
         frm.trigger('set_delivery_date')
     },
     validate: frm => {
-        frm.trigger('set_retention_amount')
-
-        if (frm.__islocal && frm.doc.custom_retention_amount) {
-            let grand_total = frm.doc.grand_total;
-            let retention_amount = frm.doc.custom_retention_amount;
-            let new_grand_total = grand_total - retention_amount;
-            frm.set_value('grand_total', new_grand_total);
+        if (frm.is_new() && frm.doc.custom_retention_account && frm.doc.custom_retention_amount) {
+            frm.set_value(
+                'grand_total', 
+                (frm.doc.net_total + frm.doc.total_taxes_and_charges - frm.doc.custom_retention_amount)            );
+            frm.refresh_field('grand_total');
+            console.log('Retention amount deducted from grand total');
         }
     },
     on_submit: frm => {
         // Reload to show Correct Status
-        if(frm.doc.docstatus == 1 && frm.doc.custom_retention_amount) frm.reload_doc();
+        if (frm.doc.docstatus === 1 && frm.doc.custom_retention_amount) {
+            frm.reload_doc();
+        }
+    },
+    custom_retention_account: function(frm) {
+        frm.set_df_property('custom_retention_amount', 'reqd', 1);
     },
     custom_retention_percentage: function(frm) {
         if (!frm.doc.custom_retention_account) {
-            frappe.msgprint(__("Please select a Retention Account"));
-            return
+            frappe.throw(__("Please select a Retention Account"));
         }
         if ( frm.doc.custom_retention_account && frm.doc.custom_retention_percentage) {
             frm.trigger('set_retention_amount');
         }
     },
-    set_retention_amount: function(frm) {
-        const retention = (frm.doc.net_total * frm.doc.custom_retention_percentage / 100);
+    custom_retention_amount: function(frm) {
+        if (!frm.doc.custom_retention_account) {
+            frappe.throw(__("Please select a Retention Account"));
+        }else {
+            // Update the grand total
+            frm.set_value('grand_total', (frm.doc.net_total + frm.doc.total_taxes_and_charges - frm.doc.custom_retention_amount));
+            frm.refresh_field('grand_total');
+        }
+    },
+    set_retention_amount: frm => {
+        let retention = frm.doc.custom_retention_percentage 
+            ? (frm.doc.net_total * frm.doc.custom_retention_percentage / 100) 
+            : frm.doc.custom_retention_amount;
+
         frm.set_value('custom_retention_amount', retention);
         frm.refresh_field('custom_retention_amount');
 
         // Update the grand total
-        let grand_total = frm.doc.grand_total;
-        frm.set_value('grand_total', grand_total - retention);
+        frm.set_value('grand_total', (frm.doc.net_total + frm.doc.total_taxes_and_charges - retention));
         frm.refresh_field('grand_total');
     },
     set_custom_payment_method: frm => {
