@@ -4,7 +4,7 @@ frappe.ui.form.on('Sales Invoice', {
         frm.trigger('set_delivery_date')
 
         // negate the retention amount if is_return and custom_retention_amount is set
-        if (frm.doc.is_return && frm.doc.custom_retention_amount) {
+        if (frm.doc.is_return && frm.doc.custom_retention_amount && frm.is_new()) {
             frm.set_value('custom_retention_amount', (-1 * frm.doc.custom_retention_amount));
         }
     },
