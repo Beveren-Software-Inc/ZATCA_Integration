@@ -2,15 +2,15 @@ frappe.ui.form.on('Sales Invoice', {
     onload: frm => {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
+
+        // negate the retention amount if is_return and custom_retention_amount is set
+        if (frm.doc.is_return && frm.doc.custom_retention_amount) {
+            frm.set_value('custom_retention_amount', (-1 * frm.doc.custom_retention_amount));
+        }
     },
     refresh: frm => {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
-
-        // negate the retention amount if is_return
-        if (frm.doc.is_return) {
-            frm.set_value('custom_retention_amount', (-1 * frm.doc.custom_retention_amount));
-        }
     },
     validate: frm => {
         frm.trigger('set_retention_amount')
