@@ -27,7 +27,7 @@ def generate_einvoice(doc, method):
 
     # Check if the active Zacta Phase is Phase 2
     if not company.custom_zatca_phase == "ZATCA Phase 2":
-        return 
+        return
         
     # CSID, Compliance CSID, CSR, and Environment from Company ZATCA Settings
     production_csid = frappe.get_doc("Production CSID", company.custom_production_csid)
@@ -150,6 +150,14 @@ def generate_einvoice(doc, method):
             "payable_amount": payable_amount,
         }
         line_items.append(line_item)
+    
+    
+    # Make GrandTotal if there is Retention Amount
+    grand_total = doc.grand_total
+    if (doc.doctype == "Sales Invoice" 
+        and doc.custom_retention_account  
+        and doc.custom_retention_amount):
+        grand_total = doc.grand_total + doc.custom_retention_amount  
 
     # Render Invoice XML from Template
     invoice_xml = frappe.render_template("zatca_integration/templates/zatca/clearence/Standard_Invoice.xml", {
@@ -177,7 +185,7 @@ def generate_einvoice(doc, method):
         "taxableAmount": abs(doc.net_total),
         "taxAmount": abs(doc.total_taxes_and_charges),
         "taxAmountBaseCurrency": abs(doc.base_total_taxes_and_charges),
-        "payableAmount": abs(doc.grand_total),
+        "payableAmount": abs(grand_total),
         "taxPercentage": tax_percentage,
         "tax_category": tax_category,
         "tax_exemption_code": tax_exemption_code,
