@@ -64,7 +64,25 @@ fixtures = [
         "filters": {
             "name": "ZATCA"
         }
-    }
+    },
+    # Custom Fields
+    {"doctype": "Custom Field", "filters": [["dt", "in", [
+        "Address",
+        "Company",
+        "Customer",
+        "Sales Invoice",
+        "Purchase Taxes and Charges Template",
+        "Sales Taxes and Charges Template"
+    ]]]},
+    # Property Setters
+    {"doctype": "Property Setter", "filters": [["doc_type", "in", [
+        "Address",
+        "Company",
+        "Customer",
+        "Sales Invoice",
+        "Purchase Taxes and Charges Template",
+        "Sales Taxes and Charges Template"
+    ]]]}
 ]
 
 # Home Pages
