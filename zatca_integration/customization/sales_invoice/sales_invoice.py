@@ -29,6 +29,12 @@ def update_delivery_date(delivery_note):
 		frappe.msgprint(f"No posting date set for Delivery Note {delivery_note}.")
 	return delivery_date
 
+def set_base_retention_amount(doc, method):
+	if not doc.custom_retention_amount:
+		return
+	if not doc.conversion_rate:
+		frappe.throw(_('Please set Exchange Rate First'))
+	doc.custom_base_retention_amount = doc.conversion_rate * doc.custom_retention_amount
 
 def set_grand_total_with_retention(doc, method):
 	from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals
