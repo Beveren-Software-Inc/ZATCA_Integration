@@ -48,8 +48,10 @@ class CustomSalesInvoice(SalesInvoice):
 						"party": self.customer,
 						"due_date": self.due_date,
 						"against": against_voucher,
-						"debit": self.custom_retention_amount,
-						"debit_in_account_currency": self.custom_retention_amount,
+						"debit": self.custom_base_retention_amount,
+						"debit_in_account_currency": self.custom_base_retention_amount
+						if self.party_account_currency == self.company_currency
+						else self.custom_retention_amount,
 						"against_voucher": against_voucher,
 						"against_voucher_type": self.doctype,
 						"cost_center": self.cost_center,
