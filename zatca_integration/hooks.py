@@ -64,7 +64,25 @@ fixtures = [
         "filters": {
             "name": "ZATCA"
         }
-    }
+    },
+    # Custom Fields
+    {"doctype": "Custom Field", "filters": [["dt", "in", [
+        "Address",
+        "Company",
+        "Customer",
+        "Sales Invoice",
+        "Purchase Taxes and Charges Template",
+        "Sales Taxes and Charges Template"
+    ]]]},
+    # Property Setters
+    {"doctype": "Property Setter", "filters": [["doc_type", "in", [
+        "Address",
+        "Company",
+        "Customer",
+        "Sales Invoice",
+        "Purchase Taxes and Charges Template",
+        "Sales Taxes and Charges Template"
+    ]]]}
 ]
 
 # Home Pages
@@ -160,6 +178,7 @@ doc_events = {
         "validate": [
             "zatca_integration.common_util.validate_pos_invoice",
             # "zatca_integration.common_util.update_delivery_date",
+            "zatca_integration.customization.sales_invoice.sales_invoice.set_base_retention_amount",
             "zatca_integration.customization.sales_invoice.sales_invoice.set_grand_total_with_retention",
 
         ],
