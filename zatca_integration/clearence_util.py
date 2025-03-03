@@ -157,7 +157,8 @@ def generate_einvoice(doc, method):
     if (doc.doctype == "Sales Invoice" 
         and doc.custom_retention_account  
         and doc.custom_retention_amount):
-        grand_total = doc.grand_total + doc.custom_retention_amount  
+        grand_total = doc.grand_total + doc.custom_retention_amount
+    grand_total = round_to_two_places(grand_total)
 
     # Render Invoice XML from Template
     invoice_xml = frappe.render_template("zatca_integration/templates/zatca/clearence/Standard_Invoice.xml", {
