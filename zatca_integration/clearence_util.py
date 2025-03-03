@@ -461,7 +461,7 @@ def validate_delivery_date(delivery_date, invoice_date, customer_type):
 
     if customer_type == "Company":  # Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the end of the month in which the supply takes place.
         if inv_date > last_valid_invoice_date:
-            frappe.throw("Delivery Date is not valid, Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the end of the month in which the supply takes place.")
+            frappe.throw("Posting Date is not valid, Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the end of the month in which the supply takes place.")
         if del_date > inv_date:
             frappe.throw("Delivery Date is not valid, Standard Tax Invoices (B2B) the supply must take place before the invoice date.")
     elif customer_type == "Individual":  # Delivery Date must be today, otherwise throw an error
