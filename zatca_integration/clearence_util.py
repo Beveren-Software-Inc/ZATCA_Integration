@@ -127,11 +127,6 @@ def generate_einvoice(doc, method):
 
     # PaymentMeansCode
     payment_means_code = get_payment_means_code(doc.custom_payment_means)
-        
-    # Advance Payment Not Supported
-    total_advance = doc.total_advance
-    if total_advance > 0:
-        frappe.throw("Advance Payment is not Supported")
 
     # Prepare Line Items Details
     line_items = []
