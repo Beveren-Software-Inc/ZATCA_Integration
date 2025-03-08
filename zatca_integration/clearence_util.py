@@ -88,7 +88,7 @@ def generate_einvoice(doc, method):
     # If it's a string, parse it into a datetime object
         delivery_date = datetime.strptime(doc.custom_delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d")
     
-    # Validate Delivery Date
+    # Validate Invoice Date and Delivery Date for ZATCA Compliance
     if company.custom_enforce_date_validation == 1:
         validate_delivery_date(delivery_date, invoice_date, customer_type)
     
