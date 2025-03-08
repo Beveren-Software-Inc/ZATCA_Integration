@@ -71,10 +71,6 @@ def generate_einvoice(doc, method):
 
     # Set Previous Invoice Hash Value(PIH)
     previousInvoiceHash = get_previous_invoice_hash(production_csid.name)
-
-    # Set Posting Date and Time to current date and time
-    doc.posting_date = frappe.utils.now_datetime().strftime("%Y-%m-%d")
-    doc.posting_time = frappe.utils.now_datetime().strftime("%H:%M:%S")
     
     # Set Invoice Date and Time
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
@@ -88,7 +84,7 @@ def generate_einvoice(doc, method):
     # If it's a string, parse it into a datetime object
         delivery_date = datetime.strptime(doc.custom_delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d")
     
-    # Validate Delivery Date
+    # Validate Invoice Date and Delivery Date for ZATCA Compliance
     if company.custom_enforce_date_validation == 1:
         validate_delivery_date(delivery_date, invoice_date, customer_type)
     
