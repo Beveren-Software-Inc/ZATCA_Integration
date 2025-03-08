@@ -73,8 +73,8 @@ def generate_einvoice(doc, method):
     previousInvoiceHash = get_previous_invoice_hash(production_csid.name)
 
     # Set Posting Date and Time to current date and time
-    doc.posting_date = frappe.utils.now_datetime().strftime("%Y-%m-%d")
-    doc.posting_time = frappe.utils.now_datetime().strftime("%H:%M:%S")
+    # doc.posting_date = frappe.utils.now_datetime().strftime("%Y-%m-%d")
+    # doc.posting_time = frappe.utils.now_datetime().strftime("%H:%M:%S")
     
     # Set Invoice Date and Time
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
