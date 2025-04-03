@@ -11,6 +11,8 @@ frappe.ui.form.on('Sales Invoice', {
     refresh: frm => {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
+        frm.trigger('zatca_manual_reporting')
+        
     },
     validate: frm => {
         if (frm.is_new() && frm.doc.custom_retention_account && frm.doc.custom_retention_amount) {
@@ -106,6 +108,56 @@ frappe.ui.form.on('Sales Invoice', {
                     }
                 });
             }
+        }
+    },
+    zatca_manual_reporting: frm => {
+        // Add ZATCA button for submitted invoices
+        if (frm.doc.docstatus === 1) {
+            // Only show the button if ZATCA Phase 2 is enabled and the company is in Saudi Arabia
+            frappe.db.get_value('Company', frm.doc.company, ['country', 'custom_enable_zatca_e_invoicing', 'custom_zatca_phase', 'custom_use_manual_reporting'])
+                .then(r => {
+                    let values = r.message;
+                    console.log('values', values);
+                    
+                    if (values && values.country === 'Saudi Arabia' && 
+                        values.custom_enable_zatca_e_invoicing === 1 && 
+                        values.custom_zatca_phase === 'ZATCA Phase 2' &&
+                        values.custom_use_manual_reporting === 1) {
+                        
+                        // Check if the invoice has been reported to ZATCA successfully
+                        const is_reported = frm.doc.custom_zatca_submit_status && 
+                                          frm.doc.custom_zatca_submit_status !== 'DRAFT' && 
+                                          frm.doc.custom_zatca_submit_status !== 'NOT_CLEARED';
+                        
+                        // Only show the Report button if not yet reported to ZATCA or failed
+                        if (!is_reported) {
+                            console.log('reported', is_reported);
+                            frm.add_custom_button(__('Report to ZATCA'), function() {
+                                frappe.confirm(
+                                    __('Are you sure you want to report this invoice to ZATCA?'),
+                                    function() {
+                                        frappe.show_alert({message: __('Reporting to ZATCA...'), indicator: 'blue'});
+                                        frappe.call({
+                                            method: 'zatca_integration.clearence_util.generate_einvoice',
+                                            args: {
+                                                doc: frm.doc,
+                                                method: null
+                                            },
+                                            callback: function(r) {
+                                                console.log('r', r.message);
+                                                
+                                                if (r.message && r.message.custom_zatca_submit_status === 'CLEARED') {
+                                                    frm.reload_doc();
+                                                    frappe.show_alert({message: __('Successfully Reported to ZATCA!'), indicator: 'green'});
+                                                }
+                                            }
+                                        });
+                                    }
+                                );
+                            }, __('ZATCA'));
+                        }
+                    }
+                });
         }
     }
 });

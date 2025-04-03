@@ -180,14 +180,13 @@ doc_events = {
             # "zatca_integration.common_util.update_delivery_date",
             "zatca_integration.customization.sales_invoice.sales_invoice.set_base_retention_amount",
             "zatca_integration.customization.sales_invoice.sales_invoice.set_grand_total_with_retention",
-
         ],
         "before_submit": [
             "zatca_integration.common_util.validate_sales_invoice",
-            "zatca_integration.clearence_util.generate_einvoice"
         ],
         "on_submit": [
             "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code",
+            "zatca_integration.clearence_util.generate_einvoice"
         ],
 		"on_cancel": [
 			"zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.delete_qr_code_file"

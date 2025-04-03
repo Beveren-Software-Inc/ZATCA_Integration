@@ -10,12 +10,28 @@ import base64
 from requests.auth import HTTPBasicAuth
 from lxml import etree
 import qrcode
-from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, generate_clearance_request, generate_reporting_request
+from zatca_integration.common_util import (
+        decode_invoice, 
+        get_seller_information, 
+        get_buyer_information, 
+        generate_clearance_request, 
+        generate_reporting_request
+    )
 
-def generate_einvoice(doc, method):
+@frappe.whitelist()
+def generate_einvoice(doc, method=None):
+
+    doc_dict = json.loads(doc) if isinstance(doc, str) else None
+    doc = frappe.get_doc('Sales Invoice', doc_dict['name']) if doc_dict else doc
+
+    # Check if the document is already reported in Zatca Transactions doctype
+    if frappe.db.exists('Zatca Transactions', {'invoice_id': doc.name}):
+        frappe.throw("Invoice already reported to Zatca")
 
     # Seller Information
     company = frappe.get_doc("Company", doc.company)
+    if method == "on_submit" and company.custom_use_manual_reporting:
+        return
 
     # Check if Company is a Saudi Arabia based company
     if company.country != "Saudi Arabia":
@@ -71,10 +87,34 @@ def generate_einvoice(doc, method):
 
     # Set Previous Invoice Hash Value(PIH)
     previousInvoiceHash = get_previous_invoice_hash(production_csid.name)
-    
+
     # Set Invoice Date and Time
-    invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
-    invoice_time = parse(doc.posting_time).time().strftime("%H:%M:%S")
+    if isinstance(doc.posting_date, date):
+        # If it's a date object, format it as a string
+        invoice_date = doc.posting_date.strftime("%Y-%m-%d")
+    else:
+        # If it's a string, use it directly
+        invoice_date = doc.posting_date
+    
+    # Handle posting time - could be a string, datetime.time object, or timedelta
+    if isinstance(doc.posting_time, str):
+        # Extract time part only if it contains seconds with decimal points
+        posting_time = doc.posting_time.split('.')[0] if '.' in doc.posting_time else doc.posting_time
+        invoice_time = datetime.strptime(posting_time, "%H:%M:%S").strftime("%H:%M:%S")
+    elif isinstance(doc.posting_time, timedelta):
+        # Convert timedelta to string format HH:MM:SS
+        seconds = int(doc.posting_time.total_seconds())
+        hours, remainder = divmod(seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        invoice_time = f"{hours:02}:{minutes:02}:{seconds:02}"
+    else:
+        # If it's a time object, format it directly
+        try:
+            invoice_time = doc.posting_time.strftime("%H:%M:%S")
+        except AttributeError:
+            # Fallback for any other unexpected type
+            invoice_time = datetime.now().strftime("%H:%M:%S")
+            frappe.log_error(f"Unexpected posting_time type: {type(doc.posting_time)}", "ZATCA Invoice Generation")
     
     # Set and Validate Delivery Date
     if isinstance(doc.custom_delivery_date, date):
@@ -189,8 +229,6 @@ def generate_einvoice(doc, method):
         "line_items": line_items,
     })
 
-    print(invoice_xml)
-
     try:
         if customer_type == "Company":
 
@@ -287,6 +325,7 @@ def generate_einvoice(doc, method):
         doc.custom_buyer_name = buyer.get('organizationName')
         doc.custom_buyer_vat = buyer.get('vatNumber')
         doc.custom_buyer_address = buyer.get('full_address')
+        doc.save()
         
         # Save Cleared Invoice XML
         if customer_type == "Company":
@@ -315,6 +354,7 @@ def generate_einvoice(doc, method):
         })
         qr_doc.insert()
         doc.custom_invoice_qr_code = qr_doc.file_url
+        return doc
     elif response.status_code == 303:
         update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
         frappe.throw("Error submitting invoice, Clearance is Deactivated")
