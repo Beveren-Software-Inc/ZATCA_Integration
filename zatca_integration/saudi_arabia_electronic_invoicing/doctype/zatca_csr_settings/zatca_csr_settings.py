@@ -52,7 +52,7 @@ class ZatcaCSRSettings(Document):
 			'location': self.csrlocationaddress,
 			'industry': self.csrindustrybusinesscategory,
 		}
-
+		# frappe.throw(str(data))
 		# Make the POST request
 		response = requests.post(url, headers=headers, json=data)
 		
@@ -72,4 +72,6 @@ class ZatcaCSRSettings(Document):
 			self.save()
 		else:
 			# Raise an exception
-			frappe.throw("Error in generating CSR")
+			# error_message = response.json
+			frappe.throw(f"Error in generating CSR: {response.text}")
+

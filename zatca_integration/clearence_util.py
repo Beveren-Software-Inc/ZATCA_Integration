@@ -13,7 +13,7 @@ import qrcode
 from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, generate_clearance_request, generate_reporting_request
 
 def generate_einvoice(doc, method):
-
+    
     # Seller Information
     company = frappe.get_doc("Company", doc.company)
 
@@ -22,8 +22,8 @@ def generate_einvoice(doc, method):
         return
 
     # Check if ZATCA E-Invoicing is enabled
-    if not company.custom_enable_zatca_e_invoicing == 1:
-        return
+    # if not company.custom_enable_zatca_e_invoicing == 1:
+    #     return
 
     # Check if the active Zacta Phase is Phase 2
     if not company.custom_zatca_phase == "ZATCA Phase 2":
@@ -188,7 +188,6 @@ def generate_einvoice(doc, method):
         # Line Items
         "line_items": line_items,
     })
-
     print(invoice_xml)
 
     try:
