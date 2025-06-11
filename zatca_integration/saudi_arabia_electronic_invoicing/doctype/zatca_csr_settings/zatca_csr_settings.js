@@ -59,13 +59,32 @@ frappe.ui.form.on('Zatca CSR Settings', {
                 });
             });
 
+             frm.add_custom_button(__('New Generate CSR'), function() {
+                // frappe.show_progress(__('Generating CSR...'));
+                frappe.call({
+                    method: "zatca_integration.saudi_arabia_electronic_invoicing.utils.generate_csr",
+                    args: {
+                        doc_name: frm.doc.name
+                    },
+                    callback: function(r) {
+                        frappe.hide_progress();
+                        if (!r.exc) {
+                            frappe.show_alert({message: __('CSR Generated Successfully!'), indicator: 'green'});
+                            frm.reload_doc();
+                        } else {
+                            frappe.show_alert({message: __('CSR Generation Failed!'), indicator: 'red'});
+                        }
+                    }
+                });
+            });
+
             // Button to Generate Private Key
             frm.add_custom_button(__('Generate Private Key'), function() {
                 frappe.show_progress(__('Generating Private Key...'));
                 frappe.call({
                     method: "zatca_integration.saudi_arabia_electronic_invoicing.utils.create_private_keys",
                     args: {
-                        doc_name: frm.doc
+                        doc_name: frm.doc.name
                     },
                     callback: function(r) {
                         frappe.hide_progress();
