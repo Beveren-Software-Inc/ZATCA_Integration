@@ -1,6 +1,8 @@
 import frappe
 import base64
 import requests
+import xml.etree.ElementTree as ET
+import base64
 
 def validate_sales_invoice(doc, method):
     if not doc.taxes_and_charges:
@@ -44,7 +46,7 @@ def generate_reporting_request(url, clientId, clientSecret, privateKey, pemCerti
     data = {
         'invoice': encode_invoice(invoice)
     }
-
+    
     try:
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()
@@ -176,3 +178,44 @@ def get_registration_scheme_code(registration_scheme):
         return registration_scheme[start + 1:end]
     else:
         frappe.throw("Invalid Registration Scheme")
+        
+
+#Implementing new compliance
+def generate_invoice_payload_from_xml(xml_content: bytes) -> dict:
+    import xml.etree.ElementTree as ET
+    import base64
+
+    namespaces = {
+        "ext": "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2",
+        "sig": "urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2",
+        "sac": "urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2",
+        "xades": "http://uri.etsi.org/01903/v1.3.2#",
+        "ds": "http://www.w3.org/2000/09/xmldsig#",
+        "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+    }
+
+    root = ET.fromstring(xml_content)
+
+    # Find the first DigestValue inside SignedInfo (more flexible)
+    digest_value_element = root.find(
+        ".//ds:SignedInfo/ds:Reference/ds:DigestValue",
+        namespaces
+    )
+    if digest_value_element is None or not digest_value_element.text:
+        raise Exception("DigestValue not found in the XML.")
+    encoded_hash = digest_value_element.text.strip()
+
+    # Extract UUID
+    uuid_element = root.find("cbc:UUID", namespaces)
+    if uuid_element is None or not uuid_element.text:
+        raise Exception("UUID not found in the XML.")
+    uuid_value = uuid_element.text.strip()
+
+    # Encode full XML
+    xml_base64_encoded = base64.b64encode(xml_content).decode("utf-8")
+
+    return {
+        "uuid": uuid_value,
+        "invoiceHash": encoded_hash,
+        "invoice": xml_base64_encoded,
+    }

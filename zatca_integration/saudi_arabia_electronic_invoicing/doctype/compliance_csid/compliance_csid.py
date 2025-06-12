@@ -10,7 +10,7 @@ import base64
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
-from zatca_integration.common_util import generate_clearance_request, generate_reporting_request
+from zatca_integration.common_util import generate_clearance_request, generate_reporting_request, generate_invoice_payload_from_xml
 
 
 class ComplianceCSID(Document):
@@ -79,10 +79,31 @@ class ComplianceCSID(Document):
 
 		if csr_settings.csrinvoicetype == "1100":
 			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
+			
 			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
-			if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note and self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
-				self.save(); frappe.db.commit()
-				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
+			
+			# if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note and self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
+			# 	self.save(); frappe.db.commit()
+			# 	frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
+			failed = []
+
+			if not self.standard_invoice:
+				failed.append("Standard Invoice")
+			if not self.standard_credit_note:
+				failed.append("Standard Credit Note")
+			if not self.standard_debit_note:
+				failed.append("Standard Debit Note")
+			if not self.simplified_invoice:
+				failed.append("Simplified Invoice")
+			if not self.simplified_credit_note:
+				failed.append("Simplified Credit Note")
+			if not self.simplified_debit_note:
+				failed.append("Simplified Debit Note")
+
+			if failed:
+				self.save()
+				frappe.db.commit()
+				frappe.throw(f"Failed to Validate Compliance CSID for: {', '.join(failed)}. Review CSID TRANSACTIONS for more details.")
 		elif csr_settings.csrinvoicetype == "1000":
 			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
 			if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note):
@@ -134,27 +155,30 @@ class ComplianceCSID(Document):
 			self.standard_credit_note = credit_note_status
 		elif invoice_type == "simplified":
 			self.simplified_credit_note = credit_note_status
-
+		
 		# Issue Invoice
 		tax_invoice = generate_tax_invoice_xml(invoice_type, "INV-00003", seller, buyer, credit_note_hash)
 		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, tax_invoice["xml"])
-
+		
 		# Issue Debit Note
 		debit_note = generate_debit_note_xml(invoice_type, "INV-00004", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
 		debit_note_status, debit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, debit_note["xml"])
+		
 		if invoice_type == "standard":
 			self.standard_debit_note = debit_note_status
 		elif invoice_type == "simplified":
 			self.simplified_debit_note = debit_note_status
-
+		
 	def invoke_compliance_invoice_api(self, invoice_type, csr_settings, invoice_xml):
 		"""Invoke compliance invoice API."""
 		zatca_environment = frappe.get_doc("Zatca Environment", csr_settings.zatca_environment)
 
 		if invoice_type == "standard":
-			invoice_request = generate_clearance_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, invoice_xml)
+			invoice_request = generate_invoice_payload_from_xml(invoice_xml.encode("utf-8"))
 		elif invoice_type == "simplified":
-			invoice_request = generate_reporting_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, csr_settings.private_key, self.decode_certificate(self.binary_security_token), invoice_xml)
+			# invoice_request = generate_reporting_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, base64.b64encode(private_key.encode("utf-8")).decode("utf-8"), self.decode_certificate(self.binary_security_token), invoice_xml)
+			invoice_request = generate_invoice_payload_from_xml(invoice_xml.encode("utf-8"))
+
 		else:
 			frappe.throw(f"Invalid Invoice Type: {invoice_type}")
 
@@ -167,6 +191,7 @@ class ComplianceCSID(Document):
 
 		try:
 			response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
+			
 			response_code = response.status_code
 			response_text = response.text
 			response_headers = dict(response.headers)
@@ -365,3 +390,4 @@ def get_registration_scheme_code(registration_scheme):
         return registration_scheme[start + 1:end]
     else:
         frappe.throw("Invalid Registration Scheme")
+        

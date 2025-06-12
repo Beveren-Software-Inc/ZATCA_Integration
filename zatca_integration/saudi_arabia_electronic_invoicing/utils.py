@@ -111,7 +111,7 @@ def save_and_return_csr(doc, private_key_pem, csr):
     """Save CSR to document and return base64 encoded result"""
     csr_pem = csr.public_bytes(serialization.Encoding.PEM)
     base64csr = base64.b64encode(csr_pem).decode("utf-8")
-    
+    # frappe.throw(str(private_key_pem))
     doc.private_key = private_key_pem.decode("utf-8")
     doc.private_key_pem_format = str(private_key_pem)
     doc.csr = base64csr.strip()
@@ -119,7 +119,7 @@ def save_and_return_csr(doc, private_key_pem, csr):
     doc.save(ignore_permissions=True)
     frappe.msgprint(
             _("CSR and Private Key were generated successfully and saved to the document.<br><br>"
-              "<b>Next Step:</b> Create and generate"),
+              "<b>Next Step:</b> Create and generate CSID"),
             title="CSR Generation Complete",
             indicator="green"
         )
