@@ -78,7 +78,8 @@ class ComplianceCSID(Document):
 		buyer = get_buyer_information()
 
 		if csr_settings.csrinvoicetype == "1100":
-			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
+      #Uncomment after testing
+			# self.invoke_complaince_check("standard", csr_settings, seller, buyer)
 			
 			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
 			
@@ -176,9 +177,9 @@ class ComplianceCSID(Document):
 		if invoice_type == "standard":
 			invoice_request = generate_invoice_payload_from_xml(invoice_xml.encode("utf-8"))
 		elif invoice_type == "simplified":
+			# private_key = frappe.get_doc("Zatca CSR Settings", self.csr_settings).private_key
 			# invoice_request = generate_reporting_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, base64.b64encode(private_key.encode("utf-8")).decode("utf-8"), self.decode_certificate(self.binary_security_token), invoice_xml)
 			invoice_request = generate_invoice_payload_from_xml(invoice_xml.encode("utf-8"))
-
 		else:
 			frappe.throw(f"Invalid Invoice Type: {invoice_type}")
 
@@ -188,10 +189,10 @@ class ComplianceCSID(Document):
 			'Accept-Version': 'V2',
 			'Content-Type': 'application/json'
 		}
-
+		# frappe.throw(str(invoice_request))
 		try:
 			response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
-			
+			frappe.throw(str(response.text))
 			response_code = response.status_code
 			response_text = response.text
 			response_headers = dict(response.headers)
@@ -343,6 +344,15 @@ def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previous
         "seller": seller,
         "buyer": buyer,
         "invoiceDeliveryDate": invoiceDeliveryDate,
+        "qr_code":generate_qr_code(
+    seller.get("organization_name"),
+    seller.get("vat_number"),
+    invoice_date,
+    invoice_time,
+    "0.00",  # Replace with actual total amount
+    "0.00",  # Replace with actual tax amount
+    previousInvoiceHash
+)
     })
     standard_invoice = {
         "invoiceNumber": invoiceNumber,
@@ -391,3 +401,40 @@ def get_registration_scheme_code(registration_scheme):
     else:
         frappe.throw("Invalid Registration Scheme")
         
+import qrcode
+import base64
+from io import BytesIO
+
+def generate_qr_code(seller_name, vat_number, invoice_date, invoice_time, total_amount, tax_amount, previous_hash):
+    """
+    Generate a QR code for ZATCA (Saudi Arabian tax authority) e-invoicing
+    """
+    # Format the QR code data according to ZATCA requirements
+    qr_data = f"""
+{seller_name}
+{vat_number}
+{invoice_date}
+{invoice_time}
+{total_amount}
+{tax_amount}
+{previous_hash}
+""".strip()
+    
+    # Generate QR code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(qr_data)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Convert to base64
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    
+    return img_str

@@ -180,42 +180,103 @@ def get_registration_scheme_code(registration_scheme):
         frappe.throw("Invalid Registration Scheme")
         
 
-#Implementing new compliance
+# #Implementing new compliance
+# def generate_invoice_payload_from_xml(xml_content: bytes) -> dict:
+#     import xml.etree.ElementTree as ET
+#     import base64
+
+#     namespaces = {
+#         "ext": "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2",
+#         "sig": "urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2",
+#         "sac": "urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2",
+#         "xades": "http://uri.etsi.org/01903/v1.3.2#",
+#         "ds": "http://www.w3.org/2000/09/xmldsig#",
+#         "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+#     }
+
+#     root = ET.fromstring(xml_content)
+
+#     # Find the first DigestValue inside SignedInfo (more flexible)
+#     digest_value_element = root.find(
+#         ".//ds:SignedInfo/ds:Reference/ds:DigestValue",
+#         namespaces
+#     )
+#     if digest_value_element is None or not digest_value_element.text:
+#         raise Exception("DigestValue not found in the XML.")
+#     encoded_hash = digest_value_element.text.strip()
+
+#     # Extract UUID
+#     uuid_element = root.find("cbc:UUID", namespaces)
+#     if uuid_element is None or not uuid_element.text:
+#         raise Exception("UUID not found in the XML.")
+#     uuid_value = uuid_element.text.strip()
+
+#     # Encode full XML
+#     xml_base64_encoded = base64.b64encode(xml_content).decode("utf-8")
+
+#     return {
+#         "uuid": uuid_value,
+#         "invoiceHash": encoded_hash,
+#         "invoice": xml_base64_encoded,
+#     }
 def generate_invoice_payload_from_xml(xml_content: bytes) -> dict:
-    import xml.etree.ElementTree as ET
+    from lxml import etree
+    import hashlib
     import base64
 
-    namespaces = {
-        "ext": "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2",
-        "sig": "urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2",
-        "sac": "urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2",
-        "xades": "http://uri.etsi.org/01903/v1.3.2#",
-        "ds": "http://www.w3.org/2000/09/xmldsig#",
-        "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+    # Define all required namespaces
+    NAMESPACES = {
+        'ext': 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2',
+        'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
+        'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
+        'ds': 'http://www.w3.org/2000/09/xmldsig#',
+        'sig': 'urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2'
     }
 
-    root = ET.fromstring(xml_content)
+    try:
+        parser = etree.XMLParser(remove_blank_text=True)
+        root = etree.fromstring(xml_content, parser=parser)
 
-    # Find the first DigestValue inside SignedInfo (more flexible)
-    digest_value_element = root.find(
-        ".//ds:SignedInfo/ds:Reference/ds:DigestValue",
-        namespaces
-    )
-    if digest_value_element is None or not digest_value_element.text:
-        raise Exception("DigestValue not found in the XML.")
-    encoded_hash = digest_value_element.text.strip()
+        # Create a copy for canonicalization
+        canonical_root = etree.fromstring(etree.tostring(root))
+        
+        # Remove excluded sections
+        for xpath in [
+            "//ext:UBLExtensions",
+            "//cac:Signature",
+            "//cac:AdditionalDocumentReference[cbc:ID='QR']"
+        ]:
+            for elem in canonical_root.xpath(xpath, namespaces=NAMESPACES):
+                elem.getparent().remove(elem)
 
-    # Extract UUID
-    uuid_element = root.find("cbc:UUID", namespaces)
-    if uuid_element is None or not uuid_element.text:
-        raise Exception("UUID not found in the XML.")
-    uuid_value = uuid_element.text.strip()
+        # Strict canonicalization
+        canonical_xml = etree.tostring(
+            canonical_root,
+            method="c14n",
+            exclusive=True,
+            with_comments=False
+        )
 
-    # Encode full XML
-    xml_base64_encoded = base64.b64encode(xml_content).decode("utf-8")
+        # Calculate SHA256 hash
+        invoice_hash = base64.b64encode(
+            hashlib.sha256(canonical_xml).digest()
+        ).decode()
 
-    return {
-        "uuid": uuid_value,
-        "invoiceHash": encoded_hash,
-        "invoice": xml_base64_encoded,
-    }
+        # Extract UUID
+        uuid_elements = canonical_root.xpath("//cbc:UUID", namespaces=NAMESPACES)
+        if not uuid_elements:
+            raise Exception("UUID not found in the XML.")
+        uuid_value = uuid_elements[0].text.strip()
+
+        return {
+            "uuid": uuid_value,
+            "invoiceHash": invoice_hash,  # Use our calculated hash
+            "invoice": base64.b64encode(xml_content).decode(),
+        }
+
+    except Exception as e:
+        # Add debug output
+        print(f"Error processing XML: {str(e)}")
+        if 'canonical_xml' in locals():
+            print("Canonical XML:", canonical_xml.decode())
+        raise
