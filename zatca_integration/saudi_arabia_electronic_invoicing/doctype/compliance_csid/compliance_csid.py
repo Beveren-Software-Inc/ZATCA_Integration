@@ -192,7 +192,7 @@ class ComplianceCSID(Document):
 		# frappe.throw(str(invoice_request))
 		try:
 			response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
-			frappe.throw(str(response.text))
+			# frappe.throw(str(response.text))
 			response_code = response.status_code
 			response_text = response.text
 			response_headers = dict(response.headers)

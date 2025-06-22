@@ -43,7 +43,7 @@
                             <xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="signature">
                                 <xades:SignedProperties Id="xadesSignedProperties">
                                     <xades:SignedSignatureProperties>
-                                        <xades:SigningTime>2024-12-30T08:22:10</xades:SigningTime>
+                                        <xades:SigningTime>2025-06-22T08:22:10</xades:SigningTime>
                                         <xades:SigningCertificate>
                                             <xades:Cert>
                                                 <xades:CertDigest>
@@ -69,8 +69,8 @@
   <cbc:ProfileID>reporting:1.0</cbc:ProfileID>
   <cbc:ID>ACC-SINV-2024-00028</cbc:ID>
   <cbc:UUID>2a106170-c687-11ef-8ba2-020017019f27</cbc:UUID>
-  <cbc:IssueDate>2025-06-15</cbc:IssueDate>
-  <cbc:IssueTime>09:58:53</cbc:IssueTime>
+  <cbc:IssueDate>2025-06-22</cbc:IssueDate>
+  <cbc:IssueTime>09:08:53</cbc:IssueTime>
   <cbc:InvoiceTypeCode name="0200000">381</cbc:InvoiceTypeCode>
   <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
   <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
