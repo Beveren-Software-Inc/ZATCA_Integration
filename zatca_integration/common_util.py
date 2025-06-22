@@ -22,7 +22,7 @@ def generate_clearance_request(url, clientId, clientSecret, invoice):
     data = {
         'invoice': encode_invoice(invoice)
     }
-
+    
     try:
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()
@@ -46,7 +46,6 @@ def generate_reporting_request(url, clientId, clientSecret, privateKey, pemCerti
     data = {
         'invoice': encode_invoice(invoice)
     }
-    
     try:
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()

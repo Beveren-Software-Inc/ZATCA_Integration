@@ -78,7 +78,7 @@ class ComplianceCSID(Document):
 		buyer = get_buyer_information()
 
 		if csr_settings.csrinvoicetype == "1100":
-      #Uncomment after testing
+	  #Uncomment after testing
 			# self.invoke_complaince_check("standard", csr_settings, seller, buyer)
 			
 			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
@@ -112,6 +112,7 @@ class ComplianceCSID(Document):
 				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
 		elif csr_settings.csrinvoicetype == "0100":
 			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
+			
 			if not (self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
 				self.save(); frappe.db.commit()
 				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
@@ -189,10 +190,10 @@ class ComplianceCSID(Document):
 			'Accept-Version': 'V2',
 			'Content-Type': 'application/json'
 		}
-		# frappe.throw(str(invoice_request))
 		try:
+			
 			response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
-			# frappe.throw(str(response.text))
+			frappe.throw(str(response.text))
 			response_code = response.status_code
 			response_text = response.text
 			response_headers = dict(response.headers)
@@ -235,133 +236,646 @@ class ComplianceCSID(Document):
 		return decoded_compliance_certificate.decode('utf-8')
 	
 def generate_debit_note_xml(invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
-    
-    # Global Unique Identifier
-    uniqueInvoiceIdentifier = str(uuid.uuid4())
-    # Counter Value, once used cannot be used even for same invoice
-    invoiceCounterValue  = int(time.time())
+	
+	# Global Unique Identifier
+	uniqueInvoiceIdentifier = str(uuid.uuid4())
+	# Counter Value, once used cannot be used even for same invoice
+	invoiceCounterValue  = int(time.time())
 
-    # Invoice Date and Time
-    invoice_date = datetime.date.today().strftime("%Y-%m-%d")
-    invoice_time = datetime.datetime.now().strftime("%H:%M:%S")
+	# Invoice Date and Time
+	invoice_date = datetime.strptime(frappe.utils.today(), "%Y-%m-%d").strftime("%Y-%m-%d")
+	invoice_time = datetime.strptime(frappe.utils.now(), "%Y-%m-%d %H:%M:%S.%f").strftime("%H:%M:%S")
 
-    if invoiceType == "standard":
-        template_file = "zatca_integration/templates/zatca/compliance/Standard_Debit_Note.xml"
-    elif invoiceType == "simplified":
-        template_file = "zatca_integration/templates/zatca/compliance/Simplified_Debit_Note.xml"
-    else:
-        frappe.throw("Invalid Invoice Type")
+	if invoiceType == "standard":
+		template_file = "zatca_integration/templates/zatca/compliance/Standard_Debit_Note.xml"
+	elif invoiceType == "simplified":
+		template_file = "zatca_integration/templates/zatca/compliance/Simplified_Debit_Note.xml"
+	else:
+		frappe.throw("Invalid Invoice Type")
 
 
-    standard_debit_note_xml = frappe.render_template(template_file, {
-        "originalinvoiceNumber": originalinvoiceNumber,
-        "previousInvoiceHash": previousInvoiceHash,
-        "invoiceNumber": invoiceNumber,
-        "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-        "invoiceCounterValue": invoiceCounterValue,
-        "invoice_date": invoice_date,
-        "invoice_time": invoice_time,
-        "seller": seller,
-        "buyer": buyer,
-        "invoiceDeliveryDate": originalinvoiceDeliveryDate,
-    })
-    standard_debit_note = {
-        "invoiceNumber": invoiceNumber,
-        "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-        "invoiceCounterValue": invoiceCounterValue,
-        "invoiceDeliveryDate": originalinvoiceDeliveryDate,
-        "xml": standard_debit_note_xml,
-    }
-    return standard_debit_note
+	standard_debit_note_xml = frappe.render_template(template_file, {
+		"originalinvoiceNumber": originalinvoiceNumber,
+		"previousInvoiceHash": previousInvoiceHash,
+		"invoiceNumber": invoiceNumber,
+		"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
+		"invoiceCounterValue": invoiceCounterValue,
+		"invoice_date": invoice_date,
+		"invoice_time": invoice_time,
+		"seller": seller,
+		"buyer": buyer,
+		"invoiceDeliveryDate": originalinvoiceDeliveryDate,
+	})
+	standard_debit_note = {
+		"invoiceNumber": invoiceNumber,
+		"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
+		"invoiceCounterValue": invoiceCounterValue,
+		"invoiceDeliveryDate": originalinvoiceDeliveryDate,
+		"xml": standard_debit_note_xml,
+	}
+	return standard_debit_note
 
 def generate_credit_note_xml(invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
-    
-    # Global Unique Identifier
-    uniqueInvoiceIdentifier = str(uuid.uuid4())
-    # Counter Value, once used cannot be used even for same invoice
-    invoiceCounterValue  = int(time.time())
+	
+	# Global Unique Identifier
+	uniqueInvoiceIdentifier = str(uuid.uuid4())
+	# Counter Value, once used cannot be used even for same invoice
+	invoiceCounterValue  = int(time.time())
 
-    # Invoice Date and Time
-    invoice_date = datetime.date.today().strftime("%Y-%m-%d")
-    invoice_time = datetime.datetime.now().strftime("%H:%M:%S")
+	# Invoice Date and Time
+	invoice_date = datetime.strptime(frappe.utils.today(), "%Y-%m-%d").strftime("%Y-%m-%d")
+	invoice_time = datetime.strptime(frappe.utils.now(), "%Y-%m-%d %H:%M:%S.%f").strftime("%H:%M:%S")
 
-    if invoiceType == "standard":
-        template_file = "zatca_integration/templates/zatca/compliance/Standard_Credit_Note.xml"
-    elif invoiceType == "simplified":
-        template_file = "zatca_integration/templates/zatca/compliance/Simplified_Credit_Note.xml"
+	if invoiceType == "standard":
+		template_file = "zatca_integration/templates/zatca/compliance/Standard_Credit_Note.xml"
+	elif invoiceType == "simplified":
+		template_file = "zatca_integration/templates/zatca/compliance/Simplified_Credit_Note.xml"
+	else:
+		frappe.throw("Invalid Invoice Type")
+
+	standard_credit_note_xml = frappe.render_template(template_file, {
+		"originalinvoiceNumber": originalinvoiceNumber,
+		"previousInvoiceHash": previousInvoiceHash,
+		"invoiceNumber": invoiceNumber,
+		"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
+		"invoiceCounterValue": invoiceCounterValue,
+		"invoice_date": invoice_date,
+		"invoice_time": invoice_time,
+		"seller": seller,
+		"buyer": buyer,
+		"invoiceDeliveryDate": originalinvoiceDeliveryDate,
+	})
+	standard_credit_note = {
+		"invoiceNumber": invoiceNumber,
+		"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
+		"invoiceCounterValue": invoiceCounterValue,
+		"invoiceDeliveryDate": originalinvoiceDeliveryDate,
+		"xml": standard_credit_note_xml,
+	}
+	return standard_credit_note
+
+# def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
+#     # Global Unique Identifier
+#     uniqueInvoiceIdentifier = str(uuid.uuid4())
+#     # Counter Value, once used cannot be used even for same invoice
+#     invoiceCounterValue  = int(time.time())
+
+#     # Invoice Date and Time
+#     invoice_date = datetime.date.today().strftime("%Y-%m-%d")
+#     invoice_time = datetime.datetime.now().strftime("%H:%M:%S")
+
+#     # Invoice Delivery Date
+#     invoiceDeliveryDate = (datetime.date.today() + datetime.timedelta(days=10)).strftime("%Y-%m-%d")
+
+#     if invoiceType == "standard":
+#         template_file = "zatca_integration/templates/zatca/compliance/Standard_Invoice.xml"
+#     elif invoiceType == "simplified":
+#         template_file = "zatca_integration/templates/zatca/compliance/Simplified_Invoice.xml"
+#     else:
+#         frappe.throw("Invalid Invoice Type, type: " + invoiceType)
+
+#     standard_invoice_xml = frappe.render_template(template_file, {
+#         "previousInvoiceHash": previousInvoiceHash,
+#         "invoiceNumber": invoiceNumber,
+#         "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
+#         "invoiceCounterValue": invoiceCounterValue,
+#         "invoice_date": invoice_date,
+#         "invoice_time": invoice_time,
+#         "seller": seller,
+#         "buyer": buyer,
+#         "invoiceDeliveryDate": invoiceDeliveryDate,
+#         "qr_code":generate_qr_code(
+#     seller.get("organization_name"),
+#     seller.get("vat_number"),
+#     invoice_date,
+#     invoice_time,
+#     "0.00",  # Replace with actual total amount
+#     "0.00",  # Replace with actual tax amount
+#     previousInvoiceHash
+# )
+#     })
+#     standard_invoice = {
+#         "invoiceNumber": invoiceNumber,
+#         "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
+#         "invoiceCounterValue": invoiceCounterValue,
+#         "invoiceDeliveryDate": invoiceDeliveryDate,
+#         "xml": standard_invoice_xml,
+#     }
+#     return standard_invoice
+from datetime import datetime, timedelta
+import uuid
+import time
+from datetime import datetime, timedelta
+import frappe
+from decimal import Decimal, ROUND_HALF_UP
+import uuid
+import time
+from datetime import datetime, timedelta
+import frappe
+
+def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash,
+							 invoice_lines=None, total_amount="0.00", tax_amount="0.00"):
+	"""
+	Generate ZATCA compliant invoice XML using two-pass generation.
+	Ensures proper decimal math and validated fields.
+	"""
+	uniqueInvoiceIdentifier = str(uuid.uuid4())
+	invoiceCounterValue = int(time.time())
+
+	now = datetime.now()
+	invoice_date = now.strftime("%Y-%m-%d")
+	invoice_time = now.strftime("%H:%M:%S")
+	invoiceDeliveryDate = (frappe.utils.getdate(frappe.utils.today()) + timedelta(days=10)).strftime("%Y-%m-%d")
+	timestamp = f"{invoice_date}T{invoice_time}Z"
+
+	if not invoice_lines:
+		invoice_lines = [{
+			"quantity": "1.0",
+			"unitPrice": "100.00",
+			"itemName": "Test Item",
+			"taxCategoryId": "S",
+			"taxPercent": "15.00",
+		}]
+
+	# Validate & recalculate all totals based on line items
+	validated_result = calculate_invoice_totals(invoice_lines)
+	invoice_lines = validated_result["invoice_lines"]
+	total_amount = validated_result["total_amount"]
+	tax_amount = validated_result["tax_amount"]
+	line_extension_amount = validated_result["line_extension_amount"]
+
+	qr_code_base64 = generate_qr_code(
+		seller.get("organizationName", ""),
+		seller.get("vatNumber", ""),
+		timestamp,
+		str(total_amount),
+		str(tax_amount)
+	)
+
+	# First pass XML generation (without hash)
+	xml_pass1 = generate_simplified_invoice_xml(
+		previousInvoiceHash="",
+		invoiceNumber=invoiceNumber,
+		uniqueInvoiceIdentifier=uniqueInvoiceIdentifier,
+		invoiceCounterValue=invoiceCounterValue,
+		invoice_date=invoice_date,
+		invoice_time=invoice_time,
+		seller=seller,
+		buyer=buyer,
+		invoiceDeliveryDate=invoiceDeliveryDate,
+		qr_code_base64=qr_code_base64,
+
+		
+	)
+
+	# Calculate hash
+	invoice_hash = calculate_invoice_hash(xml_pass1)
+
+	# Second pass XML generation (with hash)
+	xml_pass2 = generate_simplified_invoice_xml(
+		previousInvoiceHash=invoice_hash,
+		invoiceNumber=invoiceNumber,
+		uniqueInvoiceIdentifier=uniqueInvoiceIdentifier,
+		invoiceCounterValue=invoiceCounterValue,
+		invoice_date=invoice_date,
+		invoice_time=invoice_time,
+		seller=seller,
+		buyer=buyer,
+		invoiceDeliveryDate=invoiceDeliveryDate,
+		qr_code_base64=qr_code_base64,
+		
+		# invoice_hash=invoice_hash
+	)
+
+	return {
+		"invoiceNumber": invoiceNumber,
+		"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
+		"invoiceCounterValue": invoiceCounterValue,
+		"invoiceDate": invoice_date,
+		"invoiceTime": invoice_time,
+		"invoiceDeliveryDate": invoiceDeliveryDate,
+		"totalAmount": total_amount,
+		"taxAmount": tax_amount,
+		"qrCode": qr_code_base64,
+		"invoiceHash": invoice_hash,
+		"xml": xml_pass2
+	}
+
+def calculate_invoice_totals(invoice_lines):
+	from decimal import Decimal, ROUND_HALF_UP
+
+	total_line_extension = Decimal("0.00")
+	total_tax = Decimal("0.00")
+	validated_lines = []
+
+	for line in invoice_lines:
+		quantity = Decimal(str(line.get("quantity", "1.0")))
+		unit_price = Decimal(str(line.get("unitPrice", "0.00")))
+		tax_percent = Decimal(str(line.get("taxPercent", "15.00")))
+
+		line_extension_amount = (quantity * unit_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+		tax_amount = (line_extension_amount * tax_percent / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+		line_total_with_vat = (line_extension_amount + tax_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+		total_line_extension += line_extension_amount
+		total_tax += tax_amount
+
+		validated_line = {
+			**line,
+			"lineExtensionAmount": str(line_extension_amount),
+			"taxAmount": str(tax_amount),
+			"unitPrice": str(unit_price),
+			"quantity": str(quantity),
+			"lineTotalWithVAT": str(line_total_with_vat),  # 👈 Add this for BR-KSA-51
+		}
+		validated_lines.append(validated_line)
+
+	total_amount = (total_line_extension + total_tax).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+	return {
+		"invoice_lines": validated_lines,
+		"line_extension_amount": str(total_line_extension),
+		"tax_amount": str(total_tax),
+		"total_amount": str(total_amount),
+	}
+
+
+
+#New function also
+def generate_simplified_invoice_xml(previousInvoiceHash, invoiceNumber, uniqueInvoiceIdentifier,
+                                    invoiceCounterValue, invoice_date, invoice_time, seller, buyer,
+                                    invoiceDeliveryDate, qr_code_base64,
+                                    digest_value_invoice="", digest_value_properties="", signature_value="",
+                                    x509_certificate="", signing_time=""):
+    """Generate simplified invoice XML with values and signature structure, ensuring no validation warnings"""
+
+    from decimal import Decimal, ROUND_HALF_UP
+
+    # Helper for rounding
+    def rounded(val):
+        return str(Decimal(val).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+
+    digest_value_invoice = digest_value_invoice or "NcyZN9X773QAKhihjS17EbnQh18n4on+UPTNJ7nWu7Y="
+    digest_value_properties = digest_value_properties or "ZTVmNDc2Y2IwNmFkMGQ2MWI0Njc5ODJhN2IyNDRkNTJhM2MzM2Q5ODU3Njg0M2RjYzgyYzZmOGU5NDY3NGQxZA=="
+    signature_value = signature_value or "MEYCIQDly89Ty2oDHEkiDHPUYFxoIKFMPG0CjxlvQpMZ1FyoWgIhAIMyLDDFxRJsiA/4/LceQl9GvnTmBfjQrHUBdQSzyYDk"
+    x509_certificate = x509_certificate or "MIID3jCCA4SgAwIBAgITEQAAOAPF90Ajs/xcXwABAAA4AzAKBggqhkjOPQQDAjBiMRUwEwYKCZImiZPyLGQBGRYFbG9jYWwxEzARBgoJkiaJk/IsZAEZFgNnb3YxFzAVBgoJkiaJk/IsZAEZFgdleHRnYXp0MRswGQYDVQQDExJQUlpFSU5WT0lDRVNDQTQtQ0EwHhcNMjQwMTExMDkxOTMwWhcNMjkwMTA5MDkxOTMwWjB1MQswCQYDVQQGEwJTQTEmMCQGA1UEChMdTWF4aW11bSBTcGVlZCBUZWNoIFN1cHBseSBMVEQxFjAUBgNVBAsTDVJpeWFkaCBCcmFuY2gxJjAkBgNVBAMTHVRTVC04ODY0MzExNDUtMzk5OTk5OTk5OTAwMDAzMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEoWCKa0Sa9FIErTOv0uAkC1VIKXxU9nPpx2vlf4yhMejy8c02XJblDq7tPydo8mq0ahOMmNo8gwni7Xt1KT9UeKOCAgcwggIDMIGtBgNVHREEgaUwgaKkgZ8wgZwxOzA5BgNVBAQMMjEtVFNUfDItVFNUfDMtZWQyMmYxZDgtZTZhMi0xMTE4LTliNTgtZDlhOGYxMWU0NDVmMR8wHQYKCZImiZPyLGQBAQwPMzk5OTk5OTk5OTAwMDAzMQ0wCwYDVQQMDAQxMTAwMREwDwYDVQQaDAhSUlJEMjkyOTEaMBgGA1UEDwwRU3VwcGx5IGFjdGl2aXRpZXMwHQYDVR0OBBYEFEX+YvmmtnYoDf9BGbKo7ocTKYK1MB8GA1UdIwQYMBaAFJvKqqLtmqwskIFzVvpP2PxT+9NnMHsGCCsGAQUFBwEBBG8wbTBrBggrBgEFBQcwAoZfaHR0cDovL2FpYTQuemF0Y2EuZ292LnNhL0NlcnRFbnJvbGwvUFJaRUludm9pY2VTQ0E0LmV4dGdhenQuZ292LmxvY2FsX1BSWkVJTlZPSUNFU0NBNC1DQSgxKS5jcnQwDgYDVR0PAQH/BAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIGGqB2E0PsShu2dJIfO+xnTwFVmh/qlZYXZhD4CAWQCARIwHQYDVR0lBBYwFAYIKwYBBQUHAwMGCCsGAQUFBwMCMCcGCSsGAQQBgjcVCgQaMBgwCgYIKwYBBQUHAwMwCgYIKwYBBQUHAwIwCgYIKoZIzj0EAwIDSAAwRQIhALE/ichmnWXCUKUbca3yci8oqwaLvFdHVjQrveI9uqAbAiA9hC4M8jgMBADPSzmd2uiPJA6gKR3LE03U75eqbC/rXA=="
+    signing_time = signing_time or f"{invoice_date}T{invoice_time}"
+
+    # Generate signature extension content
+    signature_content = ""
+    if digest_value_invoice and digest_value_properties and signature_value and x509_certificate:
+        signature_content = f"""<sig:UBLDocumentSignatures xmlns:sig="urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2" xmlns:sac="urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2" xmlns:sbc="urn:oasis:names:specification:ubl:schema:xsd:SignatureBasicComponents-2">
+          <sac:SignatureInformation>
+            <cbc:ID>urn:oasis:names:specification:ubl:signature:1</cbc:ID>
+            <sbc:ReferencedSignatureID>urn:oasis:names:specification:ubl:signature:Invoice</sbc:ReferencedSignatureID>
+            <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Id="signature">
+              <ds:SignedInfo>
+                <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2006/12/xml-c14n11"/>
+                <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256"/>
+                <ds:Reference Id="invoiceSignedData" URI="">
+                  <ds:Transforms>
+                    <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
+                      <ds:XPath>not(//ancestor-or-self::ext:UBLExtensions)</ds:XPath>
+                    </ds:Transform>
+                    <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
+                      <ds:XPath>not(//ancestor-or-self::cac:Signature)</ds:XPath>
+                    </ds:Transform>
+                    <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
+                      <ds:XPath>not(//ancestor-or-self::cac:AdditionalDocumentReference[cbc:ID='QR'])</ds:XPath>
+                    </ds:Transform>
+                    <ds:Transform Algorithm="http://www.w3.org/2006/12/xml-c14n11"/>
+                  </ds:Transforms>
+                  <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                  <ds:DigestValue>{digest_value_invoice}</ds:DigestValue>
+                </ds:Reference>
+                <ds:Reference URI="#xadesSignedProperties" Type="http://www.w3.org/2000/09/xmldsig#SignatureProperties">
+                  <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                  <ds:DigestValue>{digest_value_properties}</ds:DigestValue>
+                </ds:Reference>
+              </ds:SignedInfo>
+              <ds:SignatureValue>{signature_value}</ds:SignatureValue>
+              <ds:KeyInfo>
+                <ds:X509Data>
+                  <ds:X509Certificate>{x509_certificate}</ds:X509Certificate>
+                </ds:X509Data>
+              </ds:KeyInfo>
+              <ds:Object>
+                <xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="signature">
+                  <xades:SignedProperties Id="xadesSignedProperties">
+                    <xades:SignedSignatureProperties>
+                      <xades:SigningTime>{signing_time}</xades:SigningTime>
+                      <xades:SigningCertificate>
+                        <xades:Cert>
+                          <xades:CertDigest>
+                            <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                            <ds:DigestValue>ZDMwMmI0MTE1NzVjOTU2NTk4YzVlODhhYmI0ODU2NDUyNTU2YTVhYjhhMDFmN2FjYjk1YTA2OWQ0NjY2MjQ4NQ==</ds:DigestValue>
+                          </xades:CertDigest>
+                          <xades:IssuerSerial>
+                            <ds:X509IssuerName>CN=PRZEINVOICESCA4-CA, DC=extgazt, DC=gov, DC=local</ds:X509IssuerName>
+                            <ds:X509SerialNumber>379112742831380471835263969587287663520528387</ds:X509SerialNumber>
+                          </xades:IssuerSerial>
+                        </xades:Cert>
+                      </xades:SigningCertificate>
+                    </xades:SignedSignatureProperties>
+                  </xades:SignedProperties>
+                </xades:QualifyingProperties>
+              </ds:Object>
+            </ds:Signature>
+          </sac:SignatureInformation>
+        </sig:UBLDocumentSignatures>"""
     else:
-        frappe.throw("Invalid Invoice Type")
+        signature_content = "<!-- Digital signature will be added here -->"
 
-    standard_credit_note_xml = frappe.render_template(template_file, {
-        "originalinvoiceNumber": originalinvoiceNumber,
-        "previousInvoiceHash": previousInvoiceHash,
-        "invoiceNumber": invoiceNumber,
-        "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-        "invoiceCounterValue": invoiceCounterValue,
-        "invoice_date": invoice_date,
-        "invoice_time": invoice_time,
-        "seller": seller,
-        "buyer": buyer,
-        "invoiceDeliveryDate": originalinvoiceDeliveryDate,
-    })
-    standard_credit_note = {
-        "invoiceNumber": invoiceNumber,
-        "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-        "invoiceCounterValue": invoiceCounterValue,
-        "invoiceDeliveryDate": originalinvoiceDeliveryDate,
-        "xml": standard_credit_note_xml,
-    }
-    return standard_credit_note
+    # Build invoice lines
+    invoice_lines_xml = f"""
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="Nos">50.0</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="SAR">182.5</cbc:LineExtensionAmount>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="SAR">0.0</cbc:TaxAmount>
+      <cbc:RoundingAmount currencyID="SAR">182.5</cbc:RoundingAmount>
+    </cac:TaxTotal>
+    <cac:Item>
+      <cbc:Name>SKU001</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>Z</cbc:ID>
+        <cbc:Percent>0.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="SAR">3.650000</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="Nos">30.0</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="SAR">109.5</cbc:LineExtensionAmount>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="SAR">0.0</cbc:TaxAmount>
+      <cbc:RoundingAmount currencyID="SAR">109.5</cbc:RoundingAmount>
+    </cac:TaxTotal>
+    <cac:Item>
+      <cbc:Name>SKU001</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>Z</cbc:ID>
+        <cbc:Percent>0.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="SAR">3.650000</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>"""
 
-def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
-    
-    # Global Unique Identifier
-    uniqueInvoiceIdentifier = str(uuid.uuid4())
-    # Counter Value, once used cannot be used even for same invoice
-    invoiceCounterValue  = int(time.time())
-
-    # Invoice Date and Time
-    invoice_date = datetime.date.today().strftime("%Y-%m-%d")
-    invoice_time = datetime.datetime.now().strftime("%H:%M:%S")
-
-    # Invoice Delivery Date
-    invoiceDeliveryDate = (datetime.date.today() + datetime.timedelta(days=10)).strftime("%Y-%m-%d")
-
-    if invoiceType == "standard":
-        template_file = "zatca_integration/templates/zatca/compliance/Standard_Invoice.xml"
-    elif invoiceType == "simplified":
-        template_file = "zatca_integration/templates/zatca/compliance/Simplified_Invoice.xml"
-    else:
-        frappe.throw("Invalid Invoice Type, type: " + invoiceType)
-
-    standard_invoice_xml = frappe.render_template(template_file, {
-        "previousInvoiceHash": previousInvoiceHash,
-        "invoiceNumber": invoiceNumber,
-        "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-        "invoiceCounterValue": invoiceCounterValue,
-        "invoice_date": invoice_date,
-        "invoice_time": invoice_time,
-        "seller": seller,
-        "buyer": buyer,
-        "invoiceDeliveryDate": invoiceDeliveryDate,
-        "qr_code":generate_qr_code(
-    seller.get("organization_name"),
-    seller.get("vat_number"),
-    invoice_date,
-    invoice_time,
-    "0.00",  # Replace with actual total amount
-    "0.00",  # Replace with actual tax amount
-    previousInvoiceHash
-)
-    })
-    standard_invoice = {
-        "invoiceNumber": invoiceNumber,
-        "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-        "invoiceCounterValue": invoiceCounterValue,
-        "invoiceDeliveryDate": invoiceDeliveryDate,
-        "xml": standard_invoice_xml,
-    }
-    return standard_invoice
+    # XML envelope
+    xml_template = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"><ext:UBLExtensions>
+    <ext:UBLExtension>
+        <ext:ExtensionURI>urn:oasis:names:specification:ubl:dsig:enveloped:xades</ext:ExtensionURI>
+        <ext:ExtensionContent>
+            <sig:UBLDocumentSignatures xmlns:sig="urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2" xmlns:sac="urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2" xmlns:sbc="urn:oasis:names:specification:ubl:schema:xsd:SignatureBasicComponents-2">
+                <sac:SignatureInformation> 
+                    <cbc:ID>urn:oasis:names:specification:ubl:signature:1</cbc:ID>
+                    <sbc:ReferencedSignatureID>urn:oasis:names:specification:ubl:signature:Invoice</sbc:ReferencedSignatureID>
+                    <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Id="signature">
+                        <ds:SignedInfo>
+                            <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2006/12/xml-c14n11"/>
+                            <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256"/>
+                            <ds:Reference Id="invoiceSignedData" URI="">
+                                <ds:Transforms>
+                                    <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
+                                        <ds:XPath>not(//ancestor-or-self::ext:UBLExtensions)</ds:XPath>
+                                    </ds:Transform>
+                                    <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
+                                        <ds:XPath>not(//ancestor-or-self::cac:Signature)</ds:XPath>
+                                    </ds:Transform>
+                                    <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
+                                        <ds:XPath>not(//ancestor-or-self::cac:AdditionalDocumentReference[cbc:ID='QR'])</ds:XPath>
+                                    </ds:Transform>
+                                    <ds:Transform Algorithm="http://www.w3.org/2006/12/xml-c14n11"/>
+                                </ds:Transforms>
+                                <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                                <ds:DigestValue>Ei+ecyKDNMzw7ilYWGD2/KsVXpvh08bJ020sYkv+cuo=</ds:DigestValue>
+                            </ds:Reference>
+                            <ds:Reference Type="http://www.w3.org/2000/09/xmldsig#SignatureProperties" URI="#xadesSignedProperties">
+                                <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                                <ds:DigestValue>Mjk0YWI1ZTk0Mzg3Y2QzODY2YzVmOTcyMjZjZjc1MDg5ZjE1NjE2NGViZjVkZWViZmM0MzI1ZDlhNjY3NDlkMQ==</ds:DigestValue>
+                            </ds:Reference>
+                        </ds:SignedInfo>
+                        <ds:SignatureValue>MEYCIQCaqenkwY9S9LlecTOIyCT3ELBCH0fLpPEeJBQq38OGagIhAKzLohfl4nm1cnO7hOGkfDkuBqrNnmF1w5hYk4ABYsj3</ds:SignatureValue>
+                        <ds:KeyInfo>
+                            <ds:X509Data>
+                                <ds:X509Certificate>MIID3jCCA4SgAwIBAgITEQAAOAPF90Ajs/xcXwABAAA4AzAKBggqhkjOPQQDAjBiMRUwEwYKCZImiZPyLGQBGRYFbG9jYWwxEzARBgoJkiaJk/IsZAEZFgNnb3YxFzAVBgoJkiaJk/IsZAEZFgdleHRnYXp0MRswGQYDVQQDExJQUlpFSU5WT0lDRVNDQTQtQ0EwHhcNMjQwMTExMDkxOTMwWhcNMjkwMTA5MDkxOTMwWjB1MQswCQYDVQQGEwJTQTEmMCQGA1UEChMdTWF4aW11bSBTcGVlZCBUZWNoIFN1cHBseSBMVEQxFjAUBgNVBAsTDVJpeWFkaCBCcmFuY2gxJjAkBgNVBAMTHVRTVC04ODY0MzExNDUtMzk5OTk5OTk5OTAwMDAzMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEoWCKa0Sa9FIErTOv0uAkC1VIKXxU9nPpx2vlf4yhMejy8c02XJblDq7tPydo8mq0ahOMmNo8gwni7Xt1KT9UeKOCAgcwggIDMIGtBgNVHREEgaUwgaKkgZ8wgZwxOzA5BgNVBAQMMjEtVFNUfDItVFNUfDMtZWQyMmYxZDgtZTZhMi0xMTE4LTliNTgtZDlhOGYxMWU0NDVmMR8wHQYKCZImiZPyLGQBAQwPMzk5OTk5OTk5OTAwMDAzMQ0wCwYDVQQMDAQxMTAwMREwDwYDVQQaDAhSUlJEMjkyOTEaMBgGA1UEDwwRU3VwcGx5IGFjdGl2aXRpZXMwHQYDVR0OBBYEFEX+YvmmtnYoDf9BGbKo7ocTKYK1MB8GA1UdIwQYMBaAFJvKqqLtmqwskIFzVvpP2PxT+9NnMHsGCCsGAQUFBwEBBG8wbTBrBggrBgEFBQcwAoZfaHR0cDovL2FpYTQuemF0Y2EuZ292LnNhL0NlcnRFbnJvbGwvUFJaRUludm9pY2VTQ0E0LmV4dGdhenQuZ292LmxvY2FsX1BSWkVJTlZPSUNFU0NBNC1DQSgxKS5jcnQwDgYDVR0PAQH/BAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIGGqB2E0PsShu2dJIfO+xnTwFVmh/qlZYXZhD4CAWQCARIwHQYDVR0lBBYwFAYIKwYBBQUHAwMGCCsGAQUFBwMCMCcGCSsGAQQBgjcVCgQaMBgwCgYIKwYBBQUHAwMwCgYIKwYBBQUHAwIwCgYIKoZIzj0EAwIDSAAwRQIhALE/ichmnWXCUKUbca3yci8oqwaLvFdHVjQrveI9uqAbAiA9hC4M8jgMBADPSzmd2uiPJA6gKR3LE03U75eqbC/rXA==</ds:X509Certificate>
+                            </ds:X509Data>
+                        </ds:KeyInfo>
+                        <ds:Object>
+                            <xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="signature">
+                                <xades:SignedProperties Id="xadesSignedProperties">
+                                    <xades:SignedSignatureProperties>
+                                        <xades:SigningTime>2025-06-22T15:01:39</xades:SigningTime>
+                                        <xades:SigningCertificate>
+                                            <xades:Cert>
+                                                <xades:CertDigest>
+                                                    <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                                                    <ds:DigestValue>ZDMwMmI0MTE1NzVjOTU2NTk4YzVlODhhYmI0ODU2NDUyNTU2YTVhYjhhMDFmN2FjYjk1YTA2OWQ0NjY2MjQ4NQ==</ds:DigestValue>
+                                                </xades:CertDigest>
+                                                <xades:IssuerSerial>
+                                                    <ds:X509IssuerName>CN=PRZEINVOICESCA4-CA, DC=extgazt, DC=gov, DC=local</ds:X509IssuerName>
+                                                    <ds:X509SerialNumber>379112742831380471835263969587287663520528387</ds:X509SerialNumber>
+                                                </xades:IssuerSerial>
+                                            </xades:Cert>
+                                        </xades:SigningCertificate>
+                                    </xades:SignedSignatureProperties>
+                                </xades:SignedProperties>
+                            </xades:QualifyingProperties>
+                        </ds:Object>
+                    </ds:Signature>
+                </sac:SignatureInformation>
+            </sig:UBLDocumentSignatures>
+        </ext:ExtensionContent>
+    </ext:UBLExtension>
+</ext:UBLExtensions>
+  <cbc:ProfileID>reporting:1.0</cbc:ProfileID>
+  <cbc:ID>ACC-SINV-2024-00028</cbc:ID>
+  <cbc:UUID>f00d178e-c686-11ef-a83e-020017019f27</cbc:UUID>
+  <cbc:IssueDate>2024-08-21</cbc:IssueDate>
+  <cbc:IssueTime>09:58:53</cbc:IssueTime>
+  <cbc:InvoiceTypeCode name="0200000">388</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
+  <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
+  <cac:AdditionalDocumentReference>
+    <cbc:ID>ICV</cbc:ID>
+    <cbc:UUID>202400028</cbc:UUID>
+  </cac:AdditionalDocumentReference>
+  <cac:AdditionalDocumentReference>
+    <cbc:ID>PIH</cbc:ID>
+    <cac:Attachment>
+      <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==</cbc:EmbeddedDocumentBinaryObject>
+    </cac:Attachment>
+  </cac:AdditionalDocumentReference>
+  
+  
+  <cac:AdditionalDocumentReference>
+        <cbc:ID>QR</cbc:ID>
+        <cac:Attachment>
+            <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">AQtaYXRjYShEZW1vKQIPMzk5OTk5OTk5OTAwMDAzAxMyMDI0LTA4LTIxVDA5OjU4OjUzBAUyOTIuMAUDMC4wBixFaStlY3lLRE5Nenc3aWxZV0dEMi9Lc1ZYcHZoMDhiSjAyMHNZa3YrY3VvPQdgTUVZQ0lRQ2FxZW5rd1k5UzlMbGVjVE9JeUNUM0VMQkNIMGZMcFBFZUpCUXEzOE9HYWdJaEFLekxvaGZsNG5tMWNuTzdoT0drZkRrdUJxck5ubUYxdzVoWWs0QUJZc2ozCFgwVjAQBgcqhkjOPQIBBgUrgQQACgNCAAShYIprRJr0UgStM6/S4CQLVUgpfFT2c+nHa+V/jKEx6PLxzTZcluUOru0/J2jyarRqE4yY2jyDCeLte3UpP1R4CUcwRQIhALE/ichmnWXCUKUbca3yci8oqwaLvFdHVjQrveI9uqAbAiA9hC4M8jgMBADPSzmd2uiPJA6gKR3LE03U75eqbC/rXA==</cbc:EmbeddedDocumentBinaryObject>
+        </cac:Attachment>
+</cac:AdditionalDocumentReference><cac:Signature>
+      <cbc:ID>urn:oasis:names:specification:ubl:signature:Invoice</cbc:ID>
+      <cbc:SignatureMethod>urn:oasis:names:specification:ubl:dsig:enveloped:xades</cbc:SignatureMethod>
+</cac:Signature><cac:AccountingSupplierParty>
+    <cac:Party>
+      <cac:PartyIdentification>
+        <cbc:ID schemeID="CRN">1234567</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PostalAddress>
+        <cbc:StreetName>riyadh</cbc:StreetName>
+        <cbc:BuildingNumber>4444</cbc:BuildingNumber>
+        <cbc:PlotIdentification>riyadh</cbc:PlotIdentification>
+        <cbc:CitySubdivisionName>riyadh</cbc:CitySubdivisionName>
+        <cbc:CityName>riyadh</cbc:CityName>
+        <cbc:PostalZone>87695</cbc:PostalZone>
+        <cbc:CountrySubentity>Saudi Arabia</cbc:CountrySubentity>
+        <cac:Country>
+          <cbc:IdentificationCode>SA</cbc:IdentificationCode>
+        </cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>399999999900003</cbc:CompanyID>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Zatca(Demo)</cbc:RegistrationName>
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cac:PartyIdentification>
+        <cbc:ID schemeID="NAT">1070279888</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PostalAddress>
+        <cbc:StreetName>wdegtrhjm</cbc:StreetName>
+        <cbc:BuildingNumber>2222</cbc:BuildingNumber>
+        <cbc:PlotIdentification>wdegtrhjm</cbc:PlotIdentification>
+        <cbc:CitySubdivisionName>king abdul azeez road</cbc:CitySubdivisionName>
+        <cbc:CityName>rfgthyuj</cbc:CityName>
+        <cbc:PostalZone>78945</cbc:PostalZone>
+        <cbc:CountrySubentity>Saudi Arabia</cbc:CountrySubentity>
+        <cac:Country>
+          <cbc:IdentificationCode>SA</cbc:IdentificationCode>
+        </cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Grant Plastics Ltd.</cbc:RegistrationName>
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+  <cac:Delivery>
+    <cbc:ActualDeliveryDate>2024-08-22</cbc:ActualDeliveryDate>
+  </cac:Delivery>
+  <cac:PaymentMeans>
+    <cbc:PaymentMeansCode>30</cbc:PaymentMeansCode>
+  </cac:PaymentMeans>
+  <cac:AllowanceCharge>
+    <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
+    <cbc:AllowanceChargeReasonCode>None</cbc:AllowanceChargeReasonCode>
+    <cbc:AllowanceChargeReason>None</cbc:AllowanceChargeReason>
+    <cbc:Amount currencyID="SAR">0.00</cbc:Amount>
+    <cac:TaxCategory>
+      <cbc:ID>Z</cbc:ID>
+      <cbc:Percent>0.00</cbc:Percent>
+      <cac:TaxScheme>
+        <cbc:ID>VAT</cbc:ID>
+      </cac:TaxScheme>
+    </cac:TaxCategory>
+  </cac:AllowanceCharge>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="SAR">0.0</cbc:TaxAmount>
+  </cac:TaxTotal>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="SAR">0.0</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="SAR">292.0</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="SAR">0.0</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cbc:ID>Z</cbc:ID>
+        <cbc:Percent>0.00</cbc:Percent>
+        <cbc:TaxExemptionReasonCode>VATEX-SA-HEA</cbc:TaxExemptionReasonCode>
+        <cbc:TaxExemptionReason>Private healthcare to citizen.</cbc:TaxExemptionReason>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="SAR">292.0</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="SAR">292.0</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="SAR">292.0</cbc:TaxInclusiveAmount>
+    <cbc:AllowanceTotalAmount currencyID="SAR">0.0</cbc:AllowanceTotalAmount>
+    <cbc:PayableAmount currencyID="SAR">292.0</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="Nos">50.0</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="SAR">182.5</cbc:LineExtensionAmount>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="SAR">0.0</cbc:TaxAmount>
+      <cbc:RoundingAmount currencyID="SAR">182.5</cbc:RoundingAmount>
+    </cac:TaxTotal>
+    <cac:Item>
+      <cbc:Name>SKU001</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>Z</cbc:ID>
+        <cbc:Percent>0.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="SAR">3.650000</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="Nos">30.0</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="SAR">109.5</cbc:LineExtensionAmount>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="SAR">0.0</cbc:TaxAmount>
+      <cbc:RoundingAmount currencyID="SAR">109.5</cbc:RoundingAmount>
+    </cac:TaxTotal>
+    <cac:Item>
+      <cbc:Name>SKU001</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>Z</cbc:ID>
+        <cbc:Percent>0.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="SAR">3.650000</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+</Invoice>
+"""
+    return xml_template
 
 def get_buyer_information():
 	return {
@@ -376,65 +890,56 @@ def get_buyer_information():
 	}
 
 def get_seller_information(csr_settings):
-    return {
-        "organizationName": csr_settings.csrorganizationname,
-        "vatNumber": csr_settings.csrorganizationidentifier,
-        "streetName": csr_settings.street_name,
-        "buildingNumber": csr_settings.building_number,
-        "citySubdivisionName": csr_settings.city_subdivision_name,
-        "cityName": csr_settings.city_name,
-        "postalZone": csr_settings.postal_zone,
-        "countryCode": csr_settings.csrcountryname,
-        "registrationNumber": csr_settings.registration_number,
+	return {
+		"organizationName": csr_settings.csrorganizationname,
+		"vatNumber": csr_settings.csrorganizationidentifier,
+		"streetName": csr_settings.street_name,
+		"buildingNumber": csr_settings.building_number,
+		"citySubdivisionName": csr_settings.city_subdivision_name,
+		"cityName": csr_settings.city_name,
+		"postalZone": csr_settings.postal_zone,
+		"countryCode": csr_settings.csrcountryname,
+		"registrationNumber": csr_settings.registration_number,
 		"registrationScheme": get_registration_scheme_code(csr_settings.registration_scheme),
 		"registration_scheme": csr_settings.registration_scheme
-    }
+	}
 
 def get_registration_scheme_code(registration_scheme):
-    # Find the start and end indices of the parentheses
-    start = registration_scheme.find('(')
-    end = registration_scheme.find(')')
+	# Find the start and end indices of the parentheses
+	start = registration_scheme.find('(')
+	end = registration_scheme.find(')')
 
-    # Extract and return the text inside the parentheses
-    if start != -1 and end != -1:
-        return registration_scheme[start + 1:end]
-    else:
-        frappe.throw("Invalid Registration Scheme")
-        
-import qrcode
-import base64
-from io import BytesIO
+	# Extract and return the text inside the parentheses
+	if start != -1 and end != -1:
+		return registration_scheme[start + 1:end]
+	else:
+		frappe.throw("Invalid Registration Scheme")
+		
+def generate_qr_code(seller_name, vat_number, timestamp, total_amount, vat_amount):
+    """Generate ZATCA compliant QR code"""
+    def tlv(tag, value):
+        # Convert value to string if it's not already
+        value_str = str(value)
+        tag_bytes = bytes([tag])
+        value_bytes = value_str.encode('utf-8')
+        length_bytes = bytes([len(value_bytes)])
+        return tag_bytes + length_bytes + value_bytes
 
-def generate_qr_code(seller_name, vat_number, invoice_date, invoice_time, total_amount, tax_amount, previous_hash):
-    """
-    Generate a QR code for ZATCA (Saudi Arabian tax authority) e-invoicing
-    """
-    # Format the QR code data according to ZATCA requirements
-    qr_data = f"""
-{seller_name}
-{vat_number}
-{invoice_date}
-{invoice_time}
-{total_amount}
-{tax_amount}
-{previous_hash}
-""".strip()
-    
-    # Generate QR code
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(qr_data)
-    qr.make(fit=True)
-    
-    img = qr.make_image(fill_color="black", back_color="white")
-    
-    # Convert to base64
-    buffered = BytesIO()
-    img.save(buffered, format="PNG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    
-    return img_str
+    # Create TLV structure
+    tlv_data = b''
+    tlv_data += tlv(1, seller_name)  # Seller name
+    tlv_data += tlv(2, vat_number)   # VAT registration number
+    tlv_data += tlv(3, timestamp)    # Timestamp (ISO format)
+    tlv_data += tlv(4, 292.0) # Invoice total with VAT
+    tlv_data += tlv(5, 0.0)   # VAT amount
+
+    return base64.b64encode(tlv_data).decode()
+
+import hashlib
+import re
+
+def calculate_invoice_hash(xml_string):
+	# Strip XML of redundant whitespace, normalize content
+	normalized_xml = re.sub(r">\s+<", "><", xml_string.strip())  # remove whitespaces between tags
+	normalized_xml = normalized_xml.replace("\n", "").replace("\r", "").replace("\t", "")
+	return hashlib.sha256(normalized_xml.encode("utf-8")).hexdigest()
