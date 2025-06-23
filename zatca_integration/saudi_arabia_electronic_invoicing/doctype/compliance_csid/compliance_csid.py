@@ -140,7 +140,9 @@ class ComplianceCSID(Document):
 
 	def invoke_complaince_check(self, invoice_type, csr_settings, seller, buyer):
 		"""Invoke compliance check for the given invoice type."""
-		first_invoice_hash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
+		# first_invoice_hash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
+		'''FIRST INVOICE if there is none sent, use base64 encoded '0' as the first invoice hash.'''
+		first_invoice_hash = "X+zrZv/IbzjZUnhsbWlsecLbwjndTpG0ZynXOif7V+k="
 
 		# Issue Invoice
 		tax_invoice = generate_tax_invoice_xml(invoice_type, "INV-00001", seller, buyer, first_invoice_hash)
@@ -179,8 +181,6 @@ class ComplianceCSID(Document):
 		if invoice_type == "standard":
 			invoice_request = generate_invoice_payload_from_xml(invoice_xml.encode("utf-8"))
 		elif invoice_type == "simplified":
-			# private_key = frappe.get_doc("Zatca CSR Settings", self.csr_settings).private_key
-			# invoice_request = generate_reporting_request(zatca_environment.csr_generate_api, zatca_environment.client_id, zatca_environment.client_secret, base64.b64encode(private_key.encode("utf-8")).decode("utf-8"), self.decode_certificate(self.binary_security_token), invoice_xml)
 			invoice_request = generate_invoice_payload_from_xml(invoice_xml.encode("utf-8"))
 		else:
 			frappe.throw(f"Invalid Invoice Type: {invoice_type}")
@@ -900,26 +900,6 @@ def get_registration_scheme_code(registration_scheme):
 # """
 #     return xml_template
 
-		
-# def generate_qr_code(seller_name, vat_number, timestamp, total_amount, vat_amount):
-#     """Generate ZATCA compliant QR code"""
-#     def tlv(tag, value):
-#         # Convert value to string if it's not already
-#         value_str = str(value)
-#         tag_bytes = bytes([tag])
-#         value_bytes = value_str.encode('utf-8')
-#         length_bytes = bytes([len(value_bytes)])
-#         return tag_bytes + length_bytes + value_bytes
-
-#     # Create TLV structure
-#     tlv_data = b''
-#     tlv_data += tlv(1, seller_name)  # Seller name
-#     tlv_data += tlv(2, vat_number)   # VAT registration number
-#     tlv_data += tlv(3, timestamp)    # Timestamp (ISO format)
-#     tlv_data += tlv(4, 292.0) # Invoice total with VAT
-#     tlv_data += tlv(5, 0.0)   # VAT amount
-
-#     return base64.b64encode(tlv_data).decode()
 
 # import hashlib
 # import re
@@ -929,3 +909,47 @@ def get_registration_scheme_code(registration_scheme):
 # 	normalized_xml = re.sub(r">\s+<", "><", xml_string.strip())  # remove whitespaces between tags
 # 	normalized_xml = normalized_xml.replace("\n", "").replace("\r", "").replace("\t", "")
 # 	return hashlib.sha256(normalized_xml.encode("utf-8")).hexdigest()
+
+import base64
+import struct
+import qrcode
+
+def create_tlv_data(tag, value):
+    """Create TLV (Tag-Length-Value) data for ZATCA QR code"""
+    value_bytes = value.encode('utf-8')
+    length = len(value_bytes)
+    return struct.pack('B', tag) + struct.pack('B', length) + value_bytes
+
+def generate_zatca_qr_data(seller_name, vat_number, timestamp, total_amount, vat_amount):
+    """Generate ZATCA QR code data in TLV format"""
+    TAG_SELLER_NAME = 1
+    TAG_VAT_NUMBER = 2
+    TAG_TIMESTAMP = 3
+    TAG_TOTAL_AMOUNT = 4
+    TAG_VAT_AMOUNT = 5
+    
+    # Create TLV data for each field
+    tlv_data = b''
+    tlv_data += create_tlv_data(TAG_SELLER_NAME, seller_name)
+    tlv_data += create_tlv_data(TAG_VAT_NUMBER, vat_number)
+    tlv_data += create_tlv_data(TAG_TIMESTAMP, timestamp)
+    tlv_data += create_tlv_data(TAG_TOTAL_AMOUNT, total_amount)
+    tlv_data += create_tlv_data(TAG_VAT_AMOUNT, vat_amount)
+    
+    # Encode to base64
+    return base64.b64encode(tlv_data).decode('utf-8')
+
+def generate_qr_code(data, filename):
+    """Generate QR code image"""
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    img.save(filename)
+    return filename

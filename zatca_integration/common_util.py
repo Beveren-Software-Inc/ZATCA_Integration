@@ -3,6 +3,9 @@ import base64
 import requests
 import xml.etree.ElementTree as ET
 import base64
+import hashlib
+import base64
+
 
 def validate_sales_invoice(doc, method):
     if not doc.taxes_and_charges:
@@ -218,64 +221,54 @@ def generate_invoice_payload_from_xml(xml_content: bytes) -> dict:
         "invoiceHash": encoded_hash,
         "invoice": xml_base64_encoded,
     }
-# def generate_invoice_payload_from_xml(xml_content: bytes) -> dict:
-#     from lxml import etree
-#     import hashlib
-#     import base64
 
-#     # Define all required namespaces
-#     NAMESPACES = {
-#         'ext': 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2',
-#         'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
-#         'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
-#         'ds': 'http://www.w3.org/2000/09/xmldsig#',
-#         'sig': 'urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2'
-#     }
 
-#     try:
-#         parser = etree.XMLParser(remove_blank_text=True)
-#         root = etree.fromstring(xml_content, parser=parser)
+def extract_canonical_xml(xml_file):
+    """
+    Remove ZATCA signature-related nodes and return the cleaned XML string.
+    Used to generate a hash for the current invoice.
+    """
+    try:
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
 
-#         # Create a copy for canonicalization
-#         canonical_root = etree.fromstring(etree.tostring(root))
-        
-#         # Remove excluded sections
-#         for xpath in [
-#             "//ext:UBLExtensions",
-#             "//cac:Signature",
-#             "//cac:AdditionalDocumentReference[cbc:ID='QR']"
-#         ]:
-#             for elem in canonical_root.xpath(xpath, namespaces=NAMESPACES):
-#                 elem.getparent().remove(elem)
+        namespaces = {
+            'ext': 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2',
+            'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
+            'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2'
+        }
 
-#         # Strict canonicalization
-#         canonical_xml = etree.tostring(
-#             canonical_root,
-#             method="c14n",
-#             exclusive=True,
-#             with_comments=False
-#         )
+        # Remove <ext:UBLExtensions>
+        for ext_elem in root.findall('.//ext:UBLExtensions', namespaces):
+            root.remove(ext_elem)
 
-#         # Calculate SHA256 hash
-#         invoice_hash = base64.b64encode(
-#             hashlib.sha256(canonical_xml).digest()
-#         ).decode()
+        # Remove <cac:Signature>
+        for sig_elem in root.findall('.//cac:Signature', namespaces):
+            root.remove(sig_elem)
 
-#         # Extract UUID
-#         uuid_elements = canonical_root.xpath("//cbc:UUID", namespaces=NAMESPACES)
-#         if not uuid_elements:
-#             raise Exception("UUID not found in the XML.")
-#         uuid_value = uuid_elements[0].text.strip()
+        # Remove <cac:AdditionalDocumentReference> with cbc:ID == "QR"
+        for doc_ref in root.findall('.//cac:AdditionalDocumentReference', namespaces):
+            id_node = doc_ref.find('.//cbc:ID', namespaces)
+            if id_node is not None and id_node.text == "QR":
+                root.remove(doc_ref)
 
-#         return {
-#             "uuid": uuid_value,
-#             "invoiceHash": invoice_hash,  # Use our calculated hash
-#             "invoice": base64.b64encode(xml_content).decode(),
-#         }
+        return ET.tostring(root, encoding='unicode')
+    except Exception as e:
+        print(f"Error canonicalizing XML: {e}")
+        return None
 
-#     except Exception as e:
-#         # Add debug output
-#         print(f"Error processing XML: {str(e)}")
-#         if 'canonical_xml' in locals():
-#             print("Canonical XML:", canonical_xml.decode())
-#         raise
+def generate_invoice_hash(xml_file=None):
+    """
+    Generate SHA-256 base64-encoded hash for invoice content.
+    - If xml_file is provided, it extracts canonical XML and hashes it.
+    - If xml_file is None or extraction fails, it defaults to hash of "0" (first invoice case).
+    """
+    content = None
+
+    if xml_file:
+        content = extract_canonical_xml(xml_file)
+
+    if not content or str(content).strip() == "":
+        content = "0"
+
+    return base64.b64encode(hashlib.sha256(content.encode('utf-8')).digest()).decode('utf-8')
