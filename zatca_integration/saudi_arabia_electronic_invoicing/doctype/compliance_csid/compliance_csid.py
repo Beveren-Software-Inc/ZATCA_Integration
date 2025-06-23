@@ -1,7 +1,6 @@
 # Copyright (c) 2023, Shakir PM and contributors
 # For license information, please see license.txt
 
-import datetime
 import uuid
 import time
 import json
@@ -11,6 +10,8 @@ import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
 from zatca_integration.common_util import generate_clearance_request, generate_reporting_request, generate_invoice_payload_from_xml
+ 
+from datetime import datetime, timedelta
 
 
 class ComplianceCSID(Document):
@@ -79,13 +80,13 @@ class ComplianceCSID(Document):
 
 		if csr_settings.csrinvoicetype == "1100":
 	  #Uncomment after testing
-			# self.invoke_complaince_check("standard", csr_settings, seller, buyer)
+			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
 			
 			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
 			
-			# if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note and self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
-			# 	self.save(); frappe.db.commit()
-			# 	frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
+			if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note and self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
+				self.save(); frappe.db.commit()
+				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
 			failed = []
 
 			if not self.standard_invoice:
@@ -193,7 +194,7 @@ class ComplianceCSID(Document):
 		try:
 			
 			response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
-			# frappe.throw(f"{response.status_code} then Response: {response.text}")
+			print(f"{response.status_code} then Response: {response.text}")
 			response_code = response.status_code
 			response_text = response.text
 			response_headers = dict(response.headers)
@@ -355,18 +356,46 @@ def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previous
     }
     return standard_invoice
   
-  
-# from datetime import datetime, timedelta
-# import uuid
-# import time
-# from datetime import datetime, timedelta
-# import frappe
-# from decimal import Decimal, ROUND_HALF_UP
-# import uuid
-# import time
-# from datetime import datetime, timedelta
-# import frappe
 
+def get_buyer_information():
+	return {
+		"organizationName": "Panda Retail Company",
+		"vatNumber": "300056521610003",
+		"streetName": "Taha Khasiyfan",
+		"buildingNumber": "2444",
+		"citySubdivisionName": "Ash Shati",
+		"cityName": "Jeddah",
+		"postalZone": "23511",
+		"countryCode": "SA"
+	}
+
+def get_seller_information(csr_settings):
+	return {
+		"organizationName": csr_settings.csrorganizationname,
+		"vatNumber": csr_settings.csrorganizationidentifier,
+		"streetName": csr_settings.street_name,
+		"buildingNumber": csr_settings.building_number,
+		"citySubdivisionName": csr_settings.city_subdivision_name,
+		"cityName": csr_settings.city_name,
+		"postalZone": csr_settings.postal_zone,
+		"countryCode": csr_settings.csrcountryname,
+		"registrationNumber": csr_settings.registration_number,
+		"registrationScheme": get_registration_scheme_code(csr_settings.registration_scheme),
+		"registration_scheme": csr_settings.registration_scheme
+	}
+
+def get_registration_scheme_code(registration_scheme):
+	# Find the start and end indices of the parentheses
+	start = registration_scheme.find('(')
+	end = registration_scheme.find(')')
+
+	# Extract and return the text inside the parentheses
+	if start != -1 and end != -1:
+		return registration_scheme[start + 1:end]
+	else:
+		frappe.throw("Invalid Registration Scheme")
+  
+  
 # def generate_credit_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash,
 # 							 invoice_lines=None, total_amount="0.00", tax_amount="0.00"):
 # 	"""
@@ -871,43 +900,6 @@ def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previous
 # """
 #     return xml_template
 
-# def get_buyer_information():
-# 	return {
-# 		"organizationName": "Panda Retail Company",
-# 		"vatNumber": "300056521610003",
-# 		"streetName": "Taha Khasiyfan",
-# 		"buildingNumber": "2444",
-# 		"citySubdivisionName": "Ash Shati",
-# 		"cityName": "Jeddah",
-# 		"postalZone": "23511",
-# 		"countryCode": "SA"
-# 	}
-
-# def get_seller_information(csr_settings):
-# 	return {
-# 		"organizationName": csr_settings.csrorganizationname,
-# 		"vatNumber": csr_settings.csrorganizationidentifier,
-# 		"streetName": csr_settings.street_name,
-# 		"buildingNumber": csr_settings.building_number,
-# 		"citySubdivisionName": csr_settings.city_subdivision_name,
-# 		"cityName": csr_settings.city_name,
-# 		"postalZone": csr_settings.postal_zone,
-# 		"countryCode": csr_settings.csrcountryname,
-# 		"registrationNumber": csr_settings.registration_number,
-# 		"registrationScheme": get_registration_scheme_code(csr_settings.registration_scheme),
-# 		"registration_scheme": csr_settings.registration_scheme
-# 	}
-
-# def get_registration_scheme_code(registration_scheme):
-# 	# Find the start and end indices of the parentheses
-# 	start = registration_scheme.find('(')
-# 	end = registration_scheme.find(')')
-
-# 	# Extract and return the text inside the parentheses
-# 	if start != -1 and end != -1:
-# 		return registration_scheme[start + 1:end]
-# 	else:
-# 		frappe.throw("Invalid Registration Scheme")
 		
 # def generate_qr_code(seller_name, vat_number, timestamp, total_amount, vat_amount):
 #     """Generate ZATCA compliant QR code"""
