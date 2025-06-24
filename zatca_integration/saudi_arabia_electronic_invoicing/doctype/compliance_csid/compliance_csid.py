@@ -9,8 +9,10 @@ import base64
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
-from zatca_integration.common_util import generate_clearance_request, generate_reporting_request, generate_invoice_payload_from_xml
- 
+from zatca_integration.common_util import generate_clearance_request, generate_reporting_request, generate_invoice_payload_from_xml, generate_invoice_hash
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import build_certificate_data
+import struct
+import qrcode
 from datetime import datetime, timedelta
 
 
@@ -47,6 +49,7 @@ class ComplianceCSID(Document):
 			self.binary_security_token = response_json.get('binarySecurityToken', '')
 			self.secret = response_json.get('secret', '')
 			self.errors = response_json.get('errors', '{}')
+			self.certificate = build_certificate_data(response_json.get('binarySecurityToken', ''))
 
 			self.reset_compliance_csid_status(False)
 			self.save()
@@ -79,7 +82,7 @@ class ComplianceCSID(Document):
 		buyer = get_buyer_information()
 
 		if csr_settings.csrinvoicetype == "1100":
-	  #Uncomment after testing
+		#Uncomment after testing
 			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
 			
 			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
@@ -141,8 +144,8 @@ class ComplianceCSID(Document):
 	def invoke_complaince_check(self, invoice_type, csr_settings, seller, buyer):
 		"""Invoke compliance check for the given invoice type."""
 		# first_invoice_hash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
-		'''FIRST INVOICE if there is none sent, use base64 encoded '0' as the first invoice hash.'''
-		first_invoice_hash = "X+zrZv/IbzjZUnhsbWlsecLbwjndTpG0ZynXOif7V+k="
+		'''Dynamically generate first invoice hash to ensure unique hash for each run.'''
+		first_invoice_hash = generate_invoice_hash()
 
 		# Issue Invoice
 		tax_invoice = generate_tax_invoice_xml(invoice_type, "INV-00001", seller, buyer, first_invoice_hash)
@@ -153,12 +156,12 @@ class ComplianceCSID(Document):
 			self.simplified_invoice = tax_invoice_status
 
 		# Issue Credit Note
-		credit_note = generate_credit_note_xml(invoice_type, "INV-00002", seller, buyer, "test", "tesr", "jnj")
+		credit_note = generate_credit_note_xml(invoice_type, "INV-00002", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
 		credit_note_status, credit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, credit_note["xml"])
 		if invoice_type == "standard":
 			self.standard_credit_note = credit_note_status
 		elif invoice_type == "simplified":
-      
+			
 			self.simplified_credit_note = credit_note_status
 		
 		# Issue Invoice
@@ -166,7 +169,7 @@ class ComplianceCSID(Document):
 		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, tax_invoice["xml"])
 		
 		# Issue Debit Note
-		debit_note = generate_debit_note_xml(invoice_type, "INV-00004", seller, buyer, "koko", "tax_invoice[invoiceDeliveryDate]", "tax_invoice_hash")
+		debit_note = generate_debit_note_xml(invoice_type, "INV-00004", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
 		debit_note_status, debit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, debit_note["xml"])
 		
 		if invoice_type == "standard":
@@ -194,7 +197,6 @@ class ComplianceCSID(Document):
 		try:
 			
 			response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
-			print(f"{response.status_code} then Response: {response.text}")
 			response_code = response.status_code
 			response_text = response.text
 			response_headers = dict(response.headers)
@@ -216,7 +218,7 @@ class ComplianceCSID(Document):
 		})
 		transaction.insert()
 		
-		if response.status_code == 200 or response.status_code == 202:
+		if response.status_code == 200:
 			return True, invoice_request["invoiceHash"]
 		else:
 			return False, None
@@ -315,47 +317,47 @@ def generate_credit_note_xml(invoiceType, invoiceNumber, seller, buyer, original
 	return standard_credit_note
 
 def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
-    # Global Unique Identifier
-    uniqueInvoiceIdentifier = str(uuid.uuid4())
-    # Counter Value, once used cannot be used even for same invoice
-    invoiceCounterValue  = int(time.time())
+		# Global Unique Identifier
+		uniqueInvoiceIdentifier = str(uuid.uuid4())
+		# Counter Value, once used cannot be used even for same invoice
+		invoiceCounterValue  = int(time.time())
 
-    # Invoice Date and Time
-    invoice_date = datetime.strptime(frappe.utils.today(), "%Y-%m-%d").strftime("%Y-%m-%d")
-    invoice_time = datetime.strptime(frappe.utils.now(), "%Y-%m-%d %H:%M:%S.%f").strftime("%H:%M:%S")
+		# Invoice Date and Time
+		invoice_date = datetime.strptime(frappe.utils.today(), "%Y-%m-%d").strftime("%Y-%m-%d")
+		invoice_time = datetime.strptime(frappe.utils.now(), "%Y-%m-%d %H:%M:%S.%f").strftime("%H:%M:%S")
 
-    # Invoice Delivery Date
-    invoiceDeliveryDate = (frappe.utils.getdate(frappe.utils.today()) + timedelta(days=10)).strftime("%Y-%m-%d")
+		# Invoice Delivery Date
+		invoiceDeliveryDate = (frappe.utils.getdate(frappe.utils.today()) + timedelta(days=10)).strftime("%Y-%m-%d")
 
 
-    if invoiceType == "standard":
-        template_file = "zatca_integration/templates/zatca/compliance/Standard_Invoice.xml"
-    elif invoiceType == "simplified":
-        template_file = "zatca_integration/templates/zatca/compliance/Simplified_Invoice.xml"
-    else:
-        frappe.throw("Invalid Invoice Type, type: " + invoiceType)
+		if invoiceType == "standard":
+				template_file = "zatca_integration/templates/zatca/compliance/Standard_Invoice.xml"
+		elif invoiceType == "simplified":
+				template_file = "zatca_integration/templates/zatca/compliance/Simplified_Invoice.xml"
+		else:
+				frappe.throw("Invalid Invoice Type, type: " + invoiceType)
 
-    standard_invoice_xml = frappe.render_template(template_file, {
-        "previousInvoiceHash": previousInvoiceHash,
-        "invoiceNumber": invoiceNumber,
-        "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-        "invoiceCounterValue": invoiceCounterValue,
-        "invoice_date": invoice_date,
-        "invoice_time": invoice_time,
-        "seller": seller,
-        "buyer": buyer,
-        "invoiceDeliveryDate": invoiceDeliveryDate,
-        "qr_code":""
-    })
-    standard_invoice = {
-        "invoiceNumber": invoiceNumber,
-        "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-        "invoiceCounterValue": invoiceCounterValue,
-        "invoiceDeliveryDate": invoiceDeliveryDate,
-        "xml": standard_invoice_xml,
-    }
-    return standard_invoice
-  
+		standard_invoice_xml = frappe.render_template(template_file, {
+				"previousInvoiceHash": previousInvoiceHash,
+				"invoiceNumber": invoiceNumber,
+				"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
+				"invoiceCounterValue": invoiceCounterValue,
+				"invoice_date": invoice_date,
+				"invoice_time": invoice_time,
+				"seller": seller,
+				"buyer": buyer,
+				"invoiceDeliveryDate": invoiceDeliveryDate,
+				"qr_code":"qr_code",
+		})
+		standard_invoice = {
+				"invoiceNumber": invoiceNumber,
+				"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
+				"invoiceCounterValue": invoiceCounterValue,
+				"invoiceDeliveryDate": invoiceDeliveryDate,
+				"xml": standard_invoice_xml,
+		}
+		return standard_invoice
+	
 
 def get_buyer_information():
 	return {
@@ -394,8 +396,48 @@ def get_registration_scheme_code(registration_scheme):
 		return registration_scheme[start + 1:end]
 	else:
 		frappe.throw("Invalid Registration Scheme")
-  
-  
+	
+
+def create_tlv_data(tag, value):
+		"""Create TLV (Tag-Length-Value) data for ZATCA QR code"""
+		value_bytes = value.encode('utf-8')
+		length = len(value_bytes)
+		return struct.pack('B', tag) + struct.pack('B', length) + value_bytes
+
+def generate_zatca_qr_data(seller_name, vat_number, timestamp, total_amount, vat_amount):
+		"""Generate ZATCA QR code data in TLV format"""
+		TAG_SELLER_NAME = 1
+		TAG_VAT_NUMBER = 2
+		TAG_TIMESTAMP = 3
+		TAG_TOTAL_AMOUNT = 4
+		TAG_VAT_AMOUNT = 5
+		
+		# Create TLV data for each field
+		tlv_data = b''
+		tlv_data += create_tlv_data(TAG_SELLER_NAME, seller_name)
+		tlv_data += create_tlv_data(TAG_VAT_NUMBER, vat_number)
+		tlv_data += create_tlv_data(TAG_TIMESTAMP, timestamp)
+		tlv_data += create_tlv_data(TAG_TOTAL_AMOUNT, total_amount)
+		tlv_data += create_tlv_data(TAG_VAT_AMOUNT, vat_amount)
+		
+		# Encode to base64
+		return base64.b64encode(tlv_data).decode('utf-8')
+
+def generate_qr_code(data, filename):
+		"""Generate QR code image"""
+		qr = qrcode.QRCode(
+				version=1,
+				error_correction=qrcode.constants.ERROR_CORRECT_L,
+				box_size=10,
+				border=4,
+		)
+		qr.add_data(data)
+		qr.make(fit=True)
+		
+		img = qr.make_image(fill_color="black", back_color="white")
+		img.save(filename)
+		return filename
+
 # def generate_credit_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash,
 # 							 invoice_lines=None, total_amount="0.00", tax_amount="0.00"):
 # 	"""
@@ -742,8 +784,8 @@ def get_registration_scheme_code(registration_scheme):
 #       <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==</cbc:EmbeddedDocumentBinaryObject>
 #     </cac:Attachment>
 #   </cac:AdditionalDocumentReference>
-  
-  
+	
+	
 #   <cac:AdditionalDocumentReference>
 #         <cbc:ID>QR</cbc:ID>
 #         <cac:Attachment>
@@ -909,47 +951,3 @@ def get_registration_scheme_code(registration_scheme):
 # 	normalized_xml = re.sub(r">\s+<", "><", xml_string.strip())  # remove whitespaces between tags
 # 	normalized_xml = normalized_xml.replace("\n", "").replace("\r", "").replace("\t", "")
 # 	return hashlib.sha256(normalized_xml.encode("utf-8")).hexdigest()
-
-import base64
-import struct
-import qrcode
-
-def create_tlv_data(tag, value):
-    """Create TLV (Tag-Length-Value) data for ZATCA QR code"""
-    value_bytes = value.encode('utf-8')
-    length = len(value_bytes)
-    return struct.pack('B', tag) + struct.pack('B', length) + value_bytes
-
-def generate_zatca_qr_data(seller_name, vat_number, timestamp, total_amount, vat_amount):
-    """Generate ZATCA QR code data in TLV format"""
-    TAG_SELLER_NAME = 1
-    TAG_VAT_NUMBER = 2
-    TAG_TIMESTAMP = 3
-    TAG_TOTAL_AMOUNT = 4
-    TAG_VAT_AMOUNT = 5
-    
-    # Create TLV data for each field
-    tlv_data = b''
-    tlv_data += create_tlv_data(TAG_SELLER_NAME, seller_name)
-    tlv_data += create_tlv_data(TAG_VAT_NUMBER, vat_number)
-    tlv_data += create_tlv_data(TAG_TIMESTAMP, timestamp)
-    tlv_data += create_tlv_data(TAG_TOTAL_AMOUNT, total_amount)
-    tlv_data += create_tlv_data(TAG_VAT_AMOUNT, vat_amount)
-    
-    # Encode to base64
-    return base64.b64encode(tlv_data).decode('utf-8')
-
-def generate_qr_code(data, filename):
-    """Generate QR code image"""
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(data)
-    qr.make(fit=True)
-    
-    img = qr.make_image(fill_color="black", back_color="white")
-    img.save(filename)
-    return filename

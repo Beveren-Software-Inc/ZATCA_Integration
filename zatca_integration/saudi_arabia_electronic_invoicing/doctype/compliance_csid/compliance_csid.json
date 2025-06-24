@@ -17,6 +17,7 @@
   "disposition_message",
   "created_time",
   "errors",
+  "certificate",
   "column_break_bbje",
   "binary_security_token",
   "secret",
@@ -172,8 +173,14 @@
    "fieldname": "column_break_btvk",
    "fieldtype": "Column Break",
    "width": "4"
+  },
+  {
+   "fieldname": "certificate",
+   "fieldtype": "Long Text",
+   "label": "Certificate"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [
   {
@@ -181,7 +188,7 @@
    "link_fieldname": "compliance_csid"
   }
  ],
- "modified": "2024-12-21 00:36:39.365393",
+ "modified": "2025-06-24 10:08:56.149181",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Compliance CSID",
@@ -199,6 +206,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

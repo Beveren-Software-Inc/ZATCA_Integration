@@ -169,3 +169,40 @@ def parse_csr_config(csr_config_string):
         key, value = line.split("=", 1)
         csr_config[key.strip()] = value.strip()
     return csr_config
+
+def build_certificate_data(binary_security_token):
+    return base64.b64decode(binary_security_token).decode('utf-8')
+
+def create_public_key():
+    """Create a public key based on the company abbreviation and source document."""
+    try:
+       
+        # Initialize certificate_data_str based on the document type
+        certificate_data_str = ""
+       
+        if not certificate_data_str:
+            frappe.throw(_("No certificate data found."))
+
+        # Build the PEM certificate
+        cert_base64 = f"""
+        -----BEGIN CERTIFICATE-----
+        {certificate_data_str.strip()}
+        -----END CERTIFICATE-----
+        """
+        # Load the certificate and extract the public key
+        cert = x509.load_pem_x509_certificate(cert_base64.encode(), default_backend())
+        public_key = cert.public_key()
+        public_key_pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode()
+       
+        zatca_settings.custom_public_key = public_key_pem
+        zatca_settings.save(ignore_permissions=True)
+
+
+        # Ensure data is committed to the database
+        frappe.db.commit()
+
+    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
+        frappe.throw(_("Error occurred while creating public key: " + str(e)))

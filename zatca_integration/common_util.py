@@ -215,14 +215,13 @@ def generate_invoice_payload_from_xml(xml_content: bytes) -> dict:
 
     # Encode full XML
     xml_base64_encoded = base64.b64encode(xml_content).decode("utf-8")
-
     return {
         "uuid": uuid_value,
         "invoiceHash": encoded_hash,
         "invoice": xml_base64_encoded,
     }
 
-
+#Not tested
 def extract_canonical_xml(xml_file):
     """
     Remove ZATCA signature-related nodes and return the cleaned XML string.
@@ -238,11 +237,9 @@ def extract_canonical_xml(xml_file):
             'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2'
         }
 
-        # Remove <ext:UBLExtensions>
         for ext_elem in root.findall('.//ext:UBLExtensions', namespaces):
             root.remove(ext_elem)
 
-        # Remove <cac:Signature>
         for sig_elem in root.findall('.//cac:Signature', namespaces):
             root.remove(sig_elem)
 
