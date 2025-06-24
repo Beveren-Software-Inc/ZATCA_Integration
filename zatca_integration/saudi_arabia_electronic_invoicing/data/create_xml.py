@@ -4,6 +4,8 @@ from datetime import datetime
 from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
 import frappe
+from frappe.utils.file_manager import save_file
+
 
 def create_ubl_extensions(invoice_element):
     """
@@ -540,10 +542,6 @@ def create_zatca_base_xml(invoice):
     reparsed = minidom.parseString(rough_string)
     return reparsed.toprettyxml(indent="    ", encoding='utf-8').decode('utf-8')
 
-from frappe.utils import now
-from frappe.utils.file_manager import save_file
-
-from frappe.utils.file_manager import save_file
 
 def save_xml_to_erpnext_file(invoice, attached_to_doctype=None, attached_to_name=None):
     """
@@ -659,7 +657,6 @@ def test_the_invoice():
     # Save to file
     frappe.throw(str(file))
 
-    
     print("ZATCA base XML generated successfully!")
     print("File saved as: sample_zatca_base_invoice.xml")
     print("\nXML Preview (first 1000 characters):")

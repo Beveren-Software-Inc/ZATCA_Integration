@@ -6,6 +6,7 @@ frappe.ui.form.on("Production CSID", {
         if(!frm.is_new()) {
             frm.trigger("genereate_zatca_production_csid");
             test_button_invoice(frm);
+            test_sign_invoice(frm);
         }
     },
     genereate_zatca_production_csid: frm => {
@@ -36,6 +37,23 @@ function test_button_invoice(frm){
 
             frappe.call({
                 method: 'zatca_integration.saudi_arabia_electronic_invoicing.data.create_xml.test_the_invoice',
+                callback(r) {
+                    if (r.message) {
+                        frappe.msgprint(`ZATCA XML File created: <a href="${r.message}" target="_blank">${r.message}</a>`);
+                    } else {
+                        frappe.msgprint("Something went wrong. No file URL returned.");
+                    }
+                }
+            });
+        });
+    }
+
+function test_sign_invoice(frm){
+    frm.add_custom_button('Test Sign Invoice', async function () {
+           
+
+            frappe.call({
+                method: 'zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice.test_sign_invoice',
                 callback(r) {
                     if (r.message) {
                         frappe.msgprint(`ZATCA XML File created: <a href="${r.message}" target="_blank">${r.message}</a>`);
