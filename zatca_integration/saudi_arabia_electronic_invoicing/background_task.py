@@ -1,7 +1,9 @@
 import frappe
 import json
 import requests
-from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice_utils import xml_base64_decode, get_api_url
+from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice_util import xml_base64_decode, get_prod_csid
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_api_url
+
 from frappe.utils import now_datetime, get_datetime, add_to_date
 
 def is_zatca_compliance_ready(company_name):
@@ -27,6 +29,7 @@ def send_signed_compliance_invoice_to_zatca(uuid1, encoded_hash, signed_xmlfile_
     """
     Send a single signed invoice to ZATCA Compliance API.
     """
+    url = get_api_url(get_prod_csid(invoice))
     try:
         payload = json.dumps({
             "invoiceHash": encoded_hash,
@@ -43,7 +46,7 @@ def send_signed_compliance_invoice_to_zatca(uuid1, encoded_hash, signed_xmlfile_
         }
 
         response = requests.post(
-            url=get_api_url(invoice.company, base_url="compliance/invoices"),
+            url=url,
             headers=headers,
             data=payload,
             timeout=300,

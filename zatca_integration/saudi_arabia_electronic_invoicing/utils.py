@@ -202,3 +202,21 @@ def create_public_key(certificate):
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error occurred while creating public key: " + str(e)))
+
+
+def get_api_url(prod_csid):
+    """
+    Get the URL for the Production CSID based on the environment.
+    """
+    compliance_csid = frappe.get_doc("Compliance CSID", prod_csid.compliance_csid)
+    
+    zatca_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+    zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
+    
+    if zatca_environment.environment == "Sandbox Portal":
+        return zatca_environment.sandbox_production_csid_api
+    elif zatca_environment.environment == "Simulation Portal":
+        return zatca_environment.simulation_production_csid_api
+    else:
+        return zatca_environment.production_csid_api
+    

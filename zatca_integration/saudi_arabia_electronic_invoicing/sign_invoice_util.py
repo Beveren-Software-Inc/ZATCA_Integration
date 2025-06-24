@@ -249,7 +249,7 @@ def populate_the_ubl_extensions_output(
         )
         root3 = updated_invoice_xml.getroot()
             
-        prod_csid = get_certificate(invoice)
+        prod_csid = get_prod_csid(invoice)
         content = (prod_csid.certificate).strip()
 
         xpath_signvalue = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignatureValue"
@@ -327,11 +327,11 @@ def get_tlv_for_value(tag_num, tag_value):
 
 import binascii
 
-def tag8_publickey(company_abbr, source_doc):
+def tag8_public_key(invoice):
     """tag 8 of qr from public key"""
     try:
         # create_public_key(company_abbr, source_doc)
-        base64_encoded = extract_public_key_data(company_abbr, source_doc)
+        base64_encoded = extract_public_key_data(invoice)
         byte_data = base64.b64decode(base64_encoded)
         hex_data = binascii.hexlify(byte_data).decode("utf-8")
         chunks = [hex_data[i : i + 2] for i in range(0, len(hex_data), 2)]
@@ -368,7 +368,7 @@ def tag9_signature_ecdsa(invoice):
         return None
 
 
-def generate_tlv_xml(company_abbr, source_doc):
+def generate_tlv_xml(invoice):
     """generate xml by adding the tlv data"""
     try:
 
@@ -436,8 +436,8 @@ def generate_tlv_xml(company_abbr, source_doc):
             else:
                 result_dict[tag] = xpath
         result_dict[3] = issue_date_time
-        result_dict[8] = tag8_publickey(company_abbr, source_doc)
-        result_dict[9] = tag9_signature_ecdsa(company_abbr, source_doc)
+        result_dict[8] = tag8_public_key(invoice)
+        result_dict[9] = tag9_signature_ecdsa(invoice)
         result_dict[1] = result_dict[1].encode(
             "utf-8"
         )  # Handling Arabic company name in QR Code
@@ -447,7 +447,7 @@ def generate_tlv_xml(company_abbr, source_doc):
         return None
 
 
-def update_qr_toxml(qrcodeb64, company_abbr):
+def update_qr_toxml(qrcodeb64):
     """updating the  alla values of qr to xml"""
     try:
         xml_file_path = frappe.local.site + "/private/files/final_xml_after_sign.xml"
@@ -464,12 +464,12 @@ def update_qr_toxml(qrcodeb64, company_abbr):
             qr_code_element.text = qrcodeb64
         else:
             frappe.msgprint(
-                _(f"QR code element not found in the XML for company {company_abbr}")
+                _(f"QR code element not found in the XML")
             )
         xml_tree.write(xml_file_path, encoding="UTF-8", xml_declaration=True)
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(
-            _(f"Error in saving TLV data to XML for company {company_abbr}: " + str(e))
+            _(f"Error in saving TLV data to XML" + str(e))
         )
 
 def structuring_signedxml():

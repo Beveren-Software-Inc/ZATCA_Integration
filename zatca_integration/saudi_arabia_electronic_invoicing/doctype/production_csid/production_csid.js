@@ -5,6 +5,7 @@ frappe.ui.form.on("Production CSID", {
     refresh: frm => {
         if(!frm.is_new()) {
             frm.trigger("genereate_zatca_production_csid");
+            test_button_invoice(frm);
         }
     },
     genereate_zatca_production_csid: frm => {
@@ -28,3 +29,20 @@ frappe.ui.form.on("Production CSID", {
         });
     }
 });
+
+function test_button_invoice(frm){
+    frm.add_custom_button('Test ZATCA Invoice', async function () {
+           
+
+            frappe.call({
+                method: 'zatca_integration.saudi_arabia_electronic_invoicing.data.create_xml.test_the_invoice',
+                callback(r) {
+                    if (r.message) {
+                        frappe.msgprint(`ZATCA XML File created: <a href="${r.message}" target="_blank">${r.message}</a>`);
+                    } else {
+                        frappe.msgprint("Something went wrong. No file URL returned.");
+                    }
+                }
+            });
+        });
+    }
