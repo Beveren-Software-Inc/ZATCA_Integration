@@ -10,7 +10,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
 from zatca_integration.common_util import generate_clearance_request, generate_reporting_request, generate_invoice_payload_from_xml, generate_invoice_hash
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import build_certificate_data
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import build_certificate_data, create_public_key
 import struct
 import qrcode
 from datetime import datetime, timedelta
@@ -50,7 +50,7 @@ class ComplianceCSID(Document):
 			self.secret = response_json.get('secret', '')
 			self.errors = response_json.get('errors', '{}')
 			self.certificate = build_certificate_data(response_json.get('binarySecurityToken', ''))
-
+			self.public_key = create_public_key(self.certificate)
 			self.reset_compliance_csid_status(False)
 			self.save()
 

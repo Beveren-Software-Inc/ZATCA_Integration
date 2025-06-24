@@ -21,6 +21,7 @@
   "column_break_bbje",
   "binary_security_token",
   "secret",
+  "public_key",
   "compliance_status_section",
   "standard_invoice",
   "standard_debit_note",
@@ -178,6 +179,11 @@
    "fieldname": "certificate",
    "fieldtype": "Long Text",
    "label": "Certificate"
+  },
+  {
+   "fieldname": "public_key",
+   "fieldtype": "Small Text",
+   "label": "Public Key"
   }
  ],
  "grid_page_length": 50,
@@ -188,7 +194,7 @@
    "link_fieldname": "compliance_csid"
   }
  ],
- "modified": "2025-06-24 10:08:56.149181",
+ "modified": "2025-06-24 10:23:17.035784",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Compliance CSID",
