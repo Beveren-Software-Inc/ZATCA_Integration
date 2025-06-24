@@ -13,7 +13,7 @@ frappe.ui.form.on("Production CSID", {
             frappe.show_progress(__('Generating Production CSID...'));
             // Call the server side function
             frappe.call({
-                method: "genereate_zatca_production_csid",
+                method: "generate_zatca_production_csid",
                 doc: frm.doc,
                 callback: function(r) {
                     frappe.hide_progress();

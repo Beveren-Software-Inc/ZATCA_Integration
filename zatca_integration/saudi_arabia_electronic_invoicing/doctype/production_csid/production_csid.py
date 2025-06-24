@@ -30,7 +30,7 @@ class ProductionCSID(Document):
 			frappe.throw("Invalid Invoice Type in ZATCA CSR Settings: " + csr_settings.csrinvoicetype)
 	
 	@frappe.whitelist()
-	def genereate_zatca_production_csid(self):
+	def generate_zatca_production_csid(self):
 		
 		compliance_csid = frappe.get_doc("Compliance CSID", self.compliance_csid)
 		zatca_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
@@ -58,6 +58,9 @@ class ProductionCSID(Document):
 			self.token_type = response_json.get('tokenType', '')
 			self.secret = response_json.get('secret', '')
 			self.errors = response_json.get('errors', '{}')
+			from zatca_integration.saudi_arabia_electronic_invoicing.utils import build_certificate_data, create_public_key
+			self.certificate = build_certificate_data(response_json.get('binarySecurityToken', ''))
+			self.public_key = create_public_key(self.certificate)
 			
 			self.save()
 		

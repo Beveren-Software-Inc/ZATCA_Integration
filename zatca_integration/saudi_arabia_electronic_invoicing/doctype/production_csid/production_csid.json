@@ -15,6 +15,8 @@
   "disposition_message",
   "created_time",
   "errors",
+  "certificate",
+  "public_key",
   "column_break_xmpm",
   "binary_security_token",
   "secret",
@@ -62,7 +64,7 @@
   },
   {
    "fieldname": "binary_security_token",
-   "fieldtype": "Small Text",
+   "fieldtype": "Long Text",
    "label": "Binary Security Token",
    "no_copy": 1,
    "read_only": 1
@@ -100,11 +102,22 @@
    "label": "Is Active",
    "no_copy": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "public_key",
+   "fieldtype": "Small Text",
+   "label": "Public Key"
+  },
+  {
+   "fieldname": "certificate",
+   "fieldtype": "Long Text",
+   "label": "Certificate"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-01-10 13:05:29.797291",
+ "modified": "2025-06-24 11:12:21.466411",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Production CSID",
@@ -122,6 +135,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

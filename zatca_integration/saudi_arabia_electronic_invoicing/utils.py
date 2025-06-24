@@ -174,14 +174,13 @@ def build_certificate_data(binary_security_token):
     return base64.b64decode(binary_security_token).decode('utf-8')
 
 def create_public_key(certificate):
-    """Create a public key based on the company abbreviation and source document."""
+    '''Create a public key from the certificate data provided in the compliance csid'''
     try:
        
-        # Initialize certificate_data_str based on the document type
         certificate_data_str = certificate
        
         if not certificate_data_str:
-            frappe.throw(_("No certificate data found."))
+            frappe.throw(_("No certificate data generated."))
 
         # Build the PEM certificate
         cert_base64 = f"""
