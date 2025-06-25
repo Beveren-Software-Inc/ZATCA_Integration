@@ -535,4 +535,81 @@ def structuring_signedxml():
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_(" error in structuring signed xml: " + str(e)))
         return None
+
+def update_invoice(invoice, qr_code_data):
+    frappe.db.set_value(
+        "Sales Invoice",
+        invoice.name,
+        {
+            "custom_qr_code": get_qr_code(qr_code_data),
+            # "zatca_qr_code": qr_code_data,
+        },
+    )
     
+import frappe
+from base64 import b64encode
+from io import BytesIO
+import qrcode
+import base64
+from io import BytesIO
+from pyzbar.pyzbar import decode
+from PIL import Image
+from frappe import _
+    
+@frappe.whitelist()
+def get_qr_code(data: str) -> str:
+    """Generate QR Code data
+
+    Args:
+        data (str): The information used to generate the QR Code
+
+    Returns:
+        str: The QR Code.
+    """
+    qr_code_bytes = get_qr_code_bytes(data, format="PNG")
+    base_64_string = bytes_to_base64_string(qr_code_bytes)
+
+    return add_file_info(base_64_string)
+
+
+def add_file_info(data: str) -> str:
+    """Add info about the file type and encoding.
+
+    This is required so the browser can make sense of the data."""
+    return f"data:image/png;base64, {data}"
+
+def get_qr_code_bytes(data: bytes | str, format: str = "PNG") -> bytes:
+    """Create a QR code and return the bytes."""
+    img = qrcode.make(data)
+
+    buffered = BytesIO()
+    img.save(buffered, format=format)
+
+    return buffered.getvalue()
+
+
+def bytes_to_base64_string(data: bytes) -> str:
+    """Convert bytes to a base64 encoded string."""
+    return b64encode(data).decode("utf-8")
+
+@frappe.whitelist()
+def decode_qr_code(base64_string: str) -> str:
+    """Decode base64 string back to QR Code and extract the encoded data."""
+    
+    # Strip off the prefix (e.g., 'data:image/png;base64,') to get the base64 part
+    base64_data = base64_string.split(',')[1]
+    
+    # Decode the base64 string to bytes
+    image_data = base64.b64decode(base64_data)
+    
+    # Convert bytes to an image using PIL (Python Imaging Library)
+    img = Image.open(BytesIO(image_data))
+    
+    # Decode the QR code from the image
+    qr_code_data = decode(img)
+    
+    # Extract the data from the QR code
+    if qr_code_data:
+        return qr_code_data[0].data.decode('utf-8')  # Return the data as a string
+    
+    return None  # If no QR code found

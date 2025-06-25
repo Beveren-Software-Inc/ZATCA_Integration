@@ -1,6 +1,4 @@
 
-
-
 import hashlib
 import base64
 import binascii
@@ -16,11 +14,12 @@ from io import BytesIO
 import os
 from frappe.utils.file_manager import save_file
 import frappe
+from frappe.utils import get_site_path
 
 from cryptography.hazmat.primitives.serialization import load_der_private_key
 from cryptography.hazmat.backends import default_backend
 import base64
-from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice_util import get_prod_csid
+from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice_util import get_prod_csid, generate_zatca_qr_code_data, update_invoice
 
 class ZATCAInvoiceSigner:
     def __init__(self, private_key_str, certificate_str, public_key_str=None):
@@ -436,7 +435,7 @@ class ZATCAInvoiceSigner:
             result_dict[3] = issue_date_time
             result_dict[8] = self.tag8_public_key()
             result_dict[9] = self.tag9_signature_ecdsa()
-            result_dict[1] = result_dict[1].encode("utf-8")  # Handling Arabic company name in QR Code
+            result_dict[1] = result_dict[1].encode("utf-8")  
 
             # Generate TLV data
             tlv_data = b""
@@ -474,7 +473,7 @@ class ZATCAInvoiceSigner:
         except Exception as e:
             raise Exception(f"Error in updating QR code in XML: {str(e)}")
 
-    def sign_invoice(self, input_xml_path):
+    def sign_invoice(self, input_xml_path, invoice):
         """
         Main function to sign the ZATCA invoice
         
@@ -524,6 +523,7 @@ class ZATCAInvoiceSigner:
             
             print("9. Generating QR code...")
             qr_code_b64 = self.generate_qr_code(signed_xml)
+            update_invoice(invoice, qr_code_b64)
             
             print("10. Adding QR code to XML...")
             final_signed_xml = self.update_qr_in_xml(signed_xml, qr_code_b64)
@@ -533,12 +533,12 @@ class ZATCAInvoiceSigner:
             base_filename = os.path.basename(input_xml_path).replace("Unsigned", "Signed")
             content = final_signed_xml.encode('utf-8')
 
-            # Save the signed XML to ERPNext as a private file
+            # # Save the signed XML to ERPNext as a private file
             file_doc = save_file(
                 base_filename,
                 content,
-                dt=None,  # attach to a specific DocType if needed
-                dn=None,
+                dt="Sales Invoice",
+                dn=invoice.name,  
                 folder="Home/Attachments",
                 is_private=1
             )
@@ -560,7 +560,6 @@ def clean_pem_key(pem_key: str, keyword: str) -> str:
 
 @frappe.whitelist()
 def get_pem_details(invoice):
-    invoice = frappe.get_doc("Sales Invoice", invoice)
     production_csid = get_prod_csid(invoice)
     compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
     csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
@@ -580,7 +579,7 @@ def test_sign_invoice(invoice):
     """
     Test and sign the ZATCA unsigned invoice using local XML path
     """
-    from frappe.utils import get_site_path
+    invoice = frappe.get_doc("Sales Invoice", invoice)
 
     private_key = get_pem_details(invoice).get("private_key")
     certificate_ = get_pem_details(invoice).get("certificate")
@@ -593,7 +592,7 @@ def test_sign_invoice(invoice):
     signer = ZATCAInvoiceSigner(private_key, certificate_, public_key_str=public_key_str)
 
     # Sign the invoice using the absolute path
-    signed_file_url = signer.sign_invoice(input_path)
+    signed_file_url = signer.sign_invoice(input_path, invoice)
 
     # Show result
     frappe.msgprint(f"✅ Signed Invoice Saved: <a href='{signed_file_url}' target='_blank'>{signed_file_url}</a>", title="ZATCA Invoice")
