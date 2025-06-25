@@ -20,6 +20,7 @@ import frappe
 from cryptography.hazmat.primitives.serialization import load_der_private_key
 from cryptography.hazmat.backends import default_backend
 import base64
+from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice_util import get_prod_csid
 
 class ZATCAInvoiceSigner:
     def __init__(self, private_key_str, certificate_str, public_key_str=None):
@@ -48,43 +49,6 @@ class ZATCAInvoiceSigner:
         except Exception as e:
             raise Exception(f"Failed to load certificate from string: {str(e)}")
         
-    
-        # self.private_key = None
-        # self.certificate = None
-        # self.public_key = None
-        
-    #     self._load_cryptographic_materials()
-    
-    # def _load_cryptographic_materials(self):
-    #     """Load private key, certificate, and public key from files"""
-    #     try:
-    #         # Load private key
-    #         with open(self.private_key_path, 'rb') as f:
-    #             self.private_key = serialization.load_pem_private_key(
-    #                 f.read(),
-    #                 password=None,
-    #                 backend=default_backend()
-    #             )
-            
-    #         # Load certificate
-    #         with open(self.certificate_path, 'rb') as f:
-    #             self.certificate = x509.load_pem_x509_certificate(
-    #                 f.read(),
-    #                 backend=default_backend()
-    #             )
-            
-    #         # Load public key if provided, otherwise extract from certificate
-    #         if self.public_key_path and os.path.exists(self.public_key_path):
-    #             with open(self.public_key_path, 'rb') as f:
-    #                 self.public_key = serialization.load_pem_public_key(
-    #                     f.read(),
-    #                     backend=default_backend()
-    #                 )
-    #         else:
-    #             self.public_key = self.certificate.public_key()
-                
-    #     except Exception as e:
-    #         raise Exception(f"Error loading cryptographic materials: {str(e)}")
 
     def removetags(self, finalzatcaxml):
         """Remove unwanted tags from created xml"""
@@ -586,28 +550,44 @@ class ZATCAInvoiceSigner:
             print(f"❌ Error signing invoice: {str(e)}")
             raise
 
+def clean_pem_key(pem_key: str, keyword: str) -> str:
+    """Remove PEM headers and newlines from a key."""
+    if not pem_key:
+        return ""
+    lines = pem_key.strip().splitlines()
+    return "".join(line for line in lines if keyword not in line)
+
+
 @frappe.whitelist()
-def test_sign_invoice():
+def get_pem_details(invoice):
+    invoice = frappe.get_doc("Sales Invoice", invoice)
+    production_csid = get_prod_csid(invoice)
+    compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
+    csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+
+    private_key = clean_pem_key(csr_settings.private_key, "PRIVATE KEY")
+    public_key = clean_pem_key(production_csid.public_key, "PUBLIC KEY")
+    certificate = (production_csid.certificate or "").strip().replace("\n", "")
+
+    return {
+        "private_key": private_key,
+        "public_key": public_key,
+        "certificate": certificate
+    }
+
+@frappe.whitelist()
+def test_sign_invoice(invoice):
     """
     Test and sign the ZATCA unsigned invoice using local XML path
     """
     from frappe.utils import get_site_path
 
-    # Paths to keys (if they're file paths, otherwise use properly parsed strings)
-    private_key = """
-MHQCAQEEIKGn5a599oW+YNMcTjjGHazmHknqU3ruoWyxtGL5mKJ7oAcGBSuBBAAK
-oUQDQgAEIDiIB/4trMiLBGzoC28D6zSNYvlFpLC3b6rZ7lxobpHmdk3jUVlOkmJG
-+C+uhGWp8j6Vjw9akQ8jsKU26mGFoA==
-""".replace("\n", "")
-
-    certificate_ = """
-MIID3jCCA4SgAwIBAgITEQAAOAPF90Ajs/xcXwABAAA4AzAKBggqhkjOPQQDAjBiMRUwEwYKCZImiZPyLGQBGRYFbG9jYWwxEzARBgoJkiaJk/IsZAEZFgNnb3YxFzAVBgoJkiaJk/IsZAEZFgdleHRnYXp0MRswGQYDVQQDExJQUlpFSU5WT0lDRVNDQTQtQ0EwHhcNMjQwMTExMDkxOTMwWhcNMjkwMTA5MDkxOTMwWjB1MQswCQYDVQQGEwJTQTEmMCQGA1UEChMdTWF4aW11bSBTcGVlZCBUZWNoIFN1cHBseSBMVEQxFjAUBgNVBAsTDVJpeWFkaCBCcmFuY2gxJjAkBgNVBAMTHVRTVC04ODY0MzExNDUtMzk5OTk5OTk5OTAwMDAzMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEoWCKa0Sa9FIErTOv0uAkC1VIKXxU9nPpx2vlf4yhMejy8c02XJblDq7tPydo8mq0ahOMmNo8gwni7Xt1KT9UeKOCAgcwggIDMIGtBgNVHREEgaUwgaKkgZ8wgZwxOzA5BgNVBAQMMjEtVFNUfDItVFNUfDMtZWQyMmYxZDgtZTZhMi0xMTE4LTliNTgtZDlhOGYxMWU0NDVmMR8wHQYKCZImiZPyLGQBAQwPMzk5OTk5OTk5OTAwMDAzMQ0wCwYDVQQMDAQxMTAwMREwDwYDVQQaDAhSUlJEMjkyOTEaMBgGA1UEDwwRU3VwcGx5IGFjdGl2aXRpZXMwHQYDVR0OBBYEFEX+YvmmtnYoDf9BGbKo7ocTKYK1MB8GA1UdIwQYMBaAFJvKqqLtmqwskIFzVvpP2PxT+9NnMHsGCCsGAQUFBwEBBG8wbTBrBggrBgEFBQcwAoZfaHR0cDovL2FpYTQuemF0Y2EuZ292LnNhL0NlcnRFbnJvbGwvUFJaRUludm9pY2VTQ0E0LmV4dGdhenQuZ292LmxvY2FsX1BSWkVJTlZPSUNFU0NBNC1DQSgxKS5jcnQwDgYDVR0PAQH/BAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIGGqB2E0PsShu2dJIfO+xnTwFVmh/qlZYXZhD4CAWQCARIwHQYDVR0lBBYwFAYIKwYBBQUHAwMGCCsGAQUFBwMCMCcGCSsGAQQBgjcVCgQaMBgwCgYIKwYBBQUHAwMwCgYIKwYBBQUHAwIwCgYIKoZIzj0EAwIDSAAwRQIhALE/ichmnWXCUKUbca3yci8oqwaLvFdHVjQrveI9uqAbAiA9hC4M8jgMBADPSzmd2uiPJA6gKR3LE03U75eqbC/rXA==
-""".replace("\n", "").strip()
-
-    public_key_str = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEoWCKa0Sa9FIErTOv0uAkC1VIKXxU9nPpx2vlf4yhMejy8c02XJblDq7tPydo8mq0ahOMmNo8gwni7Xt1KT9UeA=="  # only if required by the class constructor
-
+    private_key = get_pem_details(invoice).get("private_key")
+    certificate_ = get_pem_details(invoice).get("certificate")
+    public_key_str = get_pem_details(invoice).get("publickey")
+    
     # Get full absolute path to input XML file
-    input_path = get_site_path("private", "files", "ZATCA-Unsigned-SINV-2024-0000181312d.xml")
+    input_path = get_site_path("private", "files", "ZATCA-Unsigned-SINV-2024-0000200e6ad.xml")
 
     # Initialize signer
     signer = ZATCAInvoiceSigner(private_key, certificate_, public_key_str=public_key_str)
@@ -617,8 +597,4 @@ MIID3jCCA4SgAwIBAgITEQAAOAPF90Ajs/xcXwABAAA4AzAKBggqhkjOPQQDAjBiMRUwEwYKCZImiZPy
 
     # Show result
     frappe.msgprint(f"✅ Signed Invoice Saved: <a href='{signed_file_url}' target='_blank'>{signed_file_url}</a>", title="ZATCA Invoice")
-
-        
-    # except Exception as e:
-    #     print(f"\n💥 Error: {str(e)}")
 

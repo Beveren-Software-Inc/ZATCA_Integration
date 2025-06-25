@@ -583,10 +583,10 @@ def sample_erpnext_invoice():
         dict: Sample invoice data in ERPNext format
     """
     return {
-        "name": "SINV-2024-00001",
+        "name": "SINV-2024-00002",
         "uuid": str(uuid.uuid4()),
-        "posting_date": "2024-01-15",
-        "posting_time": "14:30:00",
+        "posting_date": "2025-06-25",
+        "posting_time": "08:00:00",
         "company": "Tech Solutions Company Ltd",
         "customer_name": "ABC Trading Company",
         "currency": "SAR",
@@ -655,7 +655,7 @@ def test_the_invoice():
     sample_data = sample_erpnext_invoice()
     file = save_xml_to_erpnext_file(sample_data, attached_to_doctype="Sales Invoice", attached_to_name=sample_data["name"])
     # Save to file
-    frappe.throw(str(file))
+    # frappe.throw(str(file))
 
     print("ZATCA base XML generated successfully!")
     print("File saved as: sample_zatca_base_invoice.xml")

@@ -278,7 +278,7 @@ def populate_the_ubl_extensions_output(
 
 def get_prod_csid(invoice):
     company_doc = frappe.get_doc("Company", invoice.company)
-    prod_csid = frappe.get_doc("Production CSID", company_doc.production_csid)
+    prod_csid = frappe.get_doc("Production CSID", company_doc.custom_production_csid)
         
     return prod_csid
 

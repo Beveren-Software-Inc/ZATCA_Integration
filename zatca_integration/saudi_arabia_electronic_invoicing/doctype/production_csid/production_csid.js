@@ -51,9 +51,11 @@ function test_button_invoice(frm){
 function test_sign_invoice(frm){
     frm.add_custom_button('Test Sign Invoice', async function () {
            
-
             frappe.call({
                 method: 'zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice.test_sign_invoice',
+                args:{
+                    invoice: "SIN00004"
+                },
                 callback(r) {
                     if (r.message) {
                         frappe.msgprint(`ZATCA XML File created: <a href="${r.message}" target="_blank">${r.message}</a>`);
