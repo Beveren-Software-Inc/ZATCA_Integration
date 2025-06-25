@@ -575,7 +575,7 @@ def save_xml_to_erpnext_file(invoice, attached_to_doctype=None, attached_to_name
 
     return file_doc.file_url
 
-def sample_erpnext_invoice():
+def sample_erpnext_invoice(invoice):
     """
     Sample ERPNext invoice data structure for testing.
     

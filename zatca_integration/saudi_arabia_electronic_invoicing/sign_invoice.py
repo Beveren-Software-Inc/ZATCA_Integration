@@ -9,9 +9,6 @@ from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
-import qrcode
-from io import BytesIO
-import os
 from frappe.utils.file_manager import save_file
 import frappe
 from frappe.utils import get_site_path
@@ -19,7 +16,7 @@ from frappe.utils import get_site_path
 from cryptography.hazmat.primitives.serialization import load_der_private_key
 from cryptography.hazmat.backends import default_backend
 import base64
-from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice_util import get_prod_csid, generate_zatca_qr_code_data, update_invoice
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_prod_csid, update_invoice
 
 class ZATCAInvoiceSigner:
     def __init__(self, private_key_str, certificate_str, public_key_str=None):
@@ -296,7 +293,6 @@ class ZATCAInvoiceSigner:
                 "ds": "http://www.w3.org/2000/09/xmldsig#",
             }
 
-            # Get certificate content
             certificate_pem = self.certificate.public_bytes(serialization.Encoding.PEM).decode('utf-8')
             # Extract just the base64 content without headers
             cert_lines = certificate_pem.strip().split('\n')
@@ -487,50 +483,46 @@ class ZATCAInvoiceSigner:
         try:
             print("Starting ZATCA invoice signing process...")
             
-            # Read input XML
             with open(input_xml_path, 'r', encoding='utf-8') as f:
                 xml_content = f.read()
             
-            print("1. Adding signature template to XML...")
+            #"1. Adding signature template to XML
             xml_with_template = self.add_signature_to_xml(xml_content)
             
-            print("2. Removing unwanted tags for canonicalization...")
+            #2. Removing unwanted tags for canonicalization
             tag_removed_xml = self.removetags(xml_with_template)
             
-            print("3. Canonicalizing XML...")
+            # 3. Canonicalizing XML
             canonical_xml = self.canonicalize_xml(tag_removed_xml)
             
-            print("4. Computing invoice hash...")
+            # 4. Computing invoice hash
             invoice_hash_hex, invoice_hash_base64 = self.getinvoicehash(canonical_xml)
             
-            print("5. Creating digital signature...")
+            # "5. Creating digital signature
             encoded_signature = self.digital_signature(invoice_hash_hex)
             
-            print("6. Extracting certificate details...")
+            # 6. Extracting certificate details
             issuer_name, serial_number = self.extract_certificate_details()
             encoded_certificate_hash = self.certificate_hash()
             signing_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
             
-            print("7. Generating signed properties hash...")
+            # 7. Generating signed properties hash
             signed_properties_base64 = self.generate_signed_properties_hash(
                 signing_time, issuer_name, serial_number, encoded_certificate_hash
             )
             
-            print("8. Populating signature values...")
             signed_xml, _, _, _, _ = self.populate_signature_values(
                 xml_with_template, encoded_signature, signed_properties_base64, invoice_hash_base64
             )
             
-            print("9. Generating QR code...")
+            # . Generating QR code.I am not sure which fields is for QR code in sales invoice as I am yet to get real data
             qr_code_b64 = self.generate_qr_code(signed_xml)
             update_invoice(invoice, qr_code_b64)
             
-            print("10. Adding QR code to XML...")
             final_signed_xml = self.update_qr_in_xml(signed_xml, qr_code_b64)
             
-            print("11. Saving signed XML...")
-            # Prepare filename
-            base_filename = os.path.basename(input_xml_path).replace("Unsigned", "Signed")
+            # 11. Save the signed XML to a file
+            base_filename = f"ZATCA-Signed-{invoice.name}"
             content = final_signed_xml.encode('utf-8')
 
             # # Save the signed XML to ERPNext as a private file
@@ -588,10 +580,8 @@ def test_sign_invoice(invoice):
     # Get full absolute path to input XML file
     input_path = get_site_path("private", "files", "ZATCA-Unsigned-SINV-2024-0000200e6ad.xml")
 
-    # Initialize signer
     signer = ZATCAInvoiceSigner(private_key, certificate_, public_key_str=public_key_str)
 
-    # Sign the invoice using the absolute path
     signed_file_url = signer.sign_invoice(input_path, invoice)
 
     # Show result

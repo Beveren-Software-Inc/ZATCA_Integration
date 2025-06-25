@@ -12,14 +12,11 @@ from cryptography.hazmat.bindings._rust import ObjectIdentifier
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 import asn1
-from base64 import b64encode
-from io import BytesIO
 import qrcode
 import base64
-from io import BytesIO
-from pyzbar.pyzbar import decode
 from PIL import Image
 from frappe import _
+import numpy as np
 
 @frappe.whitelist()
 def generate_private_keys(doc_name):
@@ -767,6 +764,8 @@ def update_invoice(invoice, qr_code_data):
     )
     
 @frappe.whitelist()
+
+@frappe.whitelist()
 def get_qr_code(data: str) -> str:
     """Generate QR Code data
 
@@ -776,44 +775,45 @@ def get_qr_code(data: str) -> str:
     Returns:
         str: The QR Code.
     """
-    qr_code_bytes = get_qr_code_bytes(data, format="PNG")
+    qr_code_bytes = get_qr_code_bytes(data)
     base_64_string = bytes_to_base64_string(qr_code_bytes)
 
     return add_file_info(base_64_string)
 
-
 def add_file_info(data: str) -> str:
-    """Add info about the file type and encoding.
-
-    This is required so the browser can make sense of the data."""
+    """Add info about the file type and encoding."""
     return f"data:image/png;base64, {data}"
 
-def get_qr_code_bytes(data: bytes | str, format: str = "PNG") -> bytes:
-    """Create a QR code and return the bytes."""
-    img = qrcode.make(data)
-
-    buffered = BytesIO()
-    img.save(buffered, format=format)
-
-    return buffered.getvalue()
+def get_qr_code_bytes(data: bytes | str) -> bytes:
+    """Create a QR code and return the bytes without using BytesIO."""
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    img_array = np.array(img)
+    
+    img_pil = Image.fromarray(img_array)
+    
+    bytes_list = []
+    img_pil.save(BytesArrayEncoder(bytes_list), format='PNG')
+    
+    return b''.join(bytes_list)
 
 def bytes_to_base64_string(data: bytes) -> str:
     """Convert bytes to a base64 encoded string."""
-    return b64encode(data).decode("utf-8")
+    return base64.b64encode(data).decode("utf-8")
 
-@frappe.whitelist()
-def decode_qr_code(base64_string: str) -> str:
-    """Decode base64 string back to QR Code and extract the encoded data."""
-    
-    base64_data = base64_string.split(',')[1]
-    
-    image_data = base64.b64decode(base64_data)
-    
-    img = Image.open(BytesIO(image_data))
-    
-    qr_code_data = decode(img)
-    
-    if qr_code_data:
-        return qr_code_data[0].data.decode('utf-8') 
-    
-    return None  
+class BytesArrayEncoder:
+    def __init__(self, byte_list):
+        self.byte_list = byte_list
+        
+    def write(self, b):
+        self.byte_list.append(b)
+        
