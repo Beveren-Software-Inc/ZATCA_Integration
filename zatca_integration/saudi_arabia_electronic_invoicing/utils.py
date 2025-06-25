@@ -17,6 +17,8 @@ import base64
 from PIL import Image
 from frappe import _
 import numpy as np
+from frappe.utils import get_site_path
+import uuid
 
 @frappe.whitelist()
 def generate_private_keys(doc_name):
@@ -753,18 +755,18 @@ def structuring_signedxml():
         frappe.throw(_(" error in structuring signed xml: " + str(e)))
         return None
 
-def update_invoice(invoice, qr_code_data):
+def update_invoice(invoice, qr_code_data, invoice_hash_base64):
     frappe.db.set_value(
         "Sales Invoice",
         invoice.name,
         {
             "custom_qr_code": get_qr_code(qr_code_data),
-            # "zatca_qr_code": qr_code_data,
+            "custom_invoice_hash":invoice_hash_base64,
+            "custom_zatca_submit_status": "SIGNED",
+            "custom_invoice_unique_identifier":str(uuid.uuid4())
         },
     )
     
-@frappe.whitelist()
-
 @frappe.whitelist()
 def get_qr_code(data: str) -> str:
     """Generate QR Code data
@@ -817,3 +819,10 @@ class BytesArrayEncoder:
     def write(self, b):
         self.byte_list.append(b)
         
+
+def get_signed_invoice_xml(invoice_number):
+    file_name = f"ZATCA-Signed-SIN00004a17320.xml"
+    file_path = get_site_path("private", "files", file_name)
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read()

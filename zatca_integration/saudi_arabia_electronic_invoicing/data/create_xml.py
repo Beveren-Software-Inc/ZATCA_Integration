@@ -5,7 +5,7 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
 import frappe
 from frappe.utils.file_manager import save_file
-
+from frappe.utils import cint
 
 def create_ubl_extensions(invoice_element):
     """
@@ -573,15 +573,145 @@ def save_xml_to_erpnext_file(invoice, attached_to_doctype=None, attached_to_name
         is_private=1  # Note: must be int, not bool
     )
 
-    return file_doc.file_url
+    return file_doc
 
-def sample_erpnext_invoice(invoice):
-    """
-    Sample ERPNext invoice data structure for testing.
+# def sample_erpnext_invoice(invoice):
+#     """
+#     Sample ERPNext invoice data structure for testing.
     
-    Returns:
-        dict: Sample invoice data in ERPNext format
-    """
+#     Returns:
+#         dict: Sample invoice data in ERPNext format
+#     """
+    
+#     return {
+#         "name": "SINV-2024-00002",
+#         "uuid": str(uuid.uuid4()),
+#         "posting_date": "2025-06-25",
+#         "posting_time": "08:00:00",
+#         "company": "Tech Solutions Company Ltd",
+#         "customer_name": "ABC Trading Company",
+#         "currency": "SAR",
+#         "is_simplified_invoice": False,
+#         "profile_id": "reporting:1.0",
+#         "icv_counter": 1,
+#         "previous_invoice_hash": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
+        
+#         # Company details
+#         "company_registration": "1010010000",
+#         "company_tax_id": "399999999900003",
+#         "company_address_line1": "King Fahd Road",
+#         "company_building_number": "1234",
+#         "company_city_subdivision": "Al-Olaya",
+#         "company_city": "Riyadh",
+#         "company_postal_code": "12345",
+#         "company_country": "SA",
+        
+#         # Customer details
+#         "customer_tax_id": "399999999800003",
+#         "customer_address_line1": "Prince Sultan Road",
+#         "customer_building_number": "5678",
+#         "customer_city_subdivision": "Al-Malaz",
+#         "customer_city": "Riyadh",
+#         "customer_postal_code": "54321",
+#         "customer_country": "SA",
+        
+#         # Amounts
+#         "net_total": 1000.00,
+#         "total_taxes_and_charges": 150.00,
+#         "grand_total": 1150.00,
+#         "outstanding_amount": 1150.00,
+#         "discount_amount": 0.00,
+#         "tax_rate": 15.0,
+        
+#         # Payment
+#         "payment_method": "Cash",
+#         "delivery_date": "2024-01-15",
+        
+#         # Items
+#         "items": [
+#             {
+#                 "item_code": "LAPTOP-001",
+#                 "item_name": "Dell Laptop",
+#                 "qty": 2,
+#                 "rate": 400.00,
+#                 "amount": 800.00,
+#                 "uom": "Nos",
+#                 "discount_amount": 0.00
+#             },
+#             {
+#                 "item_code": "MOUSE-001", 
+#                 "item_name": "Wireless Mouse",
+#                 "qty": 5,
+#                 "rate": 40.00,
+#                 "amount": 200.00,
+#                 "uom": "Nos",
+#                 "discount_amount": 0.00
+#             }
+#         ]
+#     }
+
+def prepare_invoice_payload(invoice_doc):
+    """Extract real data from a Sales Invoice doc for ZATCA XML generation"""
+    # return {
+    #     "name": invoice_doc.name,
+    #     "uuid": str(uuid.uuid4()),
+    #     "posting_date": str(invoice_doc.posting_date),
+    #     "posting_time": str(invoice_doc.posting_time or "00:00:00"),
+    #     "company": invoice_doc.company,
+    #     "customer_name": invoice_doc.customer_name,
+    #     "currency": invoice_doc.currency,
+    #     "is_simplified_invoice": invoice_doc.get("is_simplified_invoice", False),
+    #     "profile_id": "reporting:1.0",
+    #     "icv_counter": cint(invoice_doc.get("icv_counter") or 1),
+
+    #     # You can fetch this from your ZATCA metadata if needed
+    #     "previous_invoice_hash": "",
+
+    #     # Company info
+    #     "company_registration": frappe.db.get_value("Company", invoice_doc.company, "tax_id"),
+    #     "company_tax_id": frappe.db.get_value("Company", invoice_doc.company, "tax_id"),
+    #     "company_address_line1": invoice_doc.company_address or "",
+    #     "company_building_number": "123",  # Optionally fetch from Address Doctype
+    #     "company_city_subdivision": "",
+    #     "company_city": invoice_doc.get("company_city") or "Riyadh",
+    #     "company_postal_code": "",
+    #     "company_country": "SA",
+
+    #     # Customer info
+    #     "customer_tax_id": invoice_doc.get("customer_tax_id") or "",
+    #     "customer_address_line1": invoice_doc.get("customer_address") or "",
+    #     "customer_building_number": "",
+    #     "customer_city_subdivision": "",
+    #     "customer_city": "",
+    #     "customer_postal_code": "",
+    #     "customer_country": "SA",
+
+    #     # Amounts
+    #     "net_total": invoice_doc.net_total,
+    #     "total_taxes_and_charges": invoice_doc.total_taxes_and_charges,
+    #     "grand_total": invoice_doc.grand_total,
+    #     "outstanding_amount": invoice_doc.outstanding_amount,
+    #     "discount_amount": invoice_doc.discount_amount,
+    #     "tax_rate": 15.0,  # or fetch from tax table
+
+    #     # Payment
+    #     "payment_method": invoice_doc.get("payment_method") or "Cash",
+    #     "delivery_date": str(invoice_doc.get("delivery_date") or invoice_doc.posting_date),
+
+    #     # Items
+    #     "items": [
+    #         {
+    #             "item_code": item.item_code,
+    #             "item_name": item.item_name,
+    #             "qty": item.qty,
+    #             "rate": item.rate,
+    #             "amount": item.amount,
+    #             "uom": item.uom,
+    #             "discount_amount": item.discount_amount or 0.0
+    #         }
+    #         for item in invoice_doc.items
+    #     ]
+    # }
     return {
         "name": "SINV-2024-00002",
         "uuid": str(uuid.uuid4()),
@@ -650,13 +780,9 @@ def sample_erpnext_invoice(invoice):
     }
 
 @frappe.whitelist()
-def test_the_invoice():
-
-    sample_data = sample_erpnext_invoice()
+def test_the_invoice(invoice):
+    invoice_doc = frappe.get_doc("Sales Invoice", invoice)
+    sample_data = prepare_invoice_payload(invoice_doc)
     file = save_xml_to_erpnext_file(sample_data, attached_to_doctype="Sales Invoice", attached_to_name=sample_data["name"])
-    # Save to file
-    # frappe.throw(str(file))
-
-    print("ZATCA base XML generated successfully!")
-    print("File saved as: sample_zatca_base_invoice.xml")
-    print("\nXML Preview (first 1000 characters):")
+    return file.file_name
+   

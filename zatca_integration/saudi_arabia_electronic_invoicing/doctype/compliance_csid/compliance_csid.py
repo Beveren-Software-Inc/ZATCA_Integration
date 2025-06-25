@@ -197,6 +197,7 @@ class ComplianceCSID(Document):
 		try:
 			
 			response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
+			# frappe.throw(str(response.status_code) + " " + str(response.text))
 			response_code = response.status_code
 			response_text = response.text
 			response_headers = dict(response.headers)
@@ -316,6 +317,8 @@ def generate_credit_note_xml(invoiceType, invoiceNumber, seller, buyer, original
 	}
 	return standard_credit_note
 
+
+    
 def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
 		# Global Unique Identifier
 		uniqueInvoiceIdentifier = str(uuid.uuid4())
@@ -333,6 +336,7 @@ def generate_tax_invoice_xml(invoiceType, invoiceNumber, seller, buyer, previous
 		if invoiceType == "standard":
 				template_file = "zatca_integration/templates/zatca/compliance/Standard_Invoice.xml"
 		elif invoiceType == "simplified":
+				# template_file= get_signed_invoice_xml("SIN00004781c4f")
 				template_file = "zatca_integration/templates/zatca/compliance/Simplified_Invoice.xml"
 		else:
 				frappe.throw("Invalid Invoice Type, type: " + invoiceType)
