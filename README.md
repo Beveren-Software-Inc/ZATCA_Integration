@@ -11,7 +11,6 @@ This ERPNext integration provides complete ZATCA (Zakat, Tax and Customs Authori
 ## Key Features
 
 ### **📋 Invoice Management**
-### **📋 Invoice Management**
 - **B2B Standard Invoices** - Complete clearance workflow for Business Customers (B2B)
 - **B2C Simplified Invoices** - Reporting workflow for Individual Customers (B2C)
 - **Credit Notes** - Credit note processing with ZATCA compliance (B2B and B2C)
@@ -109,7 +108,7 @@ This ERPNext integration provides complete ZATCA (Zakat, Tax and Customs Authori
 3. **Generate Production CSID** - Generate Production CSID from validated Compliance CSID
 
 ### 2. **Company Configuration**
-- Enable ZATCA e-invoicing phase in Company master by selecting the Production CSID
+- Enable ZATCA e-invoicing phase2 in company master by selecting the Production CSID
 - Check if Date Enforcement is enabled or not (enabling is recommended to avoid ZATCA fines)
 
 ### 3. **Sales Taxes and Charges Template**
@@ -139,17 +138,6 @@ This ERPNext integration provides complete ZATCA (Zakat, Tax and Customs Authori
 4. **Detailed E-Invoice Tab** - A detailed E-Invoice Details tab with all ZATCA information will be available
 5. **Transaction Records** - All transactions to ZATCA are recorded in ZATCA Transactions for review
 
-## 📊 Reporting Features
-
-### VAT Reports
-- **VAT Collection Summary** - Total VAT collected by period
-- **VAT Detailed Report** - Line-by-line VAT breakdown
-- **Tax Filing Support** - Ready-to-use reports for GAZT filing
-
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🏢 About Beveren Software
 
