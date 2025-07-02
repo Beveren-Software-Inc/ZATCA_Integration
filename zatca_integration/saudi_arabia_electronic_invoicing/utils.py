@@ -450,6 +450,7 @@ def generate_signed_properties_hash(
         signed_properties_base64 = base64.b64encode(hex_sha256.encode("utf-8")).decode(
             "utf-8"
         )
+        
         return signed_properties_base64
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_(" error in generating signed properties hash: " + str(e)))
@@ -822,7 +823,7 @@ class BytesArrayEncoder:
         
 
 def get_signed_invoice_xml(invoice_number):
-    file_name = f"ZATCA-Signed-ACC-SINV-2025-000098531ec.xml"
+    file_name = f"ZATCA-Signed-ACC-SINV-2025-000095d8019.xml"
     file_path = get_site_path("private", "files", file_name)
 
     with open(file_path, "r", encoding="utf-8") as f:

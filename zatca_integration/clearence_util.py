@@ -227,6 +227,7 @@ def generate_einvoice(doc, method):
             #     decode_certificate(production_csid.binary_security_token),
             #     invoice_xml
             # )
+            # frappe.throw(str(simplified_invoice_xml))
             from zatca_integration.common_util import generate_invoice_payload_from_xml
             invoice_request = generate_invoice_payload_from_xml(simplified_invoice_xml.encode("utf-8"))
             backend_end_time = time.time()

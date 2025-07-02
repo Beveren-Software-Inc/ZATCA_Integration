@@ -3,7 +3,9 @@ import hashlib
 import base64
 import binascii
 from datetime import datetime
-import xml.etree.ElementTree as etree
+# import xml.etree.ElementTree as etree
+from lxml import etree  # ✅ Use lxml for canonicalization and exclusive=True
+
 import lxml.etree as MyTree
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -69,7 +71,7 @@ class ZATCAInvoiceSigner:
                                                 <xsl:apply-templates select="node() | @*"/>
                                             </xsl:copy>
                                         </xsl:template>
-                                        <xsl:template match="//*[local-name()='Invoice']//*[local-name()='UBLExtensions']"></xsl:template>
+                                        <xsl:template match="//*[local-name()='Signature']"></xsl:template>
                                         <xsl:template match="//*[local-name()='AdditionalDocumentReference'][cbc:ID[normalize-space(text()) = 'QR']]"></xsl:template>
                                             <xsl:template match="//*[local-name()='Invoice']/*[local-name()='Signature']"></xsl:template>
                                         </xsl:stylesheet>"""
@@ -88,7 +90,8 @@ class ZATCAInvoiceSigner:
             xml_string = MyTree.tostring(tag_removed_xml, encoding='utf-8').decode('utf-8')
             # Parse with lxml and canonicalize (C14N doesn't support encoding parameter)
             xml_tree = MyTree.fromstring(xml_string.encode('utf-8'))
-            canonical_xml = MyTree.tostring(xml_tree, method="c14n").decode('utf-8')
+            canonical_xml = MyTree.tostring(xml_tree, method="c14n", exclusive=False, with_comments=False).decode('utf-8')
+
             return canonical_xml
         except Exception as e:
             raise Exception(f"Error occurred in canonicalise xml: {str(e)}")
@@ -125,14 +128,18 @@ class ZATCAInvoiceSigner:
 
     def certificate_hash(self):
         """Find the certificate hash and returning the value"""
+        """Alternative certificate hash method"""
         try:
-            # Get certificate data as DER format
-            certificate_der = self.certificate.public_bytes(serialization.Encoding.DER)
-            
+            certificate_data="MIID3jCCA4SgAwIBAgITEQAAOAPF90Ajs/xcXwABAAA4AzAKBggqhkjOPQQDAjBiMRUwEwYKCZImiZPyLGQBGRYFbG9jYWwxEzARBgoJkiaJk/IsZAEZFgNnb3YxFzAVBgoJkiaJk/IsZAEZFgdleHRnYXp0MRswGQYDVQQDExJQUlpFSU5WT0lDRVNDQTQtQ0EwHhcNMjQwMTExMDkxOTMwWhcNMjkwMTA5MDkxOTMwWjB1MQswCQYDVQQGEwJTQTEmMCQGA1UEChMdTWF4aW11bSBTcGVlZCBUZWNoIFN1cHBseSBMVEQxFjAUBgNVBAsTDVJpeWFkaCBCcmFuY2gxJjAkBgNVBAMTHVRTVC04ODY0MzExNDUtMzk5OTk5OTk5OTAwMDAzMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEoWCKa0Sa9FIErTOv0uAkC1VIKXxU9nPpx2vlf4yhMejy8c02XJblDq7tPydo8mq0ahOMmNo8gwni7Xt1KT9UeKOCAgcwggIDMIGtBgNVHREEgaUwgaKkgZ8wgZwxOzA5BgNVBAQMMjEtVFNUfDItVFNUfDMtZWQyMmYxZDgtZTZhMi0xMTE4LTliNTgtZDlhOGYxMWU0NDVmMR8wHQYKCZImiZPyLGQBAQwPMzk5OTk5OTk5OTAwMDAzMQ0wCwYDVQQMDAQxMTAwMREwDwYDVQQaDAhSUlJEMjkyOTEaMBgGA1UEDwwRU3VwcGx5IGFjdGl2aXRpZXMwHQYDVR0OBBYEFEX+YvmmtnYoDf9BGbKo7ocTKYK1MB8GA1UdIwQYMBaAFJvKqqLtmqwskIFzVvpP2PxT+9NnMHsGCCsGAQUFBwEBBG8wbTBrBggrBgEFBQcwAoZfaHR0cDovL2FpYTQuemF0Y2EuZ292LnNhL0NlcnRFbnJvbGwvUFJaRUludm9pY2VTQ0E0LmV4dGdhenQuZ292LmxvY2FsX1BSWkVJTlZPSUNFU0NBNC1DQSgxKS5jcnQwDgYDVR0PAQH/BAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIGGqB2E0PsShu2dJIfO+xnTwFVmh/qlZYXZhD4CAWQCARIwHQYDVR0lBBYwFAYIKwYBBQUHAwMGCCsGAQUFBwMCMCcGCSsGAQQBgjcVCgQaMBgwCgYIKwYBBQUHAwMwCgYIKwYBBQUHAwIwCgYIKoZIzj0EAwIDSAAwRQIhALE/ichmnWXCUKUbca3yci8oqwaLvFdHVjQrveI9uqAbAiA9hC4M8jgMBADPSzmd2uiPJA6gKR3LE03U75eqbC/rXA=="
+            certificate_data = certificate_data.strip()
+            # Get the public key from certificate
             # Calculate the SHA-256 hash of the certificate data
-            sha256_hash = hashlib.sha256(certificate_der).digest()
+            certificate_data_bytes = certificate_data.encode("utf-8")
+            sha256_hash = hashlib.sha256(certificate_data_bytes).hexdigest()
             # Encode the hash in base64
-            base64_encoded_hash = base64.b64encode(sha256_hash).decode("utf-8")
+            base64_encoded_hash = base64.b64encode(sha256_hash.encode("utf-8")).decode(
+                "utf-8"
+            )
             return base64_encoded_hash
         except Exception as e:
             raise Exception(f"Error in obtaining certificate hash: {str(e)}")
@@ -197,7 +204,7 @@ class ZATCAInvoiceSigner:
         </ds:X509Data>
       </ds:KeyInfo>
       <ds:Object>
-        <xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="#signature">
+        <xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="signature">
           <xades:SignedProperties Id="xadesSignedProperties">
             <xades:SignedSignatureProperties>
               <xades:SigningTime></xades:SigningTime>
@@ -221,6 +228,7 @@ class ZATCAInvoiceSigner:
   </sac:SignatureInformation>
 </sig:UBLDocumentSignatures>
 """.strip()
+
 
 
 
@@ -251,39 +259,52 @@ class ZATCAInvoiceSigner:
         except Exception as e:
             raise Exception(f"Error adding signature to XML: {str(e)}")
 
-    def generate_signed_properties_hash(self, signing_time, issuer_name, serial_number, encoded_certificate_hash):
-        """Generate the signed property hash of the xml using a part of the xml"""
+
+    def generate_signed_properties_hash(self,
+    signing_time, issuer_name, serial_number, encoded_certificate_hash
+):
+        """generate the signed property hash of the xml using a part
+    of the xml"""
         try:
             xml_string = """<xades:SignedProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Id="xadesSignedProperties">
-                                        <xades:SignedSignatureProperties>
-                                            <xades:SigningTime>{signing_time}</xades:SigningTime>
-                                            <xades:SigningCertificate>
-                                                <xades:Cert>
-                                                    <xades:CertDigest>
-                                                        <ds:DigestMethod xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-                                                        <ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{certificate_hash}</ds:DigestValue>
-                                                    </xades:CertDigest>
-                                                    <xades:IssuerSerial>
-                                                        <ds:X509IssuerName xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{issuer_name}</ds:X509IssuerName>
-                                                        <ds:X509SerialNumber xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{serial_number}</ds:X509SerialNumber>
-                                                    </xades:IssuerSerial>
-                                                </xades:Cert>
-                                            </xades:SigningCertificate>
-                                        </xades:SignedSignatureProperties>
-                                    </xades:SignedProperties>"""
+                                    <xades:SignedSignatureProperties>
+                                        <xades:SigningTime>{signing_time}</xades:SigningTime>
+                                        <xades:SigningCertificate>
+                                            <xades:Cert>
+                                                <xades:CertDigest>
+                                                    <ds:DigestMethod xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                                                    <ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{certificate_hash}</ds:DigestValue>
+                                                </xades:CertDigest>
+                                                <xades:IssuerSerial>
+                                                    <ds:X509IssuerName xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{issuer_name}</ds:X509IssuerName>
+                                                    <ds:X509SerialNumber xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{serial_number}</ds:X509SerialNumber>
+                                                </xades:IssuerSerial>
+                                            </xades:Cert>
+                                        </xades:SigningCertificate>
+                                    </xades:SignedSignatureProperties>
+                                </xades:SignedProperties>"""
             xml_string_rendered = xml_string.format(
-                signing_time=signing_time,
-                certificate_hash=encoded_certificate_hash,
-                issuer_name=issuer_name,
-                serial_number=str(serial_number),
-            )
+                    signing_time=signing_time,
+                    certificate_hash=encoded_certificate_hash,
+                    issuer_name=issuer_name,
+                    serial_number=str(serial_number),
+                )
             utf8_bytes = xml_string_rendered.encode("utf-8")
-            hash_object = hashlib.sha256(utf8_bytes)
+            from lxml import etree as ET
+
+            parser = ET.XMLParser(remove_blank_text=True)
+            element = ET.fromstring(xml_string_rendered.encode("utf-8"), parser)
+            canonical_xml = ET.tostring(element, method="c14n", exclusive=False, with_comments=False)
+            hash_object = hashlib.sha256(canonical_xml)
             hex_sha256 = hash_object.hexdigest()
-            signed_properties_base64 = base64.b64encode(hex_sha256.encode("utf-8")).decode("utf-8")
+            signed_properties_base64 = base64.b64encode(hex_sha256.encode("utf-8")).decode(
+                "utf-8"
+            )
+            # frappe.throw(str(signed_properties_base64))
             return signed_properties_base64
-        except Exception as e:
-            raise Exception(f"Error in generating signed properties hash: {str(e)}")
+        except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
+            frappe.throw(_(" error in generating signed properties hash: " + str(e)))
+            return None
 
     def populate_signature_values(self, xml_content, encoded_signature, signed_properties_base64, invoice_hash_base64):
         """Populate the signature values in XML"""

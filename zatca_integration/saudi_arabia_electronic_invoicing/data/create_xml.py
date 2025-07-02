@@ -181,7 +181,7 @@ def add_supplier_party(invoice_element, invoice):
     # Supplier Tax Scheme (VAT Registration)
     supplier_tax_scheme = SubElement(supplier, 'cac:PartyTaxScheme')
     supplier_vat = SubElement(supplier_tax_scheme, 'cbc:CompanyID')
-    supplier_vat.text = invoice.get('company_tax_id', '399999999000003')
+    supplier_vat.text = invoice.get('company_tax_id', '399999999900003')
     
     supplier_tax_scheme_elem = SubElement(supplier_tax_scheme, 'cac:TaxScheme')
     supplier_tax_id = SubElement(supplier_tax_scheme_elem, 'cbc:ID')
@@ -649,7 +649,7 @@ def prepare_invoice_payload(invoice_doc):
 
         # Company details
         "company_registration": "1010010000",
-        "company_tax_id": "399999999000003",
+        "company_tax_id": "399999999900003",
         "company_address_line1": "King Fahd Road",
         "company_building_number": "1234",
         "company_city_subdivision": "Al-Olaya",
