@@ -34,7 +34,6 @@ def generate_clearance_request(url, clientId, clientSecret, invoice):
         frappe.throw(f"Error in generating clearance request: {e}")
     except requests.exceptions.JSONDecodeError:
         frappe.throw("Error in generating clearance request from backend")
-
     return response_json
 
 def generate_reporting_request(url, clientId, clientSecret, privateKey, pemCertificate, invoice):
@@ -148,7 +147,8 @@ def get_seller_information(csr_settings):
 
     return {
         "organizationName": csr_settings.csrorganizationname,
-        "vatNumber": csr_settings.csrorganizationidentifier,
+        # "vatNumber": csr_settings.csrorganizationidentifier,
+        "vatNumber": "399999999900003",
         "streetName": csr_settings.street_name,
         "buildingNumber": csr_settings.building_number,
         "citySubdivisionName": csr_settings.city_subdivision_name,

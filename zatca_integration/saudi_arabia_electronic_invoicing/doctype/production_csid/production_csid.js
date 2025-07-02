@@ -37,7 +37,7 @@ function test_sign_invoice(frm){
             frappe.call({
                 method: 'zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice.test_sign_invoice',
                 args:{
-                    invoice: "SIN00004"
+                    invoice: "ACC-SINV-2025-00009"
                 },
                 callback(r) {
                     if (r.message) {

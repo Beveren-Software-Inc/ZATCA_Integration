@@ -31,6 +31,7 @@ class ZATCAInvoiceSigner:
                 )
         else:
                 self.public_key = self.certificate.public_key()
+                
     def _load_private_key_from_string(self, base64_str):
         try:
             key_bytes = base64.b64decode(base64_str)
@@ -73,6 +74,7 @@ class ZATCAInvoiceSigner:
                                             <xsl:template match="//*[local-name()='Invoice']/*[local-name()='Signature']"></xsl:template>
                                         </xsl:stylesheet>"""
             )
+            
             transform = MyTree.XSLT(xsl_file.getroottree())
             transformed_xml = transform(xml_file.getroottree())
             return transformed_xml
@@ -153,70 +155,74 @@ class ZATCAInvoiceSigner:
         except Exception as e:
             raise Exception(f"Error in extracting public key data: {str(e)}")
 
+    
     def create_ubl_signature_template(self):
-        """Create UBL signature template for B2C invoice"""
-        signature_template = """
-            <sig:UBLDocumentSignatures xmlns:sig="urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2" 
-                                     xmlns:sac="urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2" 
-                                     xmlns:sbc="urn:oasis:names:specification:ubl:schema:xsd:SignatureBasicComponents-2">
-                <sac:SignatureInformation>
-                    <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Id="signature">
-                        <ds:SignedInfo>
-                            <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2006/12/xml-c14n11"/>
-                            <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256"/>
-                            <ds:Reference Id="invoiceSignedData" URI="">
-                                <ds:Transforms>
-                                    <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
-                                        <ds:XPath>not(//ancestor-or-self::ext:UBLExtensions)</ds:XPath>
-                                    </ds:Transform>
-                                    <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
-                                        <ds:XPath>not(//ancestor-or-self::cac:Signature)</ds:XPath>
-                                    </ds:Transform>
-                                    <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
-                                        <ds:XPath>not(//ancestor-or-self::cac:AdditionalDocumentReference[cbc:ID='QR'])</ds:XPath>
-                                    </ds:Transform>
-                                    <ds:Transform Algorithm="http://www.w3.org/2006/12/xml-c14n11"/>
-                                </ds:Transforms>
-                                <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-                                <ds:DigestValue></ds:DigestValue>
-                            </ds:Reference>
-                            <ds:Reference Type="http://www.w3.org/2000/09/xmldsig#SignatureProperties" URI="#xadesSignedProperties">
-                                <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-                                <ds:DigestValue></ds:DigestValue>
-                            </ds:Reference>
-                        </ds:SignedInfo>
-                        <ds:SignatureValue></ds:SignatureValue>
-                        <ds:KeyInfo>
-                            <ds:X509Data>
-                                <ds:X509Certificate></ds:X509Certificate>
-                            </ds:X509Data>
-                        </ds:KeyInfo>
-                        <ds:Object>
-                            <xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="signature">
-                                <xades:SignedProperties Id="xadesSignedProperties">
-                                    <xades:SignedSignatureProperties>
-                                        <xades:SigningTime></xades:SigningTime>
-                                        <xades:SigningCertificate>
-                                            <xades:Cert>
-                                                <xades:CertDigest>
-                                                    <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-                                                    <ds:DigestValue></ds:DigestValue>
-                                                </xades:CertDigest>
-                                                <xades:IssuerSerial>
-                                                    <ds:X509IssuerName></ds:X509IssuerName>
-                                                    <ds:X509SerialNumber></ds:X509SerialNumber>
-                                                </xades:IssuerSerial>
-                                            </xades:Cert>
-                                        </xades:SigningCertificate>
-                                    </xades:SignedSignatureProperties>
-                                </xades:SignedProperties>
-                            </xades:QualifyingProperties>
-                        </ds:Object>
-                    </ds:Signature>
-                </sac:SignatureInformation>
-            </sig:UBLDocumentSignatures>
-        """
-        return signature_template.strip()
+        return """
+<sig:UBLDocumentSignatures xmlns:sig="urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2"
+                           xmlns:sac="urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2"
+                           xmlns:sbc="urn:oasis:names:specification:ubl:schema:xsd:SignatureBasicComponents-2"
+                           xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <sac:SignatureInformation>
+    <cbc:ID>urn:oasis:names:specification:ubl:signature:1</cbc:ID>
+    <sbc:ReferencedSignatureID>urn:oasis:names:specification:ubl:signature:Invoice</sbc:ReferencedSignatureID>
+    <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Id="signature">
+      <ds:SignedInfo>
+        <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2006/12/xml-c14n11"/>
+        <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256"/>
+        <ds:Reference Id="invoiceSignedData" URI="">
+          <ds:Transforms>
+            <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
+              <ds:XPath>not(//ancestor-or-self::ext:UBLExtensions)</ds:XPath>
+            </ds:Transform>
+            <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
+              <ds:XPath>not(//ancestor-or-self::cac:Signature)</ds:XPath>
+            </ds:Transform>
+            <ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116">
+              <ds:XPath>not(//ancestor-or-self::cac:AdditionalDocumentReference[cbc:ID='QR'])</ds:XPath>
+            </ds:Transform>
+            <ds:Transform Algorithm="http://www.w3.org/2006/12/xml-c14n11"/>
+          </ds:Transforms>
+          <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+          <ds:DigestValue></ds:DigestValue>
+        </ds:Reference>
+        <ds:Reference Type="http://www.w3.org/2000/09/xmldsig#SignatureProperties" URI="#xadesSignedProperties">
+          <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+          <ds:DigestValue></ds:DigestValue>
+        </ds:Reference>
+      </ds:SignedInfo>
+      <ds:SignatureValue></ds:SignatureValue>
+      <ds:KeyInfo>
+        <ds:X509Data>
+          <ds:X509Certificate></ds:X509Certificate>
+        </ds:X509Data>
+      </ds:KeyInfo>
+      <ds:Object>
+        <xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="#signature">
+          <xades:SignedProperties Id="xadesSignedProperties">
+            <xades:SignedSignatureProperties>
+              <xades:SigningTime></xades:SigningTime>
+              <xades:SigningCertificate>
+                <xades:Cert>
+                  <xades:CertDigest>
+                    <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                    <ds:DigestValue></ds:DigestValue>
+                  </xades:CertDigest>
+                  <xades:IssuerSerial>
+                    <ds:X509IssuerName></ds:X509IssuerName>
+                    <ds:X509SerialNumber></ds:X509SerialNumber>
+                  </xades:IssuerSerial>
+                </xades:Cert>
+              </xades:SigningCertificate>
+            </xades:SignedSignatureProperties>
+          </xades:SignedProperties>
+        </xades:QualifyingProperties>
+      </ds:Object>
+    </ds:Signature>
+  </sac:SignatureInformation>
+</sig:UBLDocumentSignatures>
+""".strip()
+
+
 
     def add_signature_to_xml(self, xml_content):
         """Add signature template to XML"""
@@ -431,7 +437,7 @@ class ZATCAInvoiceSigner:
             result_dict[3] = issue_date_time
             result_dict[8] = self.tag8_public_key()
             result_dict[9] = self.tag9_signature_ecdsa()
-            result_dict[1] = result_dict[1].encode("utf-8")  
+            result_dict[1] = result_dict[1].encode("utf-8")
 
             # Generate TLV data
             tlv_data = b""
@@ -510,6 +516,7 @@ class ZATCAInvoiceSigner:
             
             # . Generating QR code.I am not sure which fields is for QR code in sales invoice as I am yet to get real data
             qr_code_b64 = self.generate_qr_code(signed_xml)
+            
             update_invoice(invoice, qr_code_b64, invoice_hash_base64)
             
             final_signed_xml = self.update_qr_in_xml(signed_xml, qr_code_b64)
@@ -522,7 +529,7 @@ class ZATCAInvoiceSigner:
                 base_filename,
                 content,
                 dt="Sales Invoice",
-                dn=invoice.name,  
+                dn=invoice.name,
                 folder="Home/Attachments",
                 is_private=1
             )
@@ -567,7 +574,8 @@ def test_sign_invoice(invoice):
     private_key = get_pem_details(invoice).get("private_key")
     certificate_ = get_pem_details(invoice).get("certificate")
     public_key_str = get_pem_details(invoice).get("publickey")
-    
+    print("==============", certificate_)
+    # frappe.throw(str(certificate_))
     # Get full absolute path to input XML file
     input_path = get_site_path("private", "files", xml_file_name)
 
@@ -583,3 +591,4 @@ def create_xml(invoice):
     sample_data = prepare_invoice_payload(invoice)
     file = save_xml_to_erpnext_file(sample_data, attached_to_doctype="Sales Invoice", attached_to_name=sample_data["name"])
     return file.file_name
+

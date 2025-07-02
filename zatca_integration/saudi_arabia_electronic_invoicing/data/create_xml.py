@@ -125,11 +125,14 @@ def add_signature_placeholder(invoice_element):
     Args:
         invoice_element: Root invoice XML element
     """
+    from xml.etree.ElementTree import SubElement
+    
     signature = SubElement(invoice_element, 'cac:Signature')
     sig_id = SubElement(signature, 'cbc:ID')
     sig_id.text = 'urn:oasis:names:specification:ubl:signature:Invoice'
     sig_method = SubElement(signature, 'cbc:SignatureMethod')
     sig_method.text = 'urn:oasis:names:specification:ubl:dsig:enveloped:xades'
+
 
 
 def add_supplier_party(invoice_element, invoice):
@@ -178,7 +181,7 @@ def add_supplier_party(invoice_element, invoice):
     # Supplier Tax Scheme (VAT Registration)
     supplier_tax_scheme = SubElement(supplier, 'cac:PartyTaxScheme')
     supplier_vat = SubElement(supplier_tax_scheme, 'cbc:CompanyID')
-    supplier_vat.text = invoice.get('company_tax_id', '399999999900003')
+    supplier_vat.text = invoice.get('company_tax_id', '399999999000003')
     
     supplier_tax_scheme_elem = SubElement(supplier_tax_scheme, 'cac:TaxScheme')
     supplier_tax_id = SubElement(supplier_tax_scheme_elem, 'cbc:ID')
@@ -192,52 +195,44 @@ def add_supplier_party(invoice_element, invoice):
 
 def add_customer_party(invoice_element, invoice):
     """
-    Adds customer (buyer) party information for standard invoices.
-    Not required for simplified invoices.
-    
-    Args:
-        invoice_element: Root invoice XML element
-        invoice: Invoice data dictionary
+    Adds customer (buyer) party information.
+    For simplified invoices, adds minimal required fields.
     """
-    if invoice.get('is_simplified_invoice', False):
-        return  # Customer details not required for simplified invoices
-    
     customer_party = SubElement(invoice_element, 'cac:AccountingCustomerParty')
     customer = SubElement(customer_party, 'cac:Party')
-    
+
+    if invoice.get('is_simplified_invoice', False):
+        party_name = SubElement(customer, 'cac:PartyName')
+        name = SubElement(party_name, 'cbc:Name')
+        name.text = invoice.get('customer_name', 'Consumer')
+        return
+
     # Customer Address
     customer_address = SubElement(customer, 'cac:PostalAddress')
-    
     customer_street = SubElement(customer_address, 'cbc:StreetName')
     customer_street.text = invoice.get('customer_address_line1', 'Customer Street')
-    
     customer_building = SubElement(customer_address, 'cbc:BuildingNumber')
     customer_building.text = invoice.get('customer_building_number', '5678')
-    
     customer_subdivision = SubElement(customer_address, 'cbc:CitySubdivisionName')
     customer_subdivision.text = invoice.get('customer_city_subdivision', 'District')
-    
     customer_city = SubElement(customer_address, 'cbc:CityName')
     customer_city.text = invoice.get('customer_city', 'Riyadh')
-    
     customer_postal = SubElement(customer_address, 'cbc:PostalZone')
     customer_postal.text = invoice.get('customer_postal_code', '54321')
-    
     customer_country = SubElement(customer_address, 'cac:Country')
     customer_country_code = SubElement(customer_country, 'cbc:IdentificationCode')
     customer_country_code.text = invoice.get('customer_country', 'SA')
-    
-    # Customer Tax Scheme (if customer is VAT registered)
+
+    # Tax details
     if invoice.get('customer_tax_id'):
         customer_tax_scheme = SubElement(customer, 'cac:PartyTaxScheme')
         customer_vat = SubElement(customer_tax_scheme, 'cbc:CompanyID')
         customer_vat.text = invoice['customer_tax_id']
-        
         customer_tax_scheme_elem = SubElement(customer_tax_scheme, 'cac:TaxScheme')
         customer_tax_id = SubElement(customer_tax_scheme_elem, 'cbc:ID')
         customer_tax_id.text = 'VAT'
-    
-    # Customer Legal Entity (Customer Name)
+
+    # Legal entity name
     customer_legal = SubElement(customer, 'cac:PartyLegalEntity')
     customer_name = SubElement(customer_legal, 'cbc:RegistrationName')
     customer_name.text = invoice.get('customer_name', 'Customer Name')
@@ -530,7 +525,7 @@ def create_zatca_base_xml(invoice):
     add_signature_placeholder(invoice_element)
     add_supplier_party(invoice_element, invoice)
     add_customer_party(invoice_element, invoice)
-    add_delivery_info(invoice_element, invoice)
+    # add_delivery_info(invoice_element, invoice)
     add_payment_means(invoice_element, invoice)
     add_allowance_charge(invoice_element, invoice)
     add_tax_totals(invoice_element, invoice)
@@ -575,80 +570,6 @@ def save_xml_to_erpnext_file(invoice, attached_to_doctype=None, attached_to_name
 
     return file_doc
 
-# def sample_erpnext_invoice(invoice):
-#     """
-#     Sample ERPNext invoice data structure for testing.
-    
-#     Returns:
-#         dict: Sample invoice data in ERPNext format
-#     """
-    
-#     return {
-#         "name": "SINV-2024-00002",
-#         "uuid": str(uuid.uuid4()),
-#         "posting_date": "2025-06-25",
-#         "posting_time": "08:00:00",
-#         "company": "Tech Solutions Company Ltd",
-#         "customer_name": "ABC Trading Company",
-#         "currency": "SAR",
-#         "is_simplified_invoice": False,
-#         "profile_id": "reporting:1.0",
-#         "icv_counter": 1,
-#         "previous_invoice_hash": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
-        
-#         # Company details
-#         "company_registration": "1010010000",
-#         "company_tax_id": "399999999900003",
-#         "company_address_line1": "King Fahd Road",
-#         "company_building_number": "1234",
-#         "company_city_subdivision": "Al-Olaya",
-#         "company_city": "Riyadh",
-#         "company_postal_code": "12345",
-#         "company_country": "SA",
-        
-#         # Customer details
-#         "customer_tax_id": "399999999800003",
-#         "customer_address_line1": "Prince Sultan Road",
-#         "customer_building_number": "5678",
-#         "customer_city_subdivision": "Al-Malaz",
-#         "customer_city": "Riyadh",
-#         "customer_postal_code": "54321",
-#         "customer_country": "SA",
-        
-#         # Amounts
-#         "net_total": 1000.00,
-#         "total_taxes_and_charges": 150.00,
-#         "grand_total": 1150.00,
-#         "outstanding_amount": 1150.00,
-#         "discount_amount": 0.00,
-#         "tax_rate": 15.0,
-        
-#         # Payment
-#         "payment_method": "Cash",
-#         "delivery_date": "2024-01-15",
-        
-#         # Items
-#         "items": [
-#             {
-#                 "item_code": "LAPTOP-001",
-#                 "item_name": "Dell Laptop",
-#                 "qty": 2,
-#                 "rate": 400.00,
-#                 "amount": 800.00,
-#                 "uom": "Nos",
-#                 "discount_amount": 0.00
-#             },
-#             {
-#                 "item_code": "MOUSE-001", 
-#                 "item_name": "Wireless Mouse",
-#                 "qty": 5,
-#                 "rate": 40.00,
-#                 "amount": 200.00,
-#                 "uom": "Nos",
-#                 "discount_amount": 0.00
-#             }
-#         ]
-#     }
 
 def prepare_invoice_payload(invoice_doc):
     """Extract real data from a Sales Invoice doc for ZATCA XML generation"""
@@ -712,38 +633,39 @@ def prepare_invoice_payload(invoice_doc):
     #         for item in invoice_doc.items
     #     ]
     # }
+
     return {
         "name": "SINV-2024-00002",
         "uuid": str(uuid.uuid4()),
-        "posting_date": "2025-06-25",
-        "posting_time": "08:00:00",
+        "posting_date": "2025-07-02",
+        "posting_time": "09:00:00",
         "company": "Tech Solutions Company Ltd",
         "customer_name": "ABC Trading Company",
         "currency": "SAR",
-        "is_simplified_invoice": False,
+        "is_simplified_invoice": True,
         "profile_id": "reporting:1.0",
         "icv_counter": 1,
         "previous_invoice_hash": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
-        
+
         # Company details
         "company_registration": "1010010000",
-        "company_tax_id": "399999999900003",
+        "company_tax_id": "399999999000003",
         "company_address_line1": "King Fahd Road",
         "company_building_number": "1234",
         "company_city_subdivision": "Al-Olaya",
         "company_city": "Riyadh",
         "company_postal_code": "12345",
         "company_country": "SA",
-        
-        # Customer details
-        "customer_tax_id": "399999999800003",
+
+        # Customer details (Simplified - No VAT ID)
+        "customer_tax_id": "",  # Must be empty for simplified
         "customer_address_line1": "Prince Sultan Road",
         "customer_building_number": "5678",
         "customer_city_subdivision": "Al-Malaz",
         "customer_city": "Riyadh",
         "customer_postal_code": "54321",
         "customer_country": "SA",
-        
+
         # Amounts
         "net_total": 1000.00,
         "total_taxes_and_charges": 150.00,
@@ -751,11 +673,11 @@ def prepare_invoice_payload(invoice_doc):
         "outstanding_amount": 1150.00,
         "discount_amount": 0.00,
         "tax_rate": 15.0,
-        
+
         # Payment
         "payment_method": "Cash",
-        "delivery_date": "2024-01-15",
-        
+        "delivery_date": "2025-07-15",
+
         # Items
         "items": [
             {
@@ -768,7 +690,7 @@ def prepare_invoice_payload(invoice_doc):
                 "discount_amount": 0.00
             },
             {
-                "item_code": "MOUSE-001", 
+                "item_code": "MOUSE-001",
                 "item_name": "Wireless Mouse",
                 "qty": 5,
                 "rate": 40.00,
@@ -786,3 +708,4 @@ def test_the_invoice(invoice):
     file = save_xml_to_erpnext_file(sample_data, attached_to_doctype="Sales Invoice", attached_to_name=sample_data["name"])
     return file.file_name
    
+

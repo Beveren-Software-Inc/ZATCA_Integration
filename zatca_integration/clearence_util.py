@@ -11,6 +11,7 @@ from requests.auth import HTTPBasicAuth
 from lxml import etree
 import qrcode
 from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, generate_clearance_request, generate_reporting_request
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_signed_invoice_xml
 
 def generate_einvoice(doc, method):
     
@@ -36,7 +37,7 @@ def generate_einvoice(doc, method):
     zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
 
     seller = get_seller_information(compliance_csr)
-
+    # frappe.throw(str(seller))
     # Buyer Information
     customer = frappe.get_doc("Customer", doc.customer)
     customer_type = customer.customer_type
@@ -152,7 +153,6 @@ def generate_einvoice(doc, method):
         and doc.custom_retention_amount):
         grand_total = doc.grand_total + doc.custom_retention_amount
     grand_total = round_to_two_places(grand_total)
-
     # Render Invoice XML from Template
     invoice_xml = frappe.render_template("zatca_integration/templates/zatca/clearence/Standard_Invoice.xml", {
         "invoice_type": invoice_type,
@@ -188,11 +188,13 @@ def generate_einvoice(doc, method):
         # Line Items
         "line_items": line_items,
     })
-    print(invoice_xml)
-
+    
+    # frappe.throw(str(invoice_xml))
+    simplified_invoice_xml = get_signed_invoice_xml("SIN00004a17320")
+    # frappe.throw(str(simplified_invoice_xml))
     try:
         if customer_type == "Company":
-
+            # frappe.throw(str(invoice_xml))
             backend_start_time = time.time()
             invoice_request = generate_clearance_request(
                 zatca_environment.csr_generate_api, 
@@ -215,16 +217,18 @@ def generate_einvoice(doc, method):
 
             zatca_status_field = 'clearanceStatus'
         elif customer_type == "Individual":
-
+            
             backend_start_time = time.time()
-            invoice_request = generate_reporting_request(
-                zatca_environment.csr_generate_api, 
-                zatca_environment.client_id, 
-                zatca_environment.client_secret,
-                compliance_csr.private_key,
-                decode_certificate(production_csid.binary_security_token),
-                invoice_xml
-            )
+            # invoice_request = generate_reporting_request(
+            #     zatca_environment.csr_generate_api, 
+            #     zatca_environment.client_id, 
+            #     zatca_environment.client_secret,
+            #     compliance_csr.private_key,
+            #     decode_certificate(production_csid.binary_security_token),
+            #     invoice_xml
+            # )
+            from zatca_integration.common_util import generate_invoice_payload_from_xml
+            invoice_request = generate_invoice_payload_from_xml(simplified_invoice_xml.encode("utf-8"))
             backend_end_time = time.time()
             backend_time_taken = backend_end_time - backend_start_time
 
@@ -471,3 +475,4 @@ def round_to_two_places(value):
 
 def round_to_four_places(value):
     return round(value, 4)
+

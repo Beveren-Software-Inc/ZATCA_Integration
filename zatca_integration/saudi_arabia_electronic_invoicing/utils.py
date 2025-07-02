@@ -124,6 +124,7 @@ def save_and_return_csr(doc, private_key_pem, csr):
     doc.private_key = private_key_pem.decode("utf-8")
     doc.private_key_pem_format = str(private_key_pem)
     doc.csr = base64csr.strip()
+    # frappe.throw(str(base64csr.strip()))
     doc.csr_pem_format = csr_pem.decode("utf-8")
     doc.save(ignore_permissions=True)
     frappe.msgprint(
@@ -762,7 +763,7 @@ def update_invoice(invoice, qr_code_data, invoice_hash_base64):
         {
             "custom_qr_code": get_qr_code(qr_code_data),
             "custom_invoice_hash":invoice_hash_base64,
-            "custom_zatca_submit_status": "SIGNED",
+            "custom_zatca_submit_status": "Pending",
             "custom_invoice_unique_identifier":str(uuid.uuid4())
         },
     )
@@ -821,7 +822,7 @@ class BytesArrayEncoder:
         
 
 def get_signed_invoice_xml(invoice_number):
-    file_name = f"ZATCA-Signed-SIN00004a17320.xml"
+    file_name = f"ZATCA-Signed-ACC-SINV-2025-000098531ec.xml"
     file_path = get_site_path("private", "files", file_name)
 
     with open(file_path, "r", encoding="utf-8") as f:
