@@ -25,6 +25,7 @@ class ZATCAInvoiceSigner:
         self.private_key = self._load_private_key_from_string(private_key_str)
         self.certificate = self._load_certificate_from_string(certificate_str)
         self.public_key = base64.b64decode(public_key_str) if public_key_str else None
+        self.certificate_data = certificate_str
 
         if public_key_str:
                 self.public_key = serialization.load_der_public_key(
@@ -130,7 +131,8 @@ class ZATCAInvoiceSigner:
         """Find the certificate hash and returning the value"""
         """Alternative certificate hash method"""
         try:
-            certificate_data="MIID3jCCA4SgAwIBAgITEQAAOAPF90Ajs/xcXwABAAA4AzAKBggqhkjOPQQDAjBiMRUwEwYKCZImiZPyLGQBGRYFbG9jYWwxEzARBgoJkiaJk/IsZAEZFgNnb3YxFzAVBgoJkiaJk/IsZAEZFgdleHRnYXp0MRswGQYDVQQDExJQUlpFSU5WT0lDRVNDQTQtQ0EwHhcNMjQwMTExMDkxOTMwWhcNMjkwMTA5MDkxOTMwWjB1MQswCQYDVQQGEwJTQTEmMCQGA1UEChMdTWF4aW11bSBTcGVlZCBUZWNoIFN1cHBseSBMVEQxFjAUBgNVBAsTDVJpeWFkaCBCcmFuY2gxJjAkBgNVBAMTHVRTVC04ODY0MzExNDUtMzk5OTk5OTk5OTAwMDAzMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEoWCKa0Sa9FIErTOv0uAkC1VIKXxU9nPpx2vlf4yhMejy8c02XJblDq7tPydo8mq0ahOMmNo8gwni7Xt1KT9UeKOCAgcwggIDMIGtBgNVHREEgaUwgaKkgZ8wgZwxOzA5BgNVBAQMMjEtVFNUfDItVFNUfDMtZWQyMmYxZDgtZTZhMi0xMTE4LTliNTgtZDlhOGYxMWU0NDVmMR8wHQYKCZImiZPyLGQBAQwPMzk5OTk5OTk5OTAwMDAzMQ0wCwYDVQQMDAQxMTAwMREwDwYDVQQaDAhSUlJEMjkyOTEaMBgGA1UEDwwRU3VwcGx5IGFjdGl2aXRpZXMwHQYDVR0OBBYEFEX+YvmmtnYoDf9BGbKo7ocTKYK1MB8GA1UdIwQYMBaAFJvKqqLtmqwskIFzVvpP2PxT+9NnMHsGCCsGAQUFBwEBBG8wbTBrBggrBgEFBQcwAoZfaHR0cDovL2FpYTQuemF0Y2EuZ292LnNhL0NlcnRFbnJvbGwvUFJaRUludm9pY2VTQ0E0LmV4dGdhenQuZ292LmxvY2FsX1BSWkVJTlZPSUNFU0NBNC1DQSgxKS5jcnQwDgYDVR0PAQH/BAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIGGqB2E0PsShu2dJIfO+xnTwFVmh/qlZYXZhD4CAWQCARIwHQYDVR0lBBYwFAYIKwYBBQUHAwMGCCsGAQUFBwMCMCcGCSsGAQQBgjcVCgQaMBgwCgYIKwYBBQUHAwMwCgYIKwYBBQUHAwIwCgYIKoZIzj0EAwIDSAAwRQIhALE/ichmnWXCUKUbca3yci8oqwaLvFdHVjQrveI9uqAbAiA9hC4M8jgMBADPSzmd2uiPJA6gKR3LE03U75eqbC/rXA=="
+            
+            certificate_data =  self.certificate_data
             certificate_data = certificate_data.strip()
             # Get the public key from certificate
             # Calculate the SHA-256 hash of the certificate data
@@ -260,51 +262,41 @@ class ZATCAInvoiceSigner:
             raise Exception(f"Error adding signature to XML: {str(e)}")
 
 
-    def generate_signed_properties_hash(self,
-    signing_time, issuer_name, serial_number, encoded_certificate_hash
-):
-        """generate the signed property hash of the xml using a part
-    of the xml"""
-        try:
-            xml_string = """<xades:SignedProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Id="xadesSignedProperties">
-                                    <xades:SignedSignatureProperties>
-                                        <xades:SigningTime>{signing_time}</xades:SigningTime>
-                                        <xades:SigningCertificate>
-                                            <xades:Cert>
-                                                <xades:CertDigest>
-                                                    <ds:DigestMethod xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-                                                    <ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{certificate_hash}</ds:DigestValue>
-                                                </xades:CertDigest>
-                                                <xades:IssuerSerial>
-                                                    <ds:X509IssuerName xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{issuer_name}</ds:X509IssuerName>
-                                                    <ds:X509SerialNumber xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{serial_number}</ds:X509SerialNumber>
-                                                </xades:IssuerSerial>
-                                            </xades:Cert>
-                                        </xades:SigningCertificate>
-                                    </xades:SignedSignatureProperties>
-                                </xades:SignedProperties>"""
-            xml_string_rendered = xml_string.format(
-                    signing_time=signing_time,
-                    certificate_hash=encoded_certificate_hash,
-                    issuer_name=issuer_name,
-                    serial_number=str(serial_number),
-                )
-            utf8_bytes = xml_string_rendered.encode("utf-8")
-            from lxml import etree as ET
+    from lxml import etree
 
-            parser = ET.XMLParser(remove_blank_text=True)
-            element = ET.fromstring(xml_string_rendered.encode("utf-8"), parser)
-            canonical_xml = ET.tostring(element, method="c14n", exclusive=False, with_comments=False)
-            hash_object = hashlib.sha256(canonical_xml)
-            hex_sha256 = hash_object.hexdigest()
-            signed_properties_base64 = base64.b64encode(hex_sha256.encode("utf-8")).decode(
-                "utf-8"
-            )
-            # frappe.throw(str(signed_properties_base64))
-            return signed_properties_base64
-        except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-            frappe.throw(_(" error in generating signed properties hash: " + str(e)))
-            return None
+    def generate_signed_properties_hash(self, signing_time, issuer_name, serial_number, cert_digest_b64):
+        signed_props = f"""
+    <xades:SignedProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Id="xadesSignedProperties">
+    <xades:SignedSignatureProperties>
+        <xades:SigningTime>{signing_time}</xades:SigningTime>
+        <xades:SigningCertificate>
+        <xades:Cert>
+            <xades:CertDigest>
+            <ds:DigestMethod xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+            <ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{cert_digest_b64}</ds:DigestValue>
+            </xades:CertDigest>
+            <xades:IssuerSerial>
+            <ds:X509IssuerName xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{issuer_name}</ds:X509IssuerName>
+            <ds:X509SerialNumber xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{serial_number}</ds:X509SerialNumber>
+            </xades:IssuerSerial>
+        </xades:Cert>
+        </xades:SigningCertificate>
+    </xades:SignedSignatureProperties>
+    </xades:SignedProperties>
+    """.strip()
+
+        # Parse and canonicalize with exclusive=True
+        parser = etree.XMLParser(remove_blank_text=True)
+        xml_element = etree.fromstring(signed_props.encode("utf-8"), parser)
+        canonical_xml = etree.tostring(xml_element, method="c14n", exclusive=True, with_comments=False)
+
+        # Compute SHA256 hash
+        sha256_digest = hashlib.sha256(canonical_xml).digest()
+        signed_properties_hash_b64 = base64.b64encode(sha256_digest).decode()
+
+        return signed_properties_hash_b64
+
+
 
     def populate_signature_values(self, xml_content, encoded_signature, signed_properties_base64, invoice_hash_base64):
         """Populate the signature values in XML"""
@@ -523,6 +515,7 @@ class ZATCAInvoiceSigner:
             
             # 6. Extracting certificate details
             issuer_name, serial_number = self.extract_certificate_details()
+            # frappe.throw(str(serial_number))
             encoded_certificate_hash = self.certificate_hash()
             signing_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
             
@@ -586,7 +579,7 @@ def get_pem_details(invoice):
     }
 
 @frappe.whitelist()
-def test_sign_invoice(invoice):
+def create_and_sign_xml_from_invoice(invoice):
     """
     Test and sign the ZATCA unsigned invoice using local XML path
     """
@@ -603,13 +596,15 @@ def test_sign_invoice(invoice):
     signer = ZATCAInvoiceSigner(private_key, certificate_, public_key_str=public_key_str)
 
     signed_file_url = signer.sign_invoice(input_path, invoice)
-
+    file_name = signed_file_url.rsplit("/", 1)[-1]
+    return file_name
     # Show result
-    frappe.msgprint(f"✅ Signed Invoice Saved: <a href='{signed_file_url}' target='_blank'>{signed_file_url}</a>", title="ZATCA Invoice")
+    # frappe.msgprint(f"✅ Signed Invoice Saved: <a href='{signed_file_url}' target='_blank'>{signed_file_url}</a>", title="ZATCA Invoice")
 
 @frappe.whitelist()
 def create_xml(invoice):
     sample_data = prepare_invoice_payload(invoice)
     file = save_xml_to_erpnext_file(sample_data, attached_to_doctype="Sales Invoice", attached_to_name=sample_data["name"])
+    
     return file.file_name
 

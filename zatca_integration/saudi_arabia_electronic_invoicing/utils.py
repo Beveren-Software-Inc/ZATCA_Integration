@@ -381,6 +381,7 @@ def signxml_modify(invoice):
         original_invoice_xml = etree.parse(
             frappe.local.site + "/private/files/finalzatcaxml.xml"
         )
+        
         root = original_invoice_xml.getroot()
         namespaces = {
             "ext": "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2",
@@ -822,9 +823,9 @@ class BytesArrayEncoder:
         self.byte_list.append(b)
         
 
-def get_signed_invoice_xml(invoice_number):
-    file_name = f"ZATCA-Signed-ACC-SINV-2025-000095d8019.xml"
+def get_signed_invoice_xml(file_name):
     file_path = get_site_path("private", "files", file_name)
 
     with open(file_path, "r", encoding="utf-8") as f:
         return f.read()
+    

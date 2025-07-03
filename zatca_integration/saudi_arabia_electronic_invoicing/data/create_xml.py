@@ -637,7 +637,7 @@ def prepare_invoice_payload(invoice_doc):
     return {
         "name": "SINV-2024-00002",
         "uuid": str(uuid.uuid4()),
-        "posting_date": "2025-07-02",
+        "posting_date": "2025-07-03",
         "posting_time": "09:00:00",
         "company": "Tech Solutions Company Ltd",
         "customer_name": "ABC Trading Company",
