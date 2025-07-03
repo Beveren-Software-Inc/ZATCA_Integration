@@ -12,8 +12,8 @@ from lxml import etree
 import qrcode
 from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, generate_clearance_request, generate_reporting_request
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_signed_invoice_xml
-from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice import create_and_sign_xml_from_invoice
-
+from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice import create_and_sign_xml_from_invoice, clean_pem_key
+from zatca_integration.common_util import generate_invoice_payload_from_xml
 
 def generate_einvoice(doc, method):
     
@@ -194,8 +194,8 @@ def generate_einvoice(doc, method):
     # frappe.throw(str(invoice_xml))
     file_name = create_and_sign_xml_from_invoice(doc.name)
     
-    simplified_invoice_xml = get_signed_invoice_xml(file_name)
-    # frappe.throw(str(simplified_invoice_xml))
+    simplified_invoice_xml = get_signed_invoice_xml("signed_output.xml")
+   
     try:
         if customer_type == "Company":
             # frappe.throw(str(invoice_xml))
@@ -227,12 +227,12 @@ def generate_einvoice(doc, method):
             #     zatca_environment.csr_generate_api, 
             #     zatca_environment.client_id, 
             #     zatca_environment.client_secret,
-            #     compliance_csr.private_key,
+            #     clean_pem_key(compliance_csr.private_key, "PRIVATE KEY"),
             #     decode_certificate(production_csid.binary_security_token),
             #     invoice_xml
             # )
             # frappe.throw(str(simplified_invoice_xml))
-            from zatca_integration.common_util import generate_invoice_payload_from_xml
+            
             invoice_request = generate_invoice_payload_from_xml(simplified_invoice_xml.encode("utf-8"))
             backend_end_time = time.time()
             backend_time_taken = backend_end_time - backend_start_time

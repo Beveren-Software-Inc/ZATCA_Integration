@@ -20,6 +20,7 @@ from cryptography.hazmat.backends import default_backend
 import base64
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_prod_csid, update_invoice
 from zatca_integration.saudi_arabia_electronic_invoicing.data.create_xml import prepare_invoice_payload, save_xml_to_erpnext_file
+
 class ZATCAInvoiceSigner:
     def __init__(self, private_key_str, certificate_str, public_key_str=None):
         self.private_key = self._load_private_key_from_string(private_key_str)
@@ -131,9 +132,7 @@ class ZATCAInvoiceSigner:
         """Find the certificate hash and returning the value"""
         """Alternative certificate hash method"""
         try:
-            
-            certificate_data =  self.certificate_data
-            certificate_data = certificate_data.strip()
+            certificate_data = self.certificate_data.strip()
             # Get the public key from certificate
             # Calculate the SHA-256 hash of the certificate data
             certificate_data_bytes = certificate_data.encode("utf-8")
