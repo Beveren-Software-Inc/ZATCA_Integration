@@ -300,7 +300,7 @@ def generate_einvoice(doc, method):
             "doctype": "File",
             "file_name": invoiceNumber + ".xml",
             "content": cleared_invoice_xml,
-            "is_private": True
+            "is_private": False
         })
         file_doc.insert()
         doc.custom_invoice_xml = file_doc.file_url
@@ -311,7 +311,7 @@ def generate_einvoice(doc, method):
             "doctype": "File",
             "file_name": invoiceNumber + ".png",
             "content": qr_code,
-            "is_private": True
+            "is_private": False
         })
         qr_doc.insert()
         doc.custom_invoice_qr_code = qr_doc.file_url
