@@ -4,14 +4,13 @@ from datetime import datetime, date, timedelta
 from dateutil.parser import parse
 import uuid
 import frappe
-from frappe.model.document import Document
 import time
 import requests
 import base64
 from requests.auth import HTTPBasicAuth
 from lxml import etree
 import qrcode
-from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, generate_clearance_request, generate_reporting_request
+from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_signed_invoice_xml
 from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice import create_and_sign_xml_from_invoice, clean_pem_key
 from zatca_integration.common_util import generate_invoice_payload_from_xml
