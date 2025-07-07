@@ -465,68 +465,6 @@ def additional_reference(invoice):
         return None
 
 
-def get_address(sales_invoice_doc, company_doc):
-    """
-    Fetches the appropriate address for the invoice.
-    - If company_doc.custom_costcenter is 1, use the Cost Center's address.
-    - If a cost center is selected but has no address, an error is raised.
-    - Otherwise, use the first available company address.
-    """
-    if company_doc.custom_costcenter == 1 and sales_invoice_doc.cost_center:
-        cost_center_doc = frappe.get_doc("Cost Center", sales_invoice_doc.cost_center)
-
-        # Ensure the Cost Center has a linked address
-        if not cost_center_doc.custom_zatca_branch_address:
-            frappe.throw(
-                _(
-                    f"No address is set for the selected Cost Center: {cost_center_doc.name}. Please add an address."
-                )
-            )
-
-        address_list = frappe.get_all(
-            "Address",
-            fields=[
-                "address_line1",
-                "address_line2",
-                "custom_building_number",
-                "city",
-                "pincode",
-                "state",
-                "country",
-            ],
-            filters={"name": cost_center_doc.custom_zatca_branch_address},
-        )
-
-        if not address_list:
-            frappe.throw(
-                f"ZATCA requires a proper address. Please add an address for Cost Center: {cost_center_doc.name}."
-            )
-        # frappe.throw(str(address_list[0]))
-        return address_list[0]  # Return the Cost Center's address
-
-    # Fetch Company address only if no cost center is used
-    address_list = frappe.get_all(
-        "Address",
-        fields=[
-            "address_line1",
-            "address_line2",
-            "custom_building_number",
-            "city",
-            "pincode",
-            "state",
-            "country",
-        ],
-        filters={"is_your_company_address": 1},
-    )
-
-    if not address_list:
-        frappe.throw(_("requires a proper company address. Please add an address"))
-
-    for address in address_list:
-        # frappe.throw(str(address))
-        return address
-
-
 def company_data(invoice, sales_invoice_doc):
     """
     Adds company data elements to the XML invoice, including supplier details, address,

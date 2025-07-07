@@ -6,7 +6,6 @@ using ERPNext
 
 import hashlib
 import base64
-import json
 import binascii
 from datetime import datetime
 from lxml import etree
@@ -17,7 +16,6 @@ from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
-import requests
 import asn1
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_pem_details
 
@@ -293,18 +291,12 @@ def populate_the_ubl_extensions_output(
         return
 
 
-def extract_public_key_data():
+def extract_public_key_data(sales_invoice_doc):
     """extract public key"""
-    # try:
-        
-        # key_data ="public_key"
-        # key_data = key_data.replace(" ", "").replace("\n", "")
-
-    return "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEoWCKa0Sa9FIErTOv0uAkC1VIKXxU9nPpx2vlf4yhMejy8c02XJblDq7tPydo8mq0ahOMmNo8gwni7Xt1KT9UeA=="
-
-    # except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-    #     frappe.throw(_("Error in extracting public key data: " + str(e)))
-    #     return None
+    
+    pem_details = get_pem_details(sales_invoice_doc)
+    key_data = pem_details.get("public_key")
+    return key_data
 
 
 def get_tlv_for_value(tag_num, tag_value):
@@ -329,11 +321,11 @@ def get_tlv_for_value(tag_num, tag_value):
         return None
 
 
-def tag8_publickey():
+def tag8_publickey(sales_invoice_doc):
     """tag 8 of qr from public key"""
     try:
         # create_public_key(company_abbr, source_doc)
-        base64_encoded = extract_public_key_data()
+        base64_encoded = extract_public_key_data(sales_invoice_doc)
         byte_data = base64.b64decode(base64_encoded)
         hex_data = binascii.hexlify(byte_data).decode("utf-8")
         chunks = [hex_data[i : i + 2] for i in range(0, len(hex_data), 2)]
@@ -370,7 +362,7 @@ def tag9_signature_ecdsa():
         return None
 
 
-def generate_tlv_xml():
+def generate_tlv_xml(sales_invoice_doc):
     """generate xml by adding the tlv data"""
     # try:
 
@@ -438,7 +430,7 @@ def generate_tlv_xml():
         else:
             result_dict[tag] = xpath
     result_dict[3] = issue_date_time
-    result_dict[8] = tag8_publickey()
+    result_dict[8] = tag8_publickey(sales_invoice_doc)
     result_dict[9] = tag9_signature_ecdsa()
     result_dict[1] = result_dict[1].encode(
         "utf-8"
@@ -539,154 +531,3 @@ def structuring_signedxml():
         frappe.throw(_(" error in structuring signed xml: " + str(e)))
         return None
 
-
-def compliance_api_call(
-    uuid1, encoded_hash, signed_xmlfile_name, company_abbr, source_doc
-):
-    """compliance api call for testing with sandbox"""
-    try:
-
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-        payload = json.dumps(
-            {
-                "invoiceHash": encoded_hash,
-                "uuid": uuid1,
-                "invoice": xml_base64_decode(signed_xmlfile_name),
-            }
-        )
-
-        # csid = company_doc.custom_basic_auth_from_csid
-        if (
-            hasattr(source_doc, "custom_zatca_pos_name")
-            and source_doc.custom_zatca_pos_name
-        ):
-            zatca_settings = frappe.get_doc(
-                "ZATCA Multiple Setting", source_doc.custom_zatca_pos_name
-            )
-            csid = zatca_settings.custom_basic_auth_from_csid
-        else:
-            csid = company_doc.custom_basic_auth_from_csid
-        if not csid:
-            frappe.throw(_((f"CSID for company {company_abbr} not found")))
-
-        headers = {
-            "accept": "application/json",
-            "Accept-Language": "en",
-            "Accept-Version": "V2",
-            "Authorization": "Basic " + csid,
-            "Content-Type": "application/json",
-        }
-        # frappe.throw(get_api_url(company_abbr, base_url="compliance/invoices"))
-        response = requests.request(
-            "POST",
-            url=get_api_url(company_abbr, base_url="compliance/invoices"),
-            headers=headers,
-            data=payload,
-            timeout=300,
-        )
-        # frappe.throw(response.status_code)
-        frappe.throw(_(response.text))
-        if response.status_code != 200:
-            frappe.throw(_(f"Error in compliance: {response.text}"))
-        if response.status_code != 202:
-            frappe.throw(_(f"Warning from zatca in compliance: {response.text}"))
-
-        return response.text
-    except requests.exceptions.RequestException as e:
-        frappe.msgprint(_(f"Request exception occurred: {str(e)}"))
-        return "error in compliance", "NOT ACCEPTED"
-
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_(f"ERROR in clearance invoice, ZATCA validation: {str(e)}"))
-        return None
-
-
-@frappe.whitelist(allow_guest=False)
-def production_csid(zatca_doc, company_abbr):
-    """production csid button and api"""
-    try:
-
-        if isinstance(zatca_doc, str):
-            zatca_doc = json.loads(zatca_doc)
-
-        if (
-            not isinstance(zatca_doc, dict)
-            or "doctype" not in zatca_doc
-            or "name" not in zatca_doc
-        ):
-            frappe.throw(
-                _("Invalid 'zatca_doc' format. Must include 'doctype' and 'name'.")
-            )
-        # Fetch the document based on doctype and name
-        doc = frappe.get_doc(zatca_doc.get("doctype"), zatca_doc.get("name"))
-        if doc.doctype == "ZATCA Multiple Setting":
-            multiple_setting_doc = frappe.get_doc("ZATCA Multiple Setting", doc.name)
-            csid = multiple_setting_doc.custom_basic_auth_from_csid
-            request_id = multiple_setting_doc.custom_compliance_request_id_
-        elif doc.doctype == "Company":
-            company_name = frappe.db.get_value(
-                "Company", {"abbr": company_abbr}, "name"
-            )
-
-            company_doc = frappe.get_doc("Company", company_name)
-            csid = company_doc.custom_basic_auth_from_csid
-            request_id = company_doc.custom_compliance_request_id_
-
-        if not csid:
-            frappe.throw(_(("CSID for company not found")))
-
-        if not request_id:
-            frappe.throw(_("Compliance request ID for company  not found"))
-        payload = {"compliance_request_id": request_id}
-
-        headers = {
-            "accept": "application/json",
-            "Accept-Version": "V2",
-            "Authorization": "Basic " + csid,
-            "Content-Type": "application/json",
-        }
-        frappe.publish_realtime(
-            "show_gif",
-            {"gif_url": "/images/loading.gif"},
-            user=frappe.session.user,
-        )
-
-        response = requests.post(
-            url=get_api_url(company_abbr, base_url="production/csids"),
-            headers=headers,
-            json=payload,
-            timeout=300,
-        )
-        frappe.publish_realtime("hide_gif", user=frappe.session.user)
-        frappe.msgprint(response.text)
-
-        if response.status_code != 200:
-            frappe.throw("Error in production: " + response.text)
-
-        data = response.json()
-        concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
-        encoded_value = base64.b64encode(concatenated_value.encode()).decode()
-        if doc.doctype == "ZATCA Multiple Setting":
-            multiple_setting_doc.custom_certificate = base64.b64decode(
-                data["binarySecurityToken"]
-            ).decode("utf-8")
-            multiple_setting_doc.custom_final_auth_csid = encoded_value
-
-            multiple_setting_doc.save(ignore_permissions=True)
-        elif doc.doctype == "Company":
-            company_doc.custom_certificate = base64.b64decode(
-                data["binarySecurityToken"]
-            ).decode("utf-8")
-            company_doc.custom_basic_auth_from_production = encoded_value
-
-            company_doc.save(ignore_permissions=True)
-
-        return response.text
-
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error in production CSID formation: " + str(e)))
-        return None

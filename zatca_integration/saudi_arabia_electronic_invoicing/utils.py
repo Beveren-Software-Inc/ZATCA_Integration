@@ -120,11 +120,9 @@ def save_and_return_csr(doc, private_key_pem, csr):
     """Save CSR to document and return base64 encoded result"""
     csr_pem = csr.public_bytes(serialization.Encoding.PEM)
     base64csr = base64.b64encode(csr_pem).decode("utf-8")
-    # frappe.throw(str(private_key_pem))
     doc.private_key = private_key_pem.decode("utf-8")
     doc.private_key_pem_format = str(private_key_pem)
     doc.csr = base64csr.strip()
-    # frappe.throw(str(base64csr.strip()))
     doc.csr_pem_format = csr_pem.decode("utf-8")
     doc.save(ignore_permissions=True)
     frappe.msgprint(
@@ -330,3 +328,66 @@ def clean_pem_key(pem_key: str, keyword: str) -> str:
         return ""
     lines = pem_key.strip().splitlines()
     return "".join(line for line in lines if keyword not in line)
+
+
+def get_address(sales_invoice_doc):
+    """
+    Returns both the Company and Customer billing addresses.
+    - Company address is the first available address marked as 'is_your_company_address = 1'.
+    - Customer address is the first linked address to the customer via Dynamic Link.
+
+    Returns:
+        (company_address_dict, customer_address_dict)
+    """
+
+    # -------- COMPANY ADDRESS --------
+    company_address_list = frappe.get_all(
+        "Address",
+        filters={"is_your_company_address": 1},
+        fields=[
+            "address_line1",
+            "address_line2",
+            "custom_building_number",
+            "city",
+            "pincode",
+            "state",
+            "country",
+        ],
+        limit=1,
+    )
+
+    if not company_address_list:
+        frappe.throw(_("ZATCA requires a proper company address. Please add one."))
+
+    company_address = company_address_list[0]
+
+    # -------- CUSTOMER ADDRESS --------
+    customer_links = frappe.get_all(
+        "Dynamic Link",
+        filters={
+            "link_doctype": "Customer",
+            "link_name": sales_invoice_doc.customer,
+            "parenttype": "Address",
+        },
+        fields=["parent"],
+        limit=1,
+    )
+
+    if not customer_links:
+        frappe.throw(_("No address found for customer: {0}").format(sales_invoice_doc.customer))
+
+    customer_address = frappe.get_value(
+        "Address",
+        customer_links[0].parent,
+        [
+            "address_line1",
+            "address_line2",
+            "city",
+            "pincode",
+            "state",
+            "country",
+        ],
+        as_dict=True,
+    )
+
+    return company_address, customer_address

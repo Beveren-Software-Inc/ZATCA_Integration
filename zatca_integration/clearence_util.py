@@ -12,31 +12,24 @@ from lxml import etree
 import qrcode
 from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_signed_invoice_xml
-from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice import create_and_sign_xml_from_invoice, clean_pem_key
+from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice import create_and_sign_xml_from_invoice
 from zatca_integration.common_util import generate_invoice_payload_from_xml
-from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import zatca_call, xml_base64_decode
+from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import process_invoice_for_zatca_submission, xml_base64_decode
 
 def generate_einvoice(doc, method):
     
-    signed_xmlfile_name, uuid1, encoded_hash = zatca_call(doc.name, compliance_type="0",any_item_has_tax_template=False)
+    signed_xmlfile_name, uuid1, encoded_hash = process_invoice_for_zatca_submission(doc.name, compliance_type="0",any_item_has_tax_template=False)
     payload = {
             "invoiceHash": encoded_hash,
             "uuid": uuid1,
             "invoice": xml_base64_decode(signed_xmlfile_name),
         }
     
-    
-    # Seller Information
-    # frappe.throw(str(encoded_hash))
     company = frappe.get_doc("Company", doc.company)
 
     # Check if Company is a Saudi Arabia based company
     if company.country != "Saudi Arabia":
         return
-
-    # Check if ZATCA E-Invoicing is enabled
-    # if not company.custom_enable_zatca_e_invoicing == 1:
-    #     return
 
     # Check if the active Zacta Phase is Phase 2
     if not company.custom_zatca_phase == "ZATCA Phase 2":
@@ -49,7 +42,7 @@ def generate_einvoice(doc, method):
     zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
 
     seller = get_seller_information(compliance_csr)
-    # frappe.throw(str(seller))
+
     # Buyer Information
     customer = frappe.get_doc("Customer", doc.customer)
     customer_type = customer.customer_type

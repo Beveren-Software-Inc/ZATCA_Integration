@@ -7,15 +7,9 @@ including the creation of UBL XML
 invoices, signing, and submission to ZATCA servers for clearance and reporting.
 """
 
-import os
-import io
 import base64
-import json
-import uuid
 from frappe import _
 import frappe
-import requests
-from pyqrcode import create as qr_create
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_invoice_xml import (
     xml_tags,
     salesinvoice_data,
@@ -23,17 +17,15 @@ from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate
     add_document_level_discount_with_tax,
     company_data,
     customer_data,
-    get_address,
     invoice_typecode_compliance,
     add_nominal_discount_tax,
-    doc_reference_compliance,
     doc_reference,
     additional_reference,
     delivery_and_payment_means,
-    delivery_and_payment_means_for_compliance,
     invoice_typecode_simplified,
     invoice_typecode_standard,
 )
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_address
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_tax_data import tax_data, tax_data_with_template
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_final_xml import (
     tax_data_nominal,
@@ -56,7 +48,7 @@ from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.initial_
     structuring_signedxml,
     get_tlv_for_value,
     update_qr_toxml,
-    compliance_api_call,
+   
 )
 
 REPORTED_XML = "%Reported xml file%"
@@ -153,7 +145,7 @@ def is_qr_and_xml_attached(sales_invoice_doc):
 
 
 @frappe.whitelist(allow_guest=False)
-def zatca_call(
+def process_invoice_for_zatca_submission(
     invoice_number,
     compliance_type="0",
     any_item_has_tax_template=False
@@ -244,7 +236,7 @@ def zatca_call(
             encoded_hash,
            
         )
-        tlv_data = generate_tlv_xml()
+        tlv_data = generate_tlv_xml(sales_invoice_doc)
 
         tagsbufsarray = []
         for tag_num, tag_value in tlv_data.items():
@@ -263,140 +255,3 @@ def zatca_call(
             message=f"{frappe.get_traceback()}\nError: {str(e)}",
         )
         raise
-
-
-@frappe.whitelist(allow_guest=False)
-def zatca_call_compliance(
-    invoice_number,
-    company_abbr,
-    source_doc,
-    compliance_type="0",
-    any_item_has_tax_template=False,
-):
-    """zatca call compliance"""
-
-    try:
-        if source_doc:
-            source_doc = frappe.get_doc(json.loads(source_doc))
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-
-        if company_doc.custom_validation_type == "Simplified Invoice":
-            compliance_type = "1"
-        elif company_doc.custom_validation_type == "Standard Invoice":
-            compliance_type = "2"
-        elif company_doc.custom_validation_type == "Simplified Credit Note":
-            compliance_type = "3"
-        elif company_doc.custom_validation_type == "Standard Credit Note":
-            compliance_type = "4"
-        elif company_doc.custom_validation_type == "Simplified Debit Note":
-            compliance_type = "5"
-        elif company_doc.custom_validation_type == "Standard Debit Note":
-            compliance_type = "6"
-        if not frappe.db.exists("Sales Invoice", invoice_number):
-            frappe.throw(_("Invoice Number is NOT Valid: " + str(invoice_number)))
-        invoice = xml_tags()
-        invoice, uuid1, sales_invoice_doc = salesinvoice_data(invoice, invoice_number)
-        any_item_has_tax_template = any(
-            item.item_tax_template for item in sales_invoice_doc.items
-        )
-        if any_item_has_tax_template and not all(
-            item.item_tax_template for item in sales_invoice_doc.items
-        ):
-            frappe.throw(
-                _(
-                    "If any one item has an Item Tax Template,"
-                    " all items must have an Item Tax Template."
-                )
-            )
-        invoice = invoice_typecode_compliance(invoice, compliance_type)
-        invoice = doc_reference_compliance(
-            invoice, sales_invoice_doc, invoice_number, compliance_type
-        )
-        invoice = additional_reference(invoice, company_abbr, sales_invoice_doc)
-        invoice = company_data(invoice, sales_invoice_doc)
-        invoice = customer_data(invoice, sales_invoice_doc)
-        invoice = delivery_and_payment_means_for_compliance(
-            invoice, sales_invoice_doc, compliance_type
-        )
-
-        if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
-            # Add document-level discount with tax
-            invoice = add_nominal_discount_tax(invoice, sales_invoice_doc)
-        elif not any_item_has_tax_template:
-            invoice = add_document_level_discount_with_tax(invoice, sales_invoice_doc)
-        else:
-            # Add document-level discount with tax template
-            invoice = add_document_level_discount_with_tax_template(
-                invoice, sales_invoice_doc
-            )
-        if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
-            if not any_item_has_tax_template:
-                invoice = tax_data_nominal(invoice, sales_invoice_doc)
-            else:
-                invoice = tax_data_with_template_nominal(invoice, sales_invoice_doc)
-        else:
-            if not any_item_has_tax_template:
-                invoice = tax_data(invoice, sales_invoice_doc)
-            else:
-                invoice = tax_data_with_template(invoice, sales_invoice_doc)
-
-        if not any_item_has_tax_template:
-            invoice = item_data(invoice, sales_invoice_doc)
-
-        else:
-            item_data_with_template(invoice, sales_invoice_doc)
-        # Generate and process the XML data
-        xml_structuring(invoice)
-        with open(
-            frappe.local.site + "/private/files/finalzatcaxml.xml",
-            "r",
-            encoding="utf-8",
-        ) as file:
-            file_content = file.read()
-
-        tag_removed_xml = removetags(file_content)
-        canonicalized_xml = canonicalize_xml(tag_removed_xml)
-        hash1, encoded_hash = getinvoicehash(canonicalized_xml)
-        encoded_signature = digital_signature(hash1, sales_invoice_doc)
-        issuer_name, serial_number = extract_certificate_details(
-            sales_invoice_doc
-        )
-        encoded_certificate_hash = certificate_hash(sales_invoice_doc)
-        namespaces, signing_time = signxml_modify(sales_invoice_doc)
-        signed_properties_base64 = generate_signed_properties_hash(
-            signing_time, issuer_name, serial_number, encoded_certificate_hash
-        )
-        populate_the_ubl_extensions_output(
-            encoded_signature,
-            namespaces,
-            signed_properties_base64,
-            encoded_hash,
-        )
-        # Generate the TLV data and QR code
-        tlv_data = generate_tlv_xml(company_abbr, source_doc)
-        tagsbufsarray = []
-        for tag_num, tag_value in tlv_data.items():
-            tagsbufsarray.append(get_tlv_for_value(tag_num, tag_value))
-
-        qrcodebuf = b"".join(tagsbufsarray)
-        qrcodeb64 = base64.b64encode(qrcodebuf).decode("utf-8")
-
-        update_qr_toxml(qrcodeb64)
-        signed_xmlfile_name = structuring_signedxml()
-        value = compliance_api_call(
-            uuid1, encoded_hash, signed_xmlfile_name, company_abbr, source_doc
-        )
-        return value
-
-    except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
-        frappe.log_error(
-            title="ZATCA invoice call failed", message=frappe.get_traceback()
-        )
-        frappe.throw(_("Error in ZATCA invoice call: " + str(e)))
-        return None
-
