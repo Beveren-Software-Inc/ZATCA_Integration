@@ -1,4 +1,3 @@
-
 import uuid
 from datetime import datetime
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -633,21 +632,22 @@ def prepare_invoice_payload(invoice_doc):
     #         for item in invoice_doc.items
     #     ]
     # }
-
     return {
-        "name": "SINV-2024-00002",
         "uuid": str(uuid.uuid4()),
-        "posting_date": "2025-07-03",
-        "posting_time": "09:00:00",
-        "company": "Tech Solutions Company Ltd",
-        "customer_name": "ABC Trading Company",
+       "name": "ACC-SINV-2025-00013",
+        "posting_date": "2025-07-06",
+        "posting_time": "01:34:07",
+        "company": "Space Top Co. Ltd",
+        "customer_name": "SADARA CHEMICAL COMPANY",
+        "customer_short_name": "SADARA",
         "currency": "SAR",
         "is_simplified_invoice": True,
         "profile_id": "reporting:1.0",
         "icv_counter": 1,
-        "previous_invoice_hash": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
+        "previous_invoice_hash": "T/HJxLFBiPbQBqBNRBgtkB4hoAcbk5wfI5J5Yi35NPA=",
+        "zatca_phase": "ZATCA Phase 2",
 
-        # Company details
+       # Company details
         "company_registration": "1010010000",
         "company_tax_id": "399999999900003",
         "company_address_line1": "King Fahd Road",
@@ -658,54 +658,117 @@ def prepare_invoice_payload(invoice_doc):
         "company_country": "SA",
 
         # Customer details (Simplified - No VAT ID)
-        "customer_tax_id": "",  # Must be empty for simplified
-        "customer_address_line1": "Prince Sultan Road",
-        "customer_building_number": "5678",
-        "customer_city_subdivision": "Al-Malaz",
-        "customer_city": "Riyadh",
-        "customer_postal_code": "54321",
+        # Customer details
+        "customer_tax_id": "300439035300003",
+        "customer_address_line1": "5th Street",
+        "customer_building_number": "4168",
+        "customer_city": "3rd Industrial area",
+        "customer_postal_code": "31961",
         "customer_country": "SA",
 
         # Amounts
-        "net_total": 1000.00,
-        "total_taxes_and_charges": 150.00,
-        "grand_total": 1150.00,
-        "outstanding_amount": 1150.00,
+        "net_total": 200.00,
+        "total_taxes_and_charges": 30,
+        "grand_total": 230,
+        "outstanding_amount": 230,
         "discount_amount": 0.00,
         "tax_rate": 15.0,
 
         # Payment
         "payment_method": "Cash",
-        "delivery_date": "2025-07-15",
+        "delivery_date": "2025-07-29",
+        "due_date": "2025-07-29",
 
         # Items
-        "items": [
-            {
-                "item_code": "LAPTOP-001",
-                "item_name": "Dell Laptop",
-                "qty": 2,
-                "rate": 400.00,
-                "amount": 800.00,
-                "uom": "Nos",
-                "discount_amount": 0.00
-            },
-            {
-                "item_code": "MOUSE-001",
-                "item_name": "Wireless Mouse",
-                "qty": 5,
-                "rate": 40.00,
-                "amount": 200.00,
-                "uom": "Nos",
-                "discount_amount": 0.00
-            }
-        ]
+          "items": [
+        {
+            "item_code": "NSI-00003",
+            "item_name": "Operational Expenses",
+            "description": "Operational Expenses",
+            "qty": 1,
+            "rate": 200.00,
+            "amount": 200.00,
+            "uom": "Nos",
+            "discount_amount": 0.00,
+            "tax_rate": 15.0,
+            "tax_amount": 30,
+            "income_account": "6100001 - Trade Sales - STCL",
+            "cost_center": "157 - Management Department - STCL"
+        }
+    ],
     }
+    # return {
+    #     "name": "SINV-2024-00002",
+    #     "uuid": str(uuid.uuid4()),
+    #     "posting_date": "2025-07-05",
+    #     "posting_time": "09:00:00",
+    #     "company": "Tech Solutions Company Ltd",
+    #     "customer_name": "ABC Trading Company",
+    #     "currency": "SAR",
+    #     "is_simplified_invoice": True,
+    #     "profile_id": "reporting:1.0",
+    #     "icv_counter": 1,
+    #     "previous_invoice_hash": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
+
+    #     # Company details
+    #     "company_registration": "1010010000",
+    #     "company_tax_id": "399999999900003",
+    #     "company_address_line1": "King Fahd Road",
+    #     "company_building_number": "1234",
+    #     "company_city_subdivision": "Al-Olaya",
+    #     "company_city": "Riyadh",
+    #     "company_postal_code": "12345",
+    #     "company_country": "SA",
+
+    #     # Customer details (Simplified - No VAT ID)
+    #     "customer_tax_id": "",  # Must be empty for simplified
+    #     "customer_address_line1": "Prince Sultan Road",
+    #     "customer_building_number": "5678",
+    #     "customer_city_subdivision": "Al-Malaz",
+    #     "customer_city": "Riyadh",
+    #     "customer_postal_code": "54321",
+    #     "customer_country": "SA",
+
+    #     # Amounts
+    #     "net_total": 1000.00,
+    #     "total_taxes_and_charges": 150.00,
+    #     "grand_total": 1150.00,
+    #     "outstanding_amount": 1150.00,
+    #     "discount_amount": 0.00,
+    #     "tax_rate": 15.0,
+
+    #     # Payment
+    #     "payment_method": "Cash",
+    #     "delivery_date": "2025-07-15",
+
+    #     # Items
+    #     "items": [
+    #         {
+    #             "item_code": "LAPTOP-001",
+    #             "item_name": "Dell Laptop",
+    #             "qty": 2,
+    #             "rate": 400.00,
+    #             "amount": 800.00,
+    #             "uom": "Nos",
+    #             "discount_amount": 0.00
+    #         },
+    #         {
+    #             "item_code": "MOUSE-001",
+    #             "item_name": "Wireless Mouse",
+    #             "qty": 5,
+    #             "rate": 40.00,
+    #             "amount": 200.00,
+    #             "uom": "Nos",
+    #             "discount_amount": 0.00
+    #         }
+    #     ]
+    # }
 
 @frappe.whitelist()
 def test_the_invoice(invoice):
     invoice_doc = frappe.get_doc("Sales Invoice", invoice)
     sample_data = prepare_invoice_payload(invoice_doc)
-    file = save_xml_to_erpnext_file(sample_data, attached_to_doctype="Sales Invoice", attached_to_name=sample_data["name"])
-    return file.file_name
+    # file = save_xml_to_erpnext_file(sample_data, attached_to_doctype="Sales Invoice", attached_to_name=sample_data["name"])
+    return "unsigned.xml"
    
 

@@ -1,11 +1,11 @@
-
 import hashlib
 import base64
 import binascii
 from datetime import datetime
 # import xml.etree.ElementTree as etree
 from lxml import etree  # ✅ Use lxml for canonicalization and exclusive=True
-
+from lxml.builder import ElementMaker
+from frappe import _
 import lxml.etree as MyTree
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -20,6 +20,17 @@ from cryptography.hazmat.backends import default_backend
 import base64
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_prod_csid, update_invoice
 from zatca_integration.saudi_arabia_electronic_invoicing.data.create_xml import prepare_invoice_payload, save_xml_to_erpnext_file
+import re
+
+E = ElementMaker(
+    namespace="http://uri.etsi.org/01903/v1.3.2#",
+    nsmap={
+        "xades": "http://uri.etsi.org/01903/v1.3.2#",
+        "ds": "http://www.w3.org/2000/09/xmldsig#"
+    }
+)
+
+DS = ElementMaker(namespace="http://www.w3.org/2000/09/xmldsig#", nsmap=None)
 
 class ZATCAInvoiceSigner:
     def __init__(self, private_key_str, certificate_str, public_key_str=None):
@@ -50,59 +61,72 @@ class ZATCAInvoiceSigner:
         except Exception as e:
             raise Exception(f"Failed to load certificate from string: {str(e)}")
         
-
     def removetags(self, finalzatcaxml):
-        """Remove unwanted tags from created xml"""
+        """remove the unwanted tags from created xml"""
         try:
-            # Handle both string and bytes input
-            if isinstance(finalzatcaxml, str):
-                finalzatcaxml = finalzatcaxml.encode('utf-8')
-            xml_file = MyTree.fromstring(finalzatcaxml)
+            # Convert str to bytes to avoid XML declaration error
+            xml_file = MyTree.fromstring(finalzatcaxml.encode("utf-8"))
+
             xsl_file = MyTree.fromstring(
                 """<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-                                        xmlns:xs="http://www.w3.org/2001/XMLSchema"
-                                        xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
-                                        xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
-                                        xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
-                                        xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"
-                                        exclude-result-prefixes="xs"
-                                        version="2.0">
-                                        <xsl:output omit-xml-declaration="yes" encoding="utf-8" indent="no"/>
-                                        <xsl:template match="node() | @*">
-                                            <xsl:copy>
-                                                <xsl:apply-templates select="node() | @*"/>
-                                            </xsl:copy>
-                                        </xsl:template>
-                                        <xsl:template match="//*[local-name()='Signature']"></xsl:template>
-                                        <xsl:template match="//*[local-name()='AdditionalDocumentReference'][cbc:ID[normalize-space(text()) = 'QR']]"></xsl:template>
-                                            <xsl:template match="//*[local-name()='Invoice']/*[local-name()='Signature']"></xsl:template>
-                                        </xsl:stylesheet>"""
+                                xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                                xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+                                xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+                                xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+                                xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"
+                                exclude-result-prefixes="xs"
+                                version="2.0">
+                <xsl:output omit-xml-declaration="yes" encoding="utf-8" indent="no"/>
+                <xsl:template match="node() | @*">
+                    <xsl:copy>
+                        <xsl:apply-templates select="node() | @*"/>
+                    </xsl:copy>
+                </xsl:template>
+                <xsl:template match="//*[local-name()='Invoice']//*[local-name()='UBLExtensions']"/>
+                <xsl:template match="//*[local-name()='AdditionalDocumentReference'][cbc:ID[normalize-space(text()) = 'QR']]"/>
+                <xsl:template match="//*[local-name()='Invoice']/*[local-name()='Signature']"/>
+                </xsl:stylesheet>"""
             )
-            
+
             transform = MyTree.XSLT(xsl_file.getroottree())
             transformed_xml = transform(xml_file.getroottree())
             return transformed_xml
-        except Exception as e:
-            raise Exception(f"Error occurred in removing tags: {str(e)}")
 
+        except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
+            frappe.throw(_("error occurred while removing tags: " + str(e)))
+            return None
+
+   
     def canonicalize_xml(self, tag_removed_xml):
-        """Canonicalisation of the xml"""
+        # frappe.throw(str(tag_removed_xml))
+        """canonicalisation of the xml"""
         try:
-            # Convert lxml result to string first, then use MyTree for canonicalization
-            xml_string = MyTree.tostring(tag_removed_xml, encoding='utf-8').decode('utf-8')
-            # Parse with lxml and canonicalize (C14N doesn't support encoding parameter)
-            xml_tree = MyTree.fromstring(xml_string.encode('utf-8'))
-            canonical_xml = MyTree.tostring(xml_tree, method="c14n", exclusive=False, with_comments=False).decode('utf-8')
-
+            canonical_xml = etree.tostring(tag_removed_xml, method="c14n").decode()
             return canonical_xml
-        except Exception as e:
-            raise Exception(f"Error occurred in canonicalise xml: {str(e)}")
+        except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
+            frappe.throw(_("error occurred in canonicalise xml " + str(e)))
+            return None
+        # """Canonicalisation of the xml"""
+        # try:
+        #     if isinstance(tag_removed_xml, MyTree._XSLTResultTree):
+        #         xml_string = str(tag_removed_xml)
+        #     else:
+        #         xml_string = MyTree.tostring(tag_removed_xml, encoding='utf-8').decode('utf-8')
+            
+        #     # Parse with lxml and canonicalize with simple c14n
+        #     parser = MyTree.XMLParser(remove_blank_text=True)
+        #     xml_tree = MyTree.fromstring(xml_string.encode('utf-8'), parser)
+        #     canonical_xml = MyTree.tostring(xml_tree, method="c14n").decode('utf-8')
+        #     frappe.throw(str(canonical_xml))
+        #     return canonical_xml
+        # except Exception as e:
+        #     raise Exception(f"Error occurred in canonicalise xml: {str(e)}")
 
     def getinvoicehash(self, canonicalized_xml):
-        """Getting the invoice hash of the xml"""
         try:
             hash_object = hashlib.sha256(canonicalized_xml.encode())
             hash_hex = hash_object.hexdigest()
+            #frappe.throw(str(hash_hex))
             hash_base64 = base64.b64encode(bytes.fromhex(hash_hex)).decode("utf-8")
             return hash_hex, hash_base64
         except Exception as e:
@@ -114,6 +138,7 @@ class ZATCAInvoiceSigner:
             hash_bytes = bytes.fromhex(hash_hex)
             signature = self.private_key.sign(hash_bytes, ec.ECDSA(hashes.SHA256()))
             encoded_signature = base64.b64encode(signature).decode()
+            # frappe.throw(str(encoded_signature))
             return encoded_signature
         except Exception as e:
             raise Exception(f"Error in digital signature: {str(e)}")
@@ -133,6 +158,7 @@ class ZATCAInvoiceSigner:
         """Alternative certificate hash method"""
         try:
             certificate_data = self.certificate_data.strip()
+            
             # Get the public key from certificate
             # Calculate the SHA-256 hash of the certificate data
             certificate_data_bytes = certificate_data.encode("utf-8")
@@ -166,10 +192,11 @@ class ZATCAInvoiceSigner:
     
     def create_ubl_signature_template(self):
         return """
-<sig:UBLDocumentSignatures xmlns:sig="urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2"
-                           xmlns:sac="urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2"
-                           xmlns:sbc="urn:oasis:names:specification:ubl:schema:xsd:SignatureBasicComponents-2"
-                           xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+<sig:UBLDocumentSignatures
+    xmlns:sig="urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2"
+    xmlns:sac="urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2"
+    xmlns:sbc="urn:oasis:names:specification:ubl:schema:xsd:SignatureBasicComponents-2"
+    xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
   <sac:SignatureInformation>
     <cbc:ID>urn:oasis:names:specification:ubl:signature:1</cbc:ID>
     <sbc:ReferencedSignatureID>urn:oasis:names:specification:ubl:signature:Invoice</sbc:ReferencedSignatureID>
@@ -261,48 +288,13 @@ class ZATCAInvoiceSigner:
             raise Exception(f"Error adding signature to XML: {str(e)}")
 
 
-    from lxml import etree
-
-    def generate_signed_properties_hash(self, signing_time, issuer_name, serial_number, cert_digest_b64):
-        signed_props = f"""
-    <xades:SignedProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Id="xadesSignedProperties">
-    <xades:SignedSignatureProperties>
-        <xades:SigningTime>{signing_time}</xades:SigningTime>
-        <xades:SigningCertificate>
-        <xades:Cert>
-            <xades:CertDigest>
-            <ds:DigestMethod xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-            <ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{cert_digest_b64}</ds:DigestValue>
-            </xades:CertDigest>
-            <xades:IssuerSerial>
-            <ds:X509IssuerName xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{issuer_name}</ds:X509IssuerName>
-            <ds:X509SerialNumber xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{serial_number}</ds:X509SerialNumber>
-            </xades:IssuerSerial>
-        </xades:Cert>
-        </xades:SigningCertificate>
-    </xades:SignedSignatureProperties>
-    </xades:SignedProperties>
-    """.strip()
-
-        # Parse and canonicalize with exclusive=True
-        parser = etree.XMLParser(remove_blank_text=True)
-        xml_element = etree.fromstring(signed_props.encode("utf-8"), parser)
-        canonical_xml = etree.tostring(xml_element, method="c14n", exclusive=True, with_comments=False)
-
-        # Compute SHA256 hash
-        sha256_digest = hashlib.sha256(canonical_xml).digest()
-        signed_properties_hash_b64 = base64.b64encode(sha256_digest).decode()
-
-        return signed_properties_hash_b64
-
-
-
     def populate_signature_values(self, xml_content, encoded_signature, signed_properties_base64, invoice_hash_base64):
         """Populate the signature values in XML"""
         try:
             # Use lxml for XPath support
             root = MyTree.fromstring(xml_content.encode('utf-8'))
-            
+            # print("Hello+++++====", str(root))
+            # frappe.throw(str(root))
             namespaces = {
                 "ext": "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2",
                 "sig": "urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2",
@@ -311,46 +303,70 @@ class ZATCAInvoiceSigner:
                 "ds": "http://www.w3.org/2000/09/xmldsig#",
             }
 
-            certificate_pem = self.certificate.public_bytes(serialization.Encoding.PEM).decode('utf-8')
-            # Extract just the base64 content without headers
+            # Get certificate in PEM format and clean it
+            certificate_pem = self.certificate.public_bytes(
+                encoding=serialization.Encoding.PEM
+            ).decode('utf-8')
             cert_lines = certificate_pem.strip().split('\n')
-            cert_content = ''.join(cert_lines[1:-1])
-            
-            # Get certificate details
-            issuer_name, serial_number = self.extract_certificate_details()
-            encoded_certificate_hash = self.certificate_hash()
-            signing_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+            cert_content = ''.join(cert_lines[1:-1])  # Remove headers
 
-            # Update signature values
+            # Update the essential signature values (matching ERPgulf)
             xpath_signvalue = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignatureValue"
             xpath_x509certi = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:KeyInfo/ds:X509Data/ds:X509Certificate"
             xpath_digvalue = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignedInfo/ds:Reference[@URI='#xadesSignedProperties']/ds:DigestValue"
             xpath_digvalue2 = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignedInfo/ds:Reference[@Id='invoiceSignedData']/ds:DigestValue"
+
+            # Update the core elements (same as ERPgulf)
+            signvalue = root.find(xpath_signvalue, namespaces)
+            x509certificate = root.find(xpath_x509certi, namespaces)
+            digestvalue = root.find(xpath_digvalue, namespaces)
+            digestvalue2 = root.find(xpath_digvalue2, namespaces)
+
+            if None in [signvalue, x509certificate, digestvalue, digestvalue2]:
+                raise Exception("Could not find all required signature elements in XML")
+
+            signvalue.text = encoded_signature
+            x509certificate.text = cert_content
+            digestvalue.text = signed_properties_base64
+            digestvalue2.text = invoice_hash_base64
+            # frappe.throw(str(signed_properties_base64))
+            # Additional signed properties (your custom additions)
+            issuer_name, serial_number = self.extract_certificate_details()
+            encoded_certificate_hash = self.certificate_hash()
+            signing_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+            # frappe.throw(str(signing_time))
             xpath_signtime = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:Object/xades:QualifyingProperties/xades:SignedProperties/xades:SignedSignatureProperties/xades:SigningTime"
             xpath_cert_digest = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:Object/xades:QualifyingProperties/xades:SignedProperties/xades:SignedSignatureProperties/xades:SigningCertificate/xades:Cert/xades:CertDigest/ds:DigestValue"
             xpath_issuer_name = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:Object/xades:QualifyingProperties/xades:SignedProperties/xades:SignedSignatureProperties/xades:SigningCertificate/xades:Cert/xades:IssuerSerial/ds:X509IssuerName"
             xpath_serial_num = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:Object/xades:QualifyingProperties/xades:SignedProperties/xades:SignedSignatureProperties/xades:SigningCertificate/xades:Cert/xades:IssuerSerial/ds:X509SerialNumber"
 
-            # Update elements
-            elements_to_update = [
-                (xpath_signvalue, encoded_signature),
-                (xpath_x509certi, cert_content),
-                (xpath_digvalue, signed_properties_base64),
-                (xpath_digvalue2, invoice_hash_base64),
+            # Update additional elements
+            additional_elements = [
                 (xpath_signtime, signing_time),
                 (xpath_cert_digest, encoded_certificate_hash),
                 (xpath_issuer_name, issuer_name),
                 (xpath_serial_num, str(serial_number))
             ]
 
-            for xpath, value in elements_to_update:
+            for xpath, value in additional_elements:
                 element = root.find(xpath, namespaces)
                 if element is not None:
                     element.text = value
-                else:
-                    print(f"Warning: Element not found for xpath: {xpath}")
 
-            return MyTree.tostring(root, encoding='utf-8', xml_declaration=True).decode('utf-8'), signing_time, issuer_name, serial_number, encoded_certificate_hash
+            # Clean up namespace declarations
+            signed_props = root.find('.//xades:SignedProperties', namespaces)
+            if signed_props is not None and 'Id' in signed_props.attrib:
+                id_value = signed_props.attrib.pop('Id')
+                signed_props.attrib.clear()
+                signed_props.set('Id', id_value)
+
+                for elem in signed_props.iter():
+                    if elem.tag.startswith('{http://www.w3.org/2000/09/xmldsig#}'):
+                        if '{http://www.w3.org/2000/xmlns/}ds' in elem.attrib:
+                            del elem.attrib['{http://www.w3.org/2000/xmlns/}ds']
+
+            # Return just the XML string (not a tuple)
+            return MyTree.tostring(root, encoding='utf-8', xml_declaration=True).decode('utf-8')
 
         except Exception as e:
             raise Exception(f"Error in populating signature values: {str(e)}")
@@ -486,55 +502,57 @@ class ZATCAInvoiceSigner:
             return MyTree.tostring(root, encoding='utf-8', xml_declaration=True).decode('utf-8')
         except Exception as e:
             raise Exception(f"Error in updating QR code in XML: {str(e)}")
+        
+    
 
     def sign_invoice(self, input_xml_path, invoice):
-        """
-        Main function to sign the ZATCA invoice
-        """
         try:
-            print("Starting ZATCA invoice signing process...")
-            
+            # 1. Read the input XML
             with open(input_xml_path, 'r', encoding='utf-8') as f:
                 xml_content = f.read()
             
-            #"1. Adding signature template to XML
-            xml_with_template = self.add_signature_to_xml(xml_content)
-            
-            #2. Removing unwanted tags for canonicalization
-            tag_removed_xml = self.removetags(xml_with_template)
-            
-            # 3. Canonicalizing XML
+            # 2. Remove unwanted tags and canonicalize
+            tag_removed_xml = self.removetags(xml_content)
+            # frappe.throw(str(tag_removed_xml))
             canonical_xml = self.canonicalize_xml(tag_removed_xml)
             
-            # 4. Computing invoice hash
+            # 3. Compute invoice hash
             invoice_hash_hex, invoice_hash_base64 = self.getinvoicehash(canonical_xml)
             
-            # "5. Creating digital signature
+            # 4. Generate digital signature
             encoded_signature = self.digital_signature(invoice_hash_hex)
             
-            # 6. Extracting certificate details
+            # 5. Extract certificate details
             issuer_name, serial_number = self.extract_certificate_details()
-            # frappe.throw(str(serial_number))
             encoded_certificate_hash = self.certificate_hash()
-            signing_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+            signing_time = "2025-07-06T06:05:19Z" #datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
             
-            # 7. Generating signed properties hash
-            signed_properties_base64 = self.generate_signed_properties_hash(
-                signing_time, issuer_name, serial_number, encoded_certificate_hash
+            signed_properties_base64 = generate_signed_properties_hash(signing_time, issuer_name, serial_number, encoded_certificate_hash)
+            # frappe.throw(str(signed_properties_base64))
+            # frappe.throw(f"Time {signing_time} and encoded Hash {encoded_certificate_hash} and Issuername {issuer_name} and serialnumber {serial_number}")
+            # 6. Generate signed properties hash
+            
+            # 7. Add signature template to XML
+            xml_with_template = self.add_signature_to_xml(xml_content)
+            
+            # 8. Populate all signature values
+            signed_xml = self.populate_signature_values(
+                xml_with_template,
+                encoded_signature,
+                signed_properties_base64,
+                invoice_hash_base64
             )
-            
-            signed_xml, _, _, _, _ = self.populate_signature_values(
-                xml_with_template, encoded_signature, signed_properties_base64, invoice_hash_base64
-            )
-            
-            # . Generating QR code.I am not sure which fields is for QR code in sales invoice as I am yet to get real data
+            # frappe.throw(str(signed_properties_base64))
+            # 9. Generate QR code
             qr_code_b64 = self.generate_qr_code(signed_xml)
             
+            # 10. Update invoice with QR code and hash
             update_invoice(invoice, qr_code_b64, invoice_hash_base64)
             
+            # 11. Update XML with QR code
             final_signed_xml = self.update_qr_in_xml(signed_xml, qr_code_b64)
             
-            # 11. Save the signed XML to a file
+            # 12. Save the signed XML
             base_filename = f"ZATCA-Signed-{invoice.name}.xml"
             content = final_signed_xml.encode('utf-8')
 
@@ -548,7 +566,7 @@ class ZATCAInvoiceSigner:
             )
             
             return file_doc.file_url
-            
+                
         except Exception as e:
             print(f"❌ Error signing invoice: {str(e)}")
             raise
@@ -587,8 +605,7 @@ def create_and_sign_xml_from_invoice(invoice):
     private_key = get_pem_details(invoice).get("private_key")
     certificate_ = get_pem_details(invoice).get("certificate")
     public_key_str = get_pem_details(invoice).get("publickey")
-    print("==============", certificate_)
-    # frappe.throw(str(certificate_))
+
     # Get full absolute path to input XML file
     input_path = get_site_path("private", "files", xml_file_name)
 
@@ -607,3 +624,51 @@ def create_xml(invoice):
     
     return file.file_name
 
+def remove_ds_namespace_from_children(xml_str):
+    # Remove xmlns:ds="..." from all <ds:*> except <ds:Signature>
+    return re.sub(r'(<ds:(?!Signature)[^>]+) xmlns:ds="http://www.w3.org/2000/09/xmldsig#"', r'\1', xml_str)
+
+def generate_signed_properties_hash(
+    signing_time, issuer_name, serial_number, encoded_certificate_hash
+):
+    # signing_time = "2025-07-06T06:05:19Z"
+    # encoded_certificate_hash = "ZDMwMmI0MTE1NzVjOTU2NTk4YzVlODhhYmI0ODU2NDUyNTU2YTVhYjhhMDFmN2FjYjk1YTA2OWQ0NjY2MjQ4NQ=="
+    # serial_number = "379112742831380471835263969587287663520528387"
+    # issuer_name = "CN=PRZEINVOICESCA4-CA, DC=extgazt, DC=gov, DC=local"
+    """generate the signed property hash of the xml using a part
+    of the xml"""
+    try:
+        xml_string = """<xades:SignedProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Id="xadesSignedProperties">
+                                    <xades:SignedSignatureProperties>
+                                        <xades:SigningTime>{signing_time}</xades:SigningTime>
+                                        <xades:SigningCertificate>
+                                            <xades:Cert>
+                                                <xades:CertDigest>
+                                                    <ds:DigestMethod xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                                                    <ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{certificate_hash}</ds:DigestValue>
+                                                </xades:CertDigest>
+                                                <xades:IssuerSerial>
+                                                    <ds:X509IssuerName xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{issuer_name}</ds:X509IssuerName>
+                                                    <ds:X509SerialNumber xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{serial_number}</ds:X509SerialNumber>
+                                                </xades:IssuerSerial>
+                                            </xades:Cert>
+                                        </xades:SigningCertificate>
+                                    </xades:SignedSignatureProperties>
+                                </xades:SignedProperties>"""
+        xml_string_rendered = xml_string.format(
+            signing_time=signing_time,
+            certificate_hash=encoded_certificate_hash,
+            issuer_name=issuer_name,
+            serial_number=str(serial_number),
+        )
+        utf8_bytes = xml_string_rendered.encode("utf-8")
+        hash_object = hashlib.sha256(utf8_bytes)
+        hex_sha256 = hash_object.hexdigest()
+        signed_properties_base64 = base64.b64encode(hex_sha256.encode("utf-8")).decode(
+            "utf-8"
+        )
+        # frappe.throw(f"Nop its wrong {signed_properties_base64}")
+        return signed_properties_base64
+    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
+        frappe.throw(_(" error in generating signed properties hash: " + str(e)))
+        return None

@@ -1,3 +1,4 @@
+
 import json
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse
@@ -14,10 +15,20 @@ from zatca_integration.common_util import decode_invoice, get_seller_information
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_signed_invoice_xml
 from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice import create_and_sign_xml_from_invoice, clean_pem_key
 from zatca_integration.common_util import generate_invoice_payload_from_xml
+from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import zatca_call, xml_base64_decode
 
 def generate_einvoice(doc, method):
     
+    signed_xmlfile_name, uuid1, encoded_hash = zatca_call(doc.name, compliance_type="0",any_item_has_tax_template=False)
+    payload = {
+            "invoiceHash": encoded_hash,
+            "uuid": uuid1,
+            "invoice": xml_base64_decode(signed_xmlfile_name),
+        }
+    
+    
     # Seller Information
+    # frappe.throw(str(encoded_hash))
     company = frappe.get_doc("Company", doc.company)
 
     # Check if Company is a Saudi Arabia based company
@@ -194,18 +205,12 @@ def generate_einvoice(doc, method):
     # frappe.throw(str(invoice_xml))
     file_name = create_and_sign_xml_from_invoice(doc.name)
     
-    simplified_invoice_xml = get_signed_invoice_xml("signed_output.xml")
+    simplified_invoice_xml = get_signed_invoice_xml(file_name)
    
     try:
         if customer_type == "Company":
-            # frappe.throw(str(invoice_xml))
+            invoice_request = generate_invoice_payload_from_xml(simplified_invoice_xml.encode("utf-8"))
             backend_start_time = time.time()
-            invoice_request = generate_clearance_request(
-                zatca_environment.csr_generate_api, 
-                zatca_environment.client_id, 
-                zatca_environment.client_secret, 
-                invoice_xml
-            )
             backend_end_time = time.time()
             backend_time_taken = backend_end_time - backend_start_time
 
@@ -214,8 +219,10 @@ def generate_einvoice(doc, method):
                 zatca_environment.invoice_clearance_api, 
                 headers=get_clearence_headers(),
                 auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
-                data=json.dumps(invoice_request)
+                # data=json.dumps(invoice_request)
+                json = payload
             )
+            # frappe.throw(str(response.json()))
             zatca_end_time = time.time()
             zatca_time_taken = zatca_end_time - zatca_start_time
 
@@ -223,26 +230,17 @@ def generate_einvoice(doc, method):
         elif customer_type == "Individual":
             
             backend_start_time = time.time()
-            # invoice_request = generate_reporting_request(
-            #     zatca_environment.csr_generate_api, 
-            #     zatca_environment.client_id, 
-            #     zatca_environment.client_secret,
-            #     clean_pem_key(compliance_csr.private_key, "PRIVATE KEY"),
-            #     decode_certificate(production_csid.binary_security_token),
-            #     invoice_xml
-            # )
-            # frappe.throw(str(simplified_invoice_xml))
-            
+         
             invoice_request = generate_invoice_payload_from_xml(simplified_invoice_xml.encode("utf-8"))
             backend_end_time = time.time()
             backend_time_taken = backend_end_time - backend_start_time
-            # frappe.throw(str(zatca_environment.invoice_reporting_api))
+         
             zatca_start_time = time.time()
             response = requests.post(
                 zatca_environment.invoice_reporting_api, 
                 headers=get_clearence_headers(),
                 auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
-                data=json.dumps(invoice_request)
+                json=payload
             )
             zatca_end_time = time.time()
             zatca_time_taken = zatca_end_time - zatca_start_time
@@ -257,19 +255,17 @@ def generate_einvoice(doc, method):
     except requests.exceptions.RequestException as e:
         frappe.throw("Error Clearing Invoice, " + str(e))
 
-    print(response_json)
-
     # Save Transaction
     transaction = frappe.get_doc({
             'doctype': 'Zatca Transactions',
             'invoice_id': doc.name,
             'invoice_uuid': uniqueInvoiceIdentifier,
             'invoice_icv': invoiceCounterValue,
-            'invoice_hash': invoice_request.get('invoiceHash'),
+            'invoice_hash': "Test1",#invoice_request.get('invoiceHash'),
             'previous_invoice_hash': previousInvoiceHash,
             'egs_serial_number': compliance_csr.csrserialnumber,
             'production_csid': production_csid.name,
-            'request_body': json.dumps(invoice_request),
+            'request_body': "Dumps",#json.dumps(invoice_request),
             'response_code': response.status_code,
             'response_body': json.dumps(response_json),
             'backend_elapsed_time': backend_time_taken * 1000,
@@ -480,9 +476,4 @@ def round_to_two_places(value):
 
 def round_to_four_places(value):
     return round(value, 4)
-
-
-
-
-
 
