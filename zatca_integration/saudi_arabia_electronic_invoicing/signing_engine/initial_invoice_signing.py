@@ -103,8 +103,6 @@ def digital_signature(hash1, sales_invoice_doc):
     return encoded_signature
 
 
-
-
 def extract_certificate_details(sales_invoice_doc):
     perm_details = get_pem_details(sales_invoice_doc)
     certificate_data_str = perm_details.get("certificate")

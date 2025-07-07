@@ -28,8 +28,6 @@ from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_address
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_tax_data import tax_data, tax_data_with_template
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_final_xml import (
-    tax_data_nominal,
-    tax_data_with_template_nominal,
     item_data,
     item_data_with_template,
     xml_structuring,
@@ -187,16 +185,10 @@ def process_invoice_for_zatca_submission(
                 invoice, sales_invoice_doc
             )
 
-        if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
-            if not any_item_has_tax_template:
-                invoice = tax_data_nominal(invoice, sales_invoice_doc)
-            else:
-                invoice = tax_data_with_template_nominal(invoice, sales_invoice_doc)
+        if not any_item_has_tax_template:
+            invoice = tax_data(invoice, sales_invoice_doc)
         else:
-            if not any_item_has_tax_template:
-                invoice = tax_data(invoice, sales_invoice_doc)
-            else:
-                invoice = tax_data_with_template(invoice, sales_invoice_doc)
+            invoice = tax_data_with_template(invoice, sales_invoice_doc)
       
         if not any_item_has_tax_template:
             invoice = item_data(invoice, sales_invoice_doc)

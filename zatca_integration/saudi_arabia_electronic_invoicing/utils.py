@@ -391,3 +391,98 @@ def get_address(sales_invoice_doc):
     )
 
     return company_address, customer_address
+
+def get_zatca_tax_category_details(invoice_doc):
+    """
+    Returns the ZATCA tax category, rate, and exemption reason (if any)
+    based on the Sales Taxes and Charges Template used in the invoice.
+    
+    Output:
+    {
+        "category": "Standard Rate" | "Zero Rate" | "Except Rate",
+        "rate": float,
+        "code": "S" | "Z" | "E" | "O",
+        "exemption_reason_code": str or None,
+        "exemption_reason_text": str or None
+    }
+    """
+    try:
+        if not invoice_doc.taxes or not invoice_doc.taxes_and_charges:
+            return {
+                "category": "Standard Rate",
+                "rate": 15.0,
+                "code": "S",
+                "exemption_reason_code": None,
+                "exemption_reason_text": None,
+            }
+
+        template = frappe.get_doc("Sales Taxes and Charges Template", invoice_doc.taxes_and_charges)
+
+        tax_type = template.get("custom_tax_type", "Standard Rate")
+        rate = template.get("tax_rate", 15.0)
+
+        code_map = {
+            "Standard Rate": "S",
+            "Zero Rate": "Z",
+            "Except Rate": "E",
+        }
+
+        reason_code = None
+        reason_text = None
+
+        if tax_type == "Zero Rate":
+            reason_code = template.get("custom_zero_rate_reason")
+        elif tax_type == "Except Rate":
+            reason_code = template.get("custom_except_rate_reason")
+
+        if reason_code:
+            reason_map = get_exemption_reason_map()
+            reason_text = reason_map.get(reason_code, "Unknown reason")
+
+        return {
+            "category": tax_type,
+            "rate": rate,
+            "code": code_map.get(tax_type, "O"),
+            "exemption_reason_code": reason_code,
+            "exemption_reason_text": reason_text,
+        }
+
+    except Exception as e:
+        frappe.throw(_("Failed to determine ZATCA tax category: {0}").format(e))
+
+
+def get_exemption_reason_map():
+    """Mapping of the exception reason code accoding to the reason code"""
+    return {
+        "VATEX-SA-29": (
+            "Financial services mentioned in Article 29 of the VAT Regulations."
+        ),
+        "VATEX-SA-29-7": (
+            "Life insurance services mentioned in Article 29 of the VAT Regulations."
+        ),
+        "VATEX-SA-30": (
+            "Real estate transactions mentioned in Article 30 of the VAT Regulations."
+        ),
+        "VATEX-SA-32": "Export of goods.",
+        "VATEX-SA-33": "Export of services.",
+        "VATEX-SA-34-1": "The international transport of Goods.",
+        "VATEX-SA-34-2": "International transport of passengers.",
+        "VATEX-SA-34-3": (
+            "Services directly connected and incidental to a Supply of "
+            "international passenger transport."
+        ),
+        "VATEX-SA-34-4": "Supply of a qualifying means of transport.",
+        "VATEX-SA-34-5": (
+            "Any services relating to Goods or passenger transportation, as defined "
+            "in article twenty five of these Regulations."
+        ),
+        "VATEX-SA-35": "Medicines and medical equipment.",
+        "VATEX-SA-36": "Qualifying metals.",
+        "VATEX-SA-EDU": "Private education to citizen.",
+        "VATEX-SA-HEA": "Private healthcare to citizen.",
+        "VATEX-SA-MLTRY": "Supply of qualified military goods",
+        "VATEX-SA-OOS": (
+            "The reason is a free text, has to be provided by the taxpayer on a "
+            "case-by-case basis."
+        ),
+    }
