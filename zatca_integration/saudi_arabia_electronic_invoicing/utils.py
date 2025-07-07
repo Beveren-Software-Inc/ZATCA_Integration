@@ -314,7 +314,7 @@ def get_pem_details(invoice):
     compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
     csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
 
-    private_key = clean_pem_key(csr_settings.private_key, "PRIVATE KEY")
+    private_key = csr_settings.private_key # Send this uncleaned
     public_key = clean_pem_key(production_csid.public_key, "PUBLIC KEY")
     certificate = (production_csid.certificate or "").strip().replace("\n", "")
 

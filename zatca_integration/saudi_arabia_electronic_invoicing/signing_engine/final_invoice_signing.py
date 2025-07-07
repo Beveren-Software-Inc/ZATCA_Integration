@@ -229,11 +229,11 @@ def zatca_call(
         
         hash1, encoded_hash = getinvoicehash(canonicalized_xml)
         
-        encoded_signature = digital_signature(hash1)
-        issuer_name, serial_number = extract_certificate_details()
+        encoded_signature = digital_signature(hash1, sales_invoice_doc)
+        issuer_name, serial_number = extract_certificate_details(sales_invoice_doc)
         
-        encoded_certificate_hash = certificate_hash()
-        namespaces, signing_time = signxml_modify()
+        encoded_certificate_hash = certificate_hash(sales_invoice_doc)
+        namespaces, signing_time = signxml_modify(sales_invoice_doc)
         signed_properties_base64 = generate_signed_properties_hash(
             signing_time, issuer_name, serial_number, encoded_certificate_hash
         )
@@ -362,12 +362,12 @@ def zatca_call_compliance(
         tag_removed_xml = removetags(file_content)
         canonicalized_xml = canonicalize_xml(tag_removed_xml)
         hash1, encoded_hash = getinvoicehash(canonicalized_xml)
-        encoded_signature = digital_signature(hash1)
+        encoded_signature = digital_signature(hash1, sales_invoice_doc)
         issuer_name, serial_number = extract_certificate_details(
-            company_abbr, source_doc
+            sales_invoice_doc
         )
-        encoded_certificate_hash = certificate_hash(company_abbr, source_doc)
-        namespaces, signing_time = signxml_modify(company_abbr, source_doc)
+        encoded_certificate_hash = certificate_hash(sales_invoice_doc)
+        namespaces, signing_time = signxml_modify(sales_invoice_doc)
         signed_properties_base64 = generate_signed_properties_hash(
             signing_time, issuer_name, serial_number, encoded_certificate_hash
         )

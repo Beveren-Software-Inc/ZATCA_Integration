@@ -310,13 +310,13 @@ class ZATCAInvoiceSigner:
             cert_lines = certificate_pem.strip().split('\n')
             cert_content = ''.join(cert_lines[1:-1])  # Remove headers
 
-            # Update the essential signature values (matching ERPgulf)
+            # Update the essential signature values
             xpath_signvalue = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignatureValue"
             xpath_x509certi = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:KeyInfo/ds:X509Data/ds:X509Certificate"
             xpath_digvalue = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignedInfo/ds:Reference[@URI='#xadesSignedProperties']/ds:DigestValue"
             xpath_digvalue2 = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignedInfo/ds:Reference[@Id='invoiceSignedData']/ds:DigestValue"
 
-            # Update the core elements (same as ERPgulf)
+            # Update the core elements 
             signvalue = root.find(xpath_signvalue, namespaces)
             x509certificate = root.find(xpath_x509certi, namespaces)
             digestvalue = root.find(xpath_digvalue, namespaces)
