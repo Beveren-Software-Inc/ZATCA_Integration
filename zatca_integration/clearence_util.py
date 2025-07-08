@@ -12,8 +12,6 @@ from lxml import etree
 import qrcode
 from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_config, get_previous_invoice_counter, get_previous_invoice_hash
-from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice import create_and_sign_xml_from_invoice
-from zatca_integration.common_util import generate_invoice_payload_from_xml
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import process_invoice_for_zatca_submission, xml_base64_decode
 
 def generate_einvoice(doc, method=None):
@@ -42,16 +40,76 @@ def generate_einvoice(doc, method=None):
     if not company.custom_zatca_phase == "ZATCA Phase 2":
         return
         
-    # CSID, Compliance CSID, CSR, and Environment from Company ZATCA Settings
-    production_csid = frappe.get_doc("Production CSID", company.custom_production_csid)
-    compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
-    compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
-    zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
-
     # Buyer Information
     customer = frappe.get_doc("Customer", doc.customer)
     customer_type = customer.customer_type
 
+    validate_invoice_dates(doc, company, customer_type)
+    
+    try:
+        if customer_type == "Company":
+           zatca_status_field = "clearanceStatus"
+           response, zatca_time_taken = _submit_clearance_request(config, payload)
+        elif customer_type == "Individual":
+            zatca_status_field = "reportingStatus"
+            response, zatca_time_taken = _submit_reporting_request(config, payload, doc)
+        else:
+            frappe.throw("Customer Type is not Supported")     
+    except requests.exceptions.RequestException as e:
+        frappe.throw("Error Clearing Invoice, " + str(e))
+
+    _save_transaction(doc, invoice_data,response, payload, backend_time_taken,zatca_time_taken,config)
+    _handle_zatca_response(doc, response, invoice_data, payload, zatca_status_field)
+
+
+def _submit_reporting_request(config, payload, doc):
+    """Submit reporting request for Individual customers."""
+    # Process invoice XML for individual customers
+    invoice_xml = decode_invoice(payload.get('invoice'))
+    _save_invoice_xml(doc, invoice_xml)
+    _save_qr_code(doc, invoice_xml)
+    
+    start_time = time.time()
+    
+    try:
+        response = requests.post(
+            config['zatca_environment'].invoice_reporting_api,
+            headers=get_clearence_headers(),
+            auth=HTTPBasicAuth(
+                config['production_csid'].binary_security_token,
+                config['production_csid'].secret
+            ),
+            json=payload
+        )
+        
+        end_time = time.time()
+        return response, {'duration': end_time - start_time}
+        
+    except requests.exceptions.RequestException as e:
+        frappe.throw(f"Error Reporting Invoice: {str(e)}")
+        
+def _submit_clearance_request(config, payload):
+    """Submit clearance request for Company customers."""
+    start_time = time.time()
+    
+    try:
+        response = requests.post(
+            config['zatca_environment'].invoice_clearance_api,
+            headers=get_clearence_headers(),
+            auth=HTTPBasicAuth(
+                config['production_csid'].binary_security_token,
+                config['production_csid'].secret
+            ),
+            json=payload
+        )
+        
+        end_time = time.time()
+        return response, {'duration': end_time - start_time}
+        
+    except requests.exceptions.RequestException as e:
+        frappe.throw(f"Error Clearing Invoice: {str(e)}")
+        
+def validate_invoice_dates(doc,company,customer_type):
     # Set Invoice Date and Time
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
         
@@ -66,65 +124,9 @@ def generate_einvoice(doc, method=None):
     # Validate Invoice Date and Delivery Date for ZATCA Compliance
     if company.custom_enforce_date_validation == 1:
         validate_delivery_date(delivery_date, invoice_date, customer_type)
-    
-    # Validate Currency, Only SAR is supported
-    currency = doc.currency
-    if currency == "SAR":
-        print("Currency SAR is Supported")
-        document_currency_code = "SAR"
-        tax_currency_code = "SAR"
-    elif currency == "USD":
-        document_currency_code = "USD"
-        tax_currency_code = "SAR"
-        print("Currency USD is Supported")
-    else:
-        frappe.throw("Currency is not Supported")
-
-    try:
-        if customer_type == "Company":
-
-            zatca_start_time = time.time()
-            response = requests.post(
-                zatca_environment.invoice_clearance_api, 
-                headers=get_clearence_headers(),
-                auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
-                json = payload
-            )
-
-            zatca_end_time = time.time()
-            zatca_time_taken = zatca_end_time - zatca_start_time
-
-            zatca_status_field = 'clearanceStatus'
-        elif customer_type == "Individual":
-            invoice_xml = decode_invoice(payload.get('invoice'))
-            _save_invoice_xml(doc, invoice_xml)
-            _save_qr_code(doc, invoice_xml)
-            zatca_start_time = time.time()
-            
-            response = requests.post(
-                zatca_environment.invoice_reporting_api, 
-                headers=get_clearence_headers(),
-                auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
-                json=payload
-            )
-            
-            zatca_end_time = time.time()
-            zatca_time_taken = zatca_end_time - zatca_start_time
-
-            zatca_status_field = 'reportingStatus'
-
-        else :
-            frappe.throw("Customer Type is not Supported")
-        response_json = response.json()
-    except ValueError:
-        response_json = None
-    except requests.exceptions.RequestException as e:
-        frappe.throw("Error Clearing Invoice, " + str(e))
-
-    _save_transaction(doc, invoice_data,response, payload, backend_time_taken,zatca_time_taken,config)
-    _handle_zatca_response(doc, response, invoice_data, payload, zatca_status_field)
-
-
+        
+        
+        
 def _save_transaction(doc, invoice_data,response, payload, backend_time_taken, zatca_time_taken, config):
     response_data = response.json()
     """Save transaction record to database"""
@@ -141,7 +143,7 @@ def _save_transaction(doc, invoice_data,response, payload, backend_time_taken, z
         'response_code': response.status_code,
         'response_body': json.dumps(response_data),
         'backend_elapsed_time': backend_time_taken * 1000,
-        'zatca_elapsed_time': zatca_time_taken * 1000,
+        'zatca_elapsed_time': zatca_time_taken["duration"] * 1000,
         'transaction_time': frappe.utils.now_datetime(),
     })
     transaction.insert()
@@ -160,7 +162,7 @@ def _handle_zatca_response(doc, response, invoice_data, payload, zatca_status):
     elif response.status_code == 400:
         _handle_error_response(doc, zatca_status_field, 
                              json.dumps(response_json.get('validationResults', '')))
-        frappe.throw("Error submitting invoice, Bad Request")
+        # frappe.throw("Error submitting invoice, Bad Request")
     elif response.status_code == 401:
         _handle_error_response(doc, 'FAILED', json.dumps(response_json))
         frappe.throw("Error submitting invoice, Invalid Credentials")
@@ -319,10 +321,62 @@ def _get_currency_info(currency):
 
 
 def update_status_on_error(doc, status, validation_results):
+    
     frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_status", status, update_modified=True)
     frappe.db.set_value("Sales Invoice", doc.name, "custom_validation_results", validation_results, update_modified=True)
     frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_time", frappe.utils.now_datetime(), update_modified=True)
+    display_error_ui(validation_results)
     frappe.db.commit()
+#2435
+
+
+def display_error_ui(validation_results):
+    try:
+        results = json.loads(validation_results)
+        error_messages = results.get("errorMessages", [])
+        warning_messages = results.get("warningMessages", [])
+    except Exception:
+        error_messages = [{"message": validation_results}]
+        warning_messages = []
+    
+    # Format error messages
+    formatted_errors = ""
+    for err in error_messages:
+        
+        msg = frappe.utils.escape_html(err.get("message", "Unknown error"))
+        formatted_errors += f"<li>{msg}</li>"
+
+    # Format warning messages
+    formatted_warnings = ""
+    for warn in warning_messages:
+        msg = frappe.utils.escape_html(warn.get("message", "Unknown warning"))
+        formatted_warnings += f"<li>{msg}</li>"
+
+    # Combine HTML sections
+    html_output = ""
+    if formatted_errors:
+        html_output += f"""
+            <div style="color: red; font-weight: normal; padding: 10px;">
+                <p><strong>🚨 ZATCA Errors:</strong></p>
+                <ul>{formatted_errors}</ul>
+            </div>
+        """
+    if formatted_warnings:
+        html_output += f"""
+            <div style="color: orange; font-weight: normal; padding: 10px;">
+                <p><strong>⚠️ ZATCA Warnings:</strong></p>
+                <ul>{formatted_warnings}</ul>
+            </div>
+        """
+    # Show everything in one frappe.msgprint
+    if html_output:
+        return frappe.msgprint(
+            title="ZATCA Submission Failed",
+            msg=html_output,
+            indicator="red" if formatted_errors else "orange"
+        )
+
+    
 
 def get_payment_means_code(payment_means):
     if payment_means == "Cash":
