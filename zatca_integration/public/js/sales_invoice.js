@@ -138,6 +138,7 @@ frappe.ui.form.on('Sales Invoice', {
                     },
                     callback: function(response) {
                         frappe.msgprint(__('ZATCA Invoice Resubmission Successful'));
+                        frm.reload_doc();
                     },
                     error: function(err) {
                         frappe.msgprint(__('ZATCA Resubmission Failed'));

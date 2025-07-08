@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 from frappe import _
 import frappe
 from frappe.utils.data import get_time
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_config, get_previous_invoice_hash
 
 CBC_ID = "cbc:ID"
 DS_TRANSFORM = "ds:Transform"
@@ -404,7 +405,7 @@ def get_pih_for_company(pih_data, company_name):
         return None  # Ensures consistent return
 
 
-def additional_reference(invoice):
+def additional_reference(invoice, sales_invoice_doc):
     """
     Adds additional document references to the XML invoice for PIH, QR, and Signature elements.
     """
@@ -425,15 +426,14 @@ def additional_reference(invoice):
         cbc_embeddeddocumentbinaryobject.set("mimeCode", "text/plain")
 
         # Directly retrieve the PIH data without JSON parsing
-        # pih = company_doc.custom_pih  # Assuming this is already in the correct format
-        # if sales_invoice_doc.custom_zatca_pos_name:
-        #     zatca_settings = frappe.get_doc(
-        #         "ZATCA Multiple Setting", sales_invoice_doc.custom_zatca_pos_name
-        #     )
-        #     pih = zatca_settings.custom_pih
-        # else:
-        pih = "/GtvpTIM508Y4VUmapYs6/F8yO2QeXeGlDSoLHOqOqk="
+         
+        company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
+        config = get_zatca_config(company_doc)
         
+        previous_invoice_hash = get_previous_invoice_hash(config['production_csid'].name)
+        
+        pih = previous_invoice_hash
+        # frappe.throw(str(pih))
         cbc_embeddeddocumentbinaryobject.text = pih
 
         # Create the second AdditionalDocumentReference element for QR

@@ -487,3 +487,47 @@ def get_exemption_reason_map():
         ),
     }
     
+    
+def get_zatca_config(company):
+    """Get ZATCA configuration from company settings"""
+    production_csid = frappe.get_doc("Production CSID", company.custom_production_csid)
+    compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
+    compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+    zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
+    
+    return {
+        'production_csid': production_csid,
+        'compliance_csid': compliance_csid,
+        'compliance_csr': compliance_csr,
+        'zatca_environment': zatca_environment,
+        'company': company
+    }
+    
+def get_previous_invoice_counter(production_csid):
+    # Get the latest Zatca Transaction for the given production_csid based on transaction_time
+    latest_transaction = frappe.get_all('Zatca Transactions', 
+                                        filters={'production_csid': production_csid}, 
+                                        fields=['invoice_icv'], 
+                                        order_by='transaction_time desc', 
+                                        limit_page_length=1)
+    if latest_transaction:
+        # Return the invoice_icv of the latest transaction
+        return latest_transaction[0].invoice_icv
+    else:
+        # Return 0 if there are no Zatca Transactions
+        return 0
+    
+def get_previous_invoice_hash(production_csid):
+    # Get the latest Zatca Transaction for the given production_csid based on transaction_time
+    latest_transaction = frappe.get_all('Zatca Transactions', 
+                                        filters={'production_csid': production_csid}, 
+                                        fields=['invoice_hash','name'], 
+                                        order_by='transaction_time desc', 
+                                        limit_page_length=1)
+    if latest_transaction:
+        # Return the invoice_hash of the latest transaction
+        # frappe.throw(str(latest_transaction[0].name))
+        return latest_transaction[0].invoice_hash
+    else:
+        # Return default hash if there are no Zatca Transactions
+        return "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="

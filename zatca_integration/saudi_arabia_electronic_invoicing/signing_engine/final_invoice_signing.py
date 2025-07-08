@@ -167,7 +167,7 @@ def process_invoice_for_zatca_submission(
             invoice = invoice_typecode_compliance(invoice, compliance_type)
         
         invoice = doc_reference(invoice, sales_invoice_doc, invoice_number)
-        invoice = additional_reference(invoice)
+        invoice = additional_reference(invoice, sales_invoice_doc)
         invoice = company_data(invoice, sales_invoice_doc)
         invoice = customer_data(invoice, sales_invoice_doc)
         invoice = delivery_and_payment_means(
