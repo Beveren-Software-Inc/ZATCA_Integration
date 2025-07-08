@@ -43,6 +43,8 @@ frappe.ui.form.on('Sales Invoice', {
         if (!frm.doc.custom_retention_account) {
             frappe.throw(__("Please select a Retention Account"));
         }else {
+            let percentage = (frm.doc.custom_retention_amount / frm.doc.net_total) * 100;
+            frm.set_value('custom_retention_percentage', percentage);
             // Update the grand total
             frm.set_value('grand_total', (frm.doc.net_total + frm.doc.total_taxes_and_charges - frm.doc.custom_retention_amount));
             frm.refresh_field('grand_total');
