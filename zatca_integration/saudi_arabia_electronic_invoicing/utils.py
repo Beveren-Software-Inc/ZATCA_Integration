@@ -347,7 +347,7 @@ def get_address(sales_invoice_doc):
         fields=[
             "address_line1",
             "address_line2",
-            "custom_building_number",
+           
             "city",
             "pincode",
             "state",

@@ -5,12 +5,11 @@ import xml.etree.ElementTree as ET
 from frappe import _
 import frappe
 from decimal import Decimal, ROUND_HALF_UP
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_tax_category_details
+
 
 TAX_CALCULATION_ERROR = "Tax Calculation Error"
 CAC_TAX_TOTAL = "cac:TaxTotal"
-
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_exemption_reason_map , get_zatca_tax_category_details
-
 
 def get_tax_for_item(full_string, item):
     """

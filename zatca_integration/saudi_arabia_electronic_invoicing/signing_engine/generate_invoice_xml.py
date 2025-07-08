@@ -1,7 +1,4 @@
-"""
-This module contains utilities for ZATCA 2024 e-invoicing.
-Includes functions for XML parsing, API interactions, and custom handling.
-"""
+
 
 import re
 import uuid
@@ -9,7 +6,10 @@ import xml.etree.ElementTree as ET
 from frappe import _
 import frappe
 from frappe.utils.data import get_time
+from types import SimpleNamespace
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_config, get_previous_invoice_hash
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_address
+
 
 CBC_ID = "cbc:ID"
 DS_TRANSFORM = "ds:Transform"
@@ -499,15 +499,16 @@ def company_data(invoice, sales_invoice_doc):
 
         # Get the appropriate address
         # address = get_address(sales_invoice_doc, company_doc)
-        from types import SimpleNamespace
-
+        
+        company_address, customer_address = get_address(sales_invoice_doc)
         address_dict = {
-            "address_line1": "King Faisal West",
-            "address_line2": "Al-Khobar",
-            "custom_building_number": "8813",
-            "city": "AJubail",
-            "pincode": "31951",
-            "state": "Al-Khobar"
+            "address_line1": company_address.get("address_line1", ""),  
+            "address_line2": company_address.get("address_line2", ""), 
+            "custom_building_number": company_address.get("address_line2", ""),  
+            "city": company_address.get("city", ""),  
+            "pincode": company_address.get("pincode", ""), 
+            "state": company_address.get("state", "") or "Eastern Province", 
+            "country": company_address.get("country", "Saudi Arabia")  
         }
 
         address = SimpleNamespace(**address_dict)
@@ -560,6 +561,7 @@ def customer_data(invoice, sales_invoice_doc):
     customer data of address and need values
     """
     try:
+        
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
         # frappe.throw(str(customer_doc))
         cac_accountingcustomerparty = ET.SubElement(
@@ -574,6 +576,17 @@ def customer_data(invoice, sales_invoice_doc):
         cbc_id_4.text = ''
         address = None
         if customer_doc.customer_type != "Individual":
+            company_address, customer_address = get_address(sales_invoice_doc)
+            address_dict = {
+                "address_line1": customer_address.get("address_line1", ""),  
+                "address_line2": customer_address.get("address_line2", ""), 
+                "custom_building_number": customer_address.get("address_line2", ""),  
+                "city": customer_address.get("city", ""),  
+                "pincode": customer_address.get("pincode", ""), 
+                "state": customer_address.get("state", "") or "Eastern Province", 
+                "country": customer_address.get("country", "Saudi Arabia")  
+            }
+            address = SimpleNamespace(**address_dict)
             if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
                 if sales_invoice_doc.customer_address:
                     address = frappe.get_doc(

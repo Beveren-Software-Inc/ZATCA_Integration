@@ -1,7 +1,4 @@
-"""
-This module contains utilities for ZATCA 2024 e-invoicing.
-Includes functions for XML parsing, API interactions, and custom handling.
-"""
+
 
 from decimal import Decimal, ROUND_DOWN
 import xml.etree.ElementTree as ET
@@ -11,8 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 import frappe
 from frappe import _
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_tax_data import (
-    get_tax_for_item,
-    get_exemption_reason_map,
+    get_tax_for_item
 )
 from frappe.utils import flt
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_tax_category_details, get_exemption_reason_map

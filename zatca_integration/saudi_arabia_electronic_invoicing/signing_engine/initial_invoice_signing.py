@@ -1,8 +1,4 @@
-"""
-This module facilitates the generation, validation, and submission of
- ZATCA-compliant e-invoices for companies
-using ERPNext
-"""
+
 
 import hashlib
 import base64
@@ -19,7 +15,6 @@ from cryptography.hazmat.primitives.asymmetric import ec
 import asn1
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_pem_details
 
-SUPPORTED_INVOICES = ["Sales Invoice"]
 
 def encode_customoid(custom_string):
     """Encoding of a custom string"""

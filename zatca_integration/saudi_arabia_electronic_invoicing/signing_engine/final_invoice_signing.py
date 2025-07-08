@@ -1,11 +1,3 @@
-"""
-ZATCA E-Invoicing Integration for ERPNext
-This module facilitates the generation, validation, and submission of
- ZATCA-compliant e-invoices for companies
-using ERPNext. It supports compliance with the ZATCA requirements for Phase 2,
-including the creation of UBL XML
-invoices, signing, and submission to ZATCA servers for clearance and reporting.
-"""
 
 import base64
 from frappe import _
@@ -51,7 +43,6 @@ from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.initial_
 
 REPORTED_XML = "%Reported xml file%"
 
-
 def xml_base64_decode(signed_xmlfile_name):
     """xml base64 decode"""
     try:
@@ -92,17 +83,6 @@ def get_reporting_status(result):
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.throw(_(("error in reporting statu" f"error: {str(e)}")))
         return None
-
-
-def success_log(response, uuid1, invoice_number):
-    """defining the success log"""
-    try:
-        current_time = frappe.utils.now()
-        #TODO: Update Zatca Transaction doctype
-    except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
-        frappe.throw(_(("error in success log" f"error: {str(e)}")))
-        return None
-
 
 def error_log():
     """defining the error log"""
