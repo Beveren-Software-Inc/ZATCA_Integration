@@ -18,7 +18,11 @@ from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_in
 
 def generate_einvoice(doc, method=None):
     
+    backend_start_time = time.time()
     signed_xmlfile_name, uuid1, encoded_hash = process_invoice_for_zatca_submission(doc.name, compliance_type="0",any_item_has_tax_template=False)
+    backend_end_time = time.time()
+    backend_time_taken = backend_end_time - backend_start_time
+    
     payload = {
             "invoiceHash": encoded_hash,
             "uuid": uuid1,
@@ -26,7 +30,8 @@ def generate_einvoice(doc, method=None):
         }
     
     company = frappe.get_doc("Company", doc.company)
-
+    config = _get_zatca_config(company)
+    invoice_data = _prepare_invoice_data(doc, config)
     # Check if Company is a Saudi Arabia based company
     if company.country != "Saudi Arabia":
         return
@@ -55,18 +60,6 @@ def generate_einvoice(doc, method=None):
 
     buyer = get_buyer_information(doc.customer)
     
-    # Check invoice type stndard, credit note or debit note    
-    if doc.is_return:
-        invoice_type_code = "381"
-        invoice_document_reference = doc.return_against
-    elif doc.is_debit_note:
-        invoice_type_code = "383"
-        invoice_document_reference = doc.debit_to
-        frappe.throw("Debit Note is not Supported")
-    else:
-        invoice_type_code = "388"
-        invoice_document_reference = ""
-    
     # Set Invoice Number and Invoice Unique Identifier 
     invoiceNumber = doc.name
     uniqueInvoiceIdentifier = str(uuid.uuid4())
@@ -94,26 +87,6 @@ def generate_einvoice(doc, method=None):
     if company.custom_enforce_date_validation == 1:
         validate_delivery_date(delivery_date, invoice_date, customer_type)
     
-    # Tax Template and Tax Percentage
-    tax_template = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
-    if not tax_template:
-        frappe.throw("Sales Taxes and Charges Template must be provided.")
-    tax_type = tax_template.custom_tax_type
-    if tax_type == "Standard Rate":
-        tax_category = "S"
-        tax_percentage =  15
-        tax_exemption_reason, tax_exemption_code = "", ""
-    elif tax_type == "Zero Rate":
-        tax_category = "Z"
-        tax_percentage =  0
-        tax_exemption_reason, tax_exemption_code = get_tax_exemption_code(tax_template.custom_zero_rate_reason)
-    elif tax_type == "Except Rate":
-        tax_category = "E"
-        tax_percentage =  0
-        tax_exemption_reason, tax_exemption_code = get_tax_exemption_code(tax_template.custom_except_rate_reason)
-    else:
-        frappe.throw("Tax Type is not Supported")
-
     # Validate Currency, Only SAR is supported
     currency = doc.currency
     if currency == "SAR":
@@ -127,106 +100,23 @@ def generate_einvoice(doc, method=None):
     else:
         frappe.throw("Currency is not Supported")
 
-    # PaymentMeansCode
-    payment_means_code = get_payment_means_code(doc.custom_payment_means)
-
-    # Prepare Line Items Details
-    line_items = []
-    for item in doc.items:
-        unit_price = round_to_four_places(abs(item.net_rate))
-        taxable_amount = round_to_two_places(unit_price * abs(item.qty))
-        tax_mount = round_to_two_places(taxable_amount * tax_percentage / 100)
-        payable_amount = round_to_two_places(taxable_amount + tax_mount)
-        line_item = {
-            "line_number": item.idx,
-            "item_name": item.item_name,
-            "quantity": abs(item.qty),
-            "unit_code": "C62",  # TODO: From Item
-            "unit_price": unit_price,
-            "tax_Percentage": tax_percentage,
-            "taxable_amount": taxable_amount,
-            "tax_mount": tax_mount,
-            "payable_amount": payable_amount,
-        }
-        line_items.append(line_item)
-    
-    
-    # Make GrandTotal if there is Retention Amount
-    grand_total = doc.grand_total
-    if (doc.doctype == "Sales Invoice" 
-        and doc.custom_retention_account  
-        and doc.custom_retention_amount):
-        grand_total = doc.grand_total + doc.custom_retention_amount
-    grand_total = round_to_two_places(grand_total)
-    # Render Invoice XML from Template
-    invoice_xml = frappe.render_template("zatca_integration/templates/zatca/clearence/Standard_Invoice.xml", {
-        "invoice_type": invoice_type,
-        "invoice_type_code": invoice_type_code,
-        "invoice_document_reference": invoice_document_reference,
-        "invoiceNumber": invoiceNumber,
-        "invoiceCounterValue": invoiceCounterValue,
-        "uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-        "previousInvoiceHash": previousInvoiceHash,
-        "invoice_date": invoice_date,
-        "invoice_time": invoice_time,
-        "delivery_date": delivery_date,
-        "seller": seller,
-        "buyer": buyer,
-
-        # Payment
-        "payment_means_code": payment_means_code,
-
-        # Currency
-        "document_currency_code": document_currency_code,
-        "tax_currency_code": tax_currency_code,
-    
-        # TaxTotal and MonetaryTotal
-        "taxableAmount": abs(doc.net_total),
-        "taxAmount": abs(doc.total_taxes_and_charges),
-        "taxAmountBaseCurrency": abs(doc.base_total_taxes_and_charges),
-        "payableAmount": abs(grand_total),
-        "taxPercentage": tax_percentage,
-        "tax_category": tax_category,
-        "tax_exemption_code": tax_exemption_code,
-        "tax_exemption_reason": tax_exemption_reason,
-        
-        # Line Items
-        "line_items": line_items,
-    })
-    
-    # frappe.throw(str(invoice_xml))
-    file_name = create_and_sign_xml_from_invoice(doc.name)
-    
-    simplified_invoice_xml = get_signed_invoice_xml(file_name)
-   
     try:
         if customer_type == "Company":
-            invoice_request = generate_invoice_payload_from_xml(simplified_invoice_xml.encode("utf-8"))
-            backend_start_time = time.time()
-            backend_end_time = time.time()
-            backend_time_taken = backend_end_time - backend_start_time
 
             zatca_start_time = time.time()
             response = requests.post(
                 zatca_environment.invoice_clearance_api, 
                 headers=get_clearence_headers(),
                 auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret), 
-                # data=json.dumps(invoice_request)
                 json = payload
             )
-            # frappe.throw(str(response.json()))
+
             zatca_end_time = time.time()
             zatca_time_taken = zatca_end_time - zatca_start_time
 
             zatca_status_field = 'clearanceStatus'
         elif customer_type == "Individual":
-            
-            backend_start_time = time.time()
-         
-            invoice_request = generate_invoice_payload_from_xml(simplified_invoice_xml.encode("utf-8"))
-            backend_end_time = time.time()
-            backend_time_taken = backend_end_time - backend_start_time
-         
+                        
             zatca_start_time = time.time()
             response = requests.post(
                 zatca_environment.invoice_reporting_api, 
@@ -247,85 +137,212 @@ def generate_einvoice(doc, method=None):
     except requests.exceptions.RequestException as e:
         frappe.throw("Error Clearing Invoice, " + str(e))
 
-    # Save Transaction
+    _save_transaction(doc, invoice_data,response, payload, backend_time_taken,zatca_time_taken)
+    _handle_zatca_response(doc, response, invoice_data, payload, zatca_status_field)
+
+
+def _save_transaction(doc, invoice_data,response, payload, backend_time_taken, zatca_time_taken):
+    response_data = response.json()
+    """Save transaction record to database"""
     transaction = frappe.get_doc({
-            'doctype': 'Zatca Transactions',
-            'invoice_id': doc.name,
-            'invoice_uuid': uniqueInvoiceIdentifier,
-            'invoice_icv': invoiceCounterValue,
-            'invoice_hash': "Test1",#invoice_request.get('invoiceHash'),
-            'previous_invoice_hash': previousInvoiceHash,
-            'egs_serial_number': compliance_csr.csrserialnumber,
-            'production_csid': production_csid.name,
-            'request_body': "Dumps",#json.dumps(invoice_request),
-            'response_code': response.status_code,
-            'response_body': json.dumps(response_json),
-            'backend_elapsed_time': backend_time_taken * 1000,
-            'zatca_elapsed_time': zatca_time_taken * 1000,
-            'transaction_time': frappe.utils.now_datetime(),
-        })
+        'doctype': 'Zatca Transactions',
+        'invoice_id': doc.name,
+        'invoice_uuid': invoice_data['unique_invoice_identifier'],
+        'invoice_icv': invoice_data['invoice_counter_value'],
+        'invoice_hash': payload["invoiceHash"],
+        'previous_invoice_hash': invoice_data['previous_invoice_hash'],
+        'egs_serial_number': invoice_data.get('compliance_csr', {}).get('csrserialnumber', ''),
+        'production_csid': invoice_data.get('production_csid', {}).get('name', ''),
+        'request_body': str(payload), 
+        'response_code': response.status_code,
+        'response_body': json.dumps(response_data),
+        'backend_elapsed_time': backend_time_taken * 1000,
+        'zatca_elapsed_time': zatca_time_taken * 1000,
+        'transaction_time': frappe.utils.now_datetime(),
+    })
     transaction.insert()
-
-    # Handle Response
-    if response.status_code == 200 or response.status_code == 202:
-        doc.custom_invoice_type = invoice_type
-        doc.custom_invoice_hash = invoice_request.get('invoiceHash')
-        doc.custom_invoice_unique_identifier = uniqueInvoiceIdentifier
-        doc.custom_invoice_icv = invoiceCounterValue
-
-        doc.custom_zatca_submit_status = response_json.get(zatca_status_field)
-        doc.custom_zatca_submit_time = frappe.utils.now_datetime()
-        doc.custom_validation_results = json.dumps(response_json.get('validationResults', ''))
-
-        doc.custom_seller_name = seller.get('organizationName')
-        doc.custom_seller_vat = seller.get('vatNumber')
-        doc.custom_seller_address = seller.get('full_address')
-        doc.custom_buyer_name = buyer.get('organizationName')
-        doc.custom_buyer_vat = buyer.get('vatNumber')
-        doc.custom_buyer_address = buyer.get('full_address')
-        
-        # Save Cleared Invoice XML
-        if customer_type == "Company":
-            cleared_invoice_xml = decode_invoice(response_json.get('clearedInvoice'))
-        elif customer_type == "Individual":
-            cleared_invoice_xml = decode_invoice(invoice_request.get('invoice'))
-        else :
-            frappe.throw("Customer Type is not Supported")
-
-        file_doc = frappe.get_doc({
-            "doctype": "File",
-            "file_name": invoiceNumber + ".xml",
-            "content": cleared_invoice_xml,
-            "is_private": True
-        })
-        file_doc.insert()
-        doc.custom_invoice_xml = file_doc.file_url
-        
-        # Save Cleared Invoice QR Code
-        qr_code = extract_qr_code_from_cleared_invoice(cleared_invoice_xml)
-        qr_doc = frappe.get_doc({
-            "doctype": "File",
-            "file_name": invoiceNumber + ".png",
-            "content": qr_code,
-            "is_private": True
-        })
-        qr_doc.insert()
-        doc.custom_invoice_qr_code = qr_doc.file_url
+    
+def _handle_zatca_response(doc, response, invoice_data, payload, zatca_status):
+    """Handle ZATCA API response"""
+    response = response
+    response_json = response.json()
+    zatca_status_field = response_json.get(zatca_status)
+    
+    if response.status_code in [200, 202]:
+        _handle_success_response(doc, response_json, invoice_data, payload, zatca_status_field)
     elif response.status_code == 303:
-        update_status_on_error(doc, 'FAILED', json.dumps(response_json.get('message', '')))
+        _handle_error_response(doc, 'FAILED', json.dumps(response_json.get('message', '')))
         frappe.throw("Error submitting invoice, Clearance is Deactivated")
     elif response.status_code == 400:
-        update_status_on_error(doc, response_json.get(zatca_status_field), json.dumps(response_json.get('validationResults', '')))
+        _handle_error_response(doc, zatca_status_field, 
+                             json.dumps(response_json.get('validationResults', '')))
         frappe.throw("Error submitting invoice, Bad Request")
     elif response.status_code == 401:
-        update_status_on_error(doc, 'FAILED', json.dumps(response_json))
+        _handle_error_response(doc, 'FAILED', json.dumps(response_json))
         frappe.throw("Error submitting invoice, Invalid Credentials")
     elif response.status_code == 500:
-        update_status_on_error(doc, 'FAILED', json.dumps(response_json))
+        _handle_error_response(doc, 'FAILED', json.dumps(response_json))
         frappe.throw("Error submitting invoice, Internal Server Error")
     else:
-        update_status_on_error(doc, 'FAILED', json.dumps(response_json))
+        _handle_error_response(doc, 'FAILED', json.dumps(response_json))
         frappe.throw("Error submitting invoice, Unknown Error")
+        
+def _handle_error_response(doc, status, validation_results):
+    """Handle error response from ZATCA"""
+    update_status_on_error(doc, status, validation_results)
+    
+
+def _handle_success_response(doc, response_json, invoice_data, invoice_request, zatca_status_field):
+    """Handle successful ZATCA response"""
+    # Update document fields
+    doc.custom_invoice_type = invoice_data['invoice_type']
+    doc.custom_invoice_hash = invoice_request.get('invoiceHash')
+    doc.custom_invoice_unique_identifier = invoice_data['unique_invoice_identifier']
+    doc.custom_invoice_icv = invoice_data['invoice_counter_value']
+    
+    doc.custom_zatca_submit_status = zatca_status_field
+    doc.custom_zatca_submit_time = frappe.utils.now_datetime()
+    doc.custom_validation_results = json.dumps(response_json.get('validationResults', ''))
+    
+    # Set seller and buyer information
+    doc.custom_seller_name = invoice_data['seller'].get('organizationName')
+    doc.custom_seller_vat = invoice_data['seller'].get('vatNumber')
+    doc.custom_seller_address = invoice_data['seller'].get('full_address')
+    doc.custom_buyer_name = invoice_data['buyer'].get('organizationName')
+    doc.custom_buyer_vat = invoice_data['buyer'].get('vatNumber')
+    doc.custom_buyer_address = invoice_data['buyer'].get('full_address')
+    
+    # Save cleared invoice XML
+    cleared_invoice_xml = _get_cleared_invoice_xml(response_json, invoice_request, invoice_data['customer_type'])
+    _save_invoice_xml(doc, cleared_invoice_xml)
+
+    # Save QR code
+    _save_qr_code(doc, cleared_invoice_xml)
+    
+def _save_invoice_xml(doc, cleared_invoice_xml):
+    """Save cleared invoice XML as file"""
+    file_doc = frappe.get_doc({
+        "doctype": "File",
+        "file_name": doc.name + ".xml",
+        "content": cleared_invoice_xml,
+        "is_private": True
+    })
+    file_doc.insert()
+    doc.custom_invoice_xml = file_doc.file_url
+
+def _save_qr_code(doc, cleared_invoice_xml):
+    """Save invoice QR code as file"""
+    qr_code = extract_qr_code_from_cleared_invoice(cleared_invoice_xml)
+    qr_doc = frappe.get_doc({
+        "doctype": "File",
+        "file_name": doc.name + ".png",
+        "content": qr_code,
+        "is_private": True
+    })
+    qr_doc.insert()
+    doc.custom_invoice_qr_code = qr_doc.file_url
+
+def _get_cleared_invoice_xml(response_json, invoice_request, customer_type):
+    """Get cleared invoice XML based on customer type"""
+    if customer_type == "Company":
+        return decode_invoice(response_json.get('clearedInvoice'))
+    elif customer_type == "Individual":
+        return decode_invoice(invoice_request.get('invoice'))
+    else:
+        frappe.throw("Customer Type is not Supported")
+
+
+def _prepare_invoice_data(doc, config):
+    """Prepare invoice data for submission"""
+    customer = frappe.get_doc("Customer", doc.customer)
+    customer_type = customer.customer_type
+    
+    if customer_type == "Company":
+        invoice_type = "0100000"
+    elif customer_type == "Individual":
+        invoice_type = "0200000"
+    else:
+        frappe.throw("Customer Type is not Supported")
+    
+    # Get seller and buyer information
+    seller = get_seller_information(config['compliance_csr'])
+    buyer = get_buyer_information(doc.customer)
+    
+    # Set counters and identifiers
+    invoice_number = doc.name
+    unique_invoice_identifier = str(uuid.uuid4())
+    previous_invoice_counter = int(get_previous_invoice_counter(config['production_csid'].name))
+    invoice_counter_value = previous_invoice_counter + 1
+    previous_invoice_hash = get_previous_invoice_hash(config['production_csid'].name)
+    
+    # Set dates
+    invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
+    invoice_time = parse(doc.posting_time).time().strftime("%H:%M:%S")
+    
+    # Handle delivery date
+    delivery_date = _format_delivery_date(doc.custom_delivery_date)
+    
+    # Validate dates if required
+    if config['company'].custom_enforce_date_validation == 1:
+        validate_delivery_date(delivery_date, invoice_date, customer_type)
+    
+    # Handle currency
+    currency_info = _get_currency_info(doc.currency)
+    
+    return {
+        'customer_type': customer_type,
+        'invoice_type': invoice_type,
+        'seller': seller,
+        'buyer': buyer,
+        'invoice_number': invoice_number,
+        'unique_invoice_identifier': unique_invoice_identifier,
+        'invoice_counter_value': invoice_counter_value,
+        'previous_invoice_hash': previous_invoice_hash,
+        'invoice_date': invoice_date,
+        'invoice_time': invoice_time,
+        'delivery_date': delivery_date,
+        'currency_info': currency_info
+    }
+
+def _get_zatca_config(company):
+    """Get ZATCA configuration from company settings"""
+    production_csid = frappe.get_doc("Production CSID", company.custom_production_csid)
+    compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
+    compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+    zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
+    
+    return {
+        'production_csid': production_csid,
+        'compliance_csid': compliance_csid,
+        'compliance_csr': compliance_csr,
+        'zatca_environment': zatca_environment,
+        'company': company
+    }
+    
+def _format_delivery_date(delivery_date):
+    """Format delivery date to string"""
+    if isinstance(delivery_date, date):
+        return delivery_date.strftime("%Y-%m-%d")
+    elif isinstance(delivery_date, str):
+        return datetime.strptime(delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d")
+    return None
+
+
+def _get_currency_info(currency):
+    """Get currency information for invoice"""
+    if currency == "SAR":
+        return {
+            'document_currency_code': "SAR",
+            'tax_currency_code': "SAR"
+        }
+    elif currency == "USD":
+        return {
+            'document_currency_code': "USD",
+            'tax_currency_code': "SAR"
+        }
+    else:
+        frappe.throw("Currency is not Supported")
+
 
 def update_status_on_error(doc, status, validation_results):
     frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_status", status, update_modified=True)
