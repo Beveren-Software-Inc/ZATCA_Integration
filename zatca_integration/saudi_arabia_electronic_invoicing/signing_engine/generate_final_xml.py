@@ -219,16 +219,12 @@ def add_line_item_discount(cac_price, single_item, sales_invoice_doc):
         cbc_allowance_charge_reason_code = ET.SubElement(
             cac_allowance_charge, "cbc:AllowanceChargeReasonCode"
         )
-        cbc_allowance_charge_reason_code.text = str(
-            sales_invoice_doc.custom_zatca_discount_reason_code
-        )
+        cbc_allowance_charge_reason_code.text = "95"
 
         cbc_allowance_charge_reason = ET.SubElement(
             cac_allowance_charge, "cbc:AllowanceChargeReason"
         )
-        cbc_allowance_charge_reason.text = str(
-            sales_invoice_doc.custom_zatca_discount_reason
-        )
+        cbc_allowance_charge_reason.text = "Discount"
 
         cbc_amount = ET.SubElement(
             cac_allowance_charge, "cbc:Amount", currencyID=sales_invoice_doc.currency

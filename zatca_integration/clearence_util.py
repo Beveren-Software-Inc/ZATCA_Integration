@@ -16,7 +16,7 @@ from zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice import cre
 from zatca_integration.common_util import generate_invoice_payload_from_xml
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import process_invoice_for_zatca_submission, xml_base64_decode
 
-def generate_einvoice(doc, method):
+def generate_einvoice(doc, method=None):
     
     signed_xmlfile_name, uuid1, encoded_hash = process_invoice_for_zatca_submission(doc.name, compliance_type="0",any_item_has_tax_template=False)
     payload = {
@@ -469,3 +469,11 @@ def round_to_two_places(value):
 def round_to_four_places(value):
     return round(value, 4)
 
+@frappe.whitelist()
+def resend_einvoice(doc):
+    if isinstance(doc, str):
+        doc = json.loads(doc)
+
+    if isinstance(doc, dict):
+        doc = frappe.get_doc(doc)
+    generate_einvoice(doc)

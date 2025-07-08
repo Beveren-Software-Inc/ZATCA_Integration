@@ -11,6 +11,7 @@ frappe.ui.form.on('Sales Invoice', {
     refresh: frm => {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
+        frm.trigger('add_submit_button')
     },
     validate: frm => {
         if (frm.is_new() && frm.doc.custom_retention_account && frm.doc.custom_retention_amount) {
@@ -107,5 +108,47 @@ frappe.ui.form.on('Sales Invoice', {
                 });
             }
         }
+    },
+
+    add_submit_button: frm => {
+       
+        if (
+            frm.doc.docstatus === 1 &&
+            frm.doc.custom_zatca_submit_status !== 'REPORTED' &&
+            frm.doc.custom_zatca_submit_status !== 'CLEARED'
+        ){
+            
+        frm.add_custom_button(__('Re-submit'), () => {
+                // Custom loader
+                const loader = frappe.msgprint({
+                    message: `<div class="flex items-center gap-4 text-blue-700">
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                Resubmitting to ZATCA...
+                              </div>`,
+                    title: __('Please Wait'),
+                    indicator: 'blue',
+                    wide: true,
+                    hide_on_page_change: true,
+                });
+            
+                frappe.call({
+                    method: 'zatca_integration.clearence_util.resend_einvoice',
+                    args: {
+                        doc: frm.doc
+                    },
+                    callback: function(response) {
+                        frappe.msgprint(__('ZATCA Invoice Resubmission Successful'));
+                    },
+                    error: function(err) {
+                        frappe.msgprint(__('ZATCA Resubmission Failed'));
+                    },
+                    always: function() {
+                        loader.hide();
+                    }
+                });
+            }, __('ZATCA Actions'));
+            
+        }
+        
     }
 });
