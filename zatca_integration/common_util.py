@@ -221,6 +221,38 @@ def generate_invoice_payload_from_xml(xml_content: bytes) -> dict:
         "invoice": xml_base64_encoded,
     }
 
+#Not tested
+def extract_canonical_xml(xml_file):
+    """
+    Remove ZATCA signature-related nodes and return the cleaned XML string.
+    Used to generate a hash for the current invoice.
+    """
+    try:
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+
+        namespaces = {
+            'ext': 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2',
+            'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
+            'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2'
+        }
+
+        for ext_elem in root.findall('.//ext:UBLExtensions', namespaces):
+            root.remove(ext_elem)
+
+        for sig_elem in root.findall('.//cac:Signature', namespaces):
+            root.remove(sig_elem)
+
+        # Remove <cac:AdditionalDocumentReference> with cbc:ID == "QR"
+        for doc_ref in root.findall('.//cac:AdditionalDocumentReference', namespaces):
+            id_node = doc_ref.find('.//cbc:ID', namespaces)
+            if id_node is not None and id_node.text == "QR":
+                root.remove(doc_ref)
+
+        return ET.tostring(root, encoding='unicode')
+    except Exception as e:
+        print(f"Error canonicalizing XML: {e}")
+        return None
 
 def generate_invoice_hash(xml_file=None):
     """
