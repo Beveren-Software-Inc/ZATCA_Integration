@@ -16,8 +16,14 @@ from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_in
 
 def generate_einvoice(doc, method=None):
     
+    
+    # Buyer Information
+    customer = frappe.get_doc("Customer", doc.customer)
+    customer_type = customer.customer_type
+    compliance_type = get_compliance_type(doc, customer_type)
+    
     backend_start_time = time.time()
-    signed_xmlfile_name, uuid1, encoded_hash = process_invoice_for_zatca_submission(doc.name, compliance_type="0",any_item_has_tax_template=False)
+    signed_xmlfile_name, uuid1, encoded_hash = process_invoice_for_zatca_submission(doc.name, compliance_type=compliance_type,any_item_has_tax_template=False)
     backend_end_time = time.time()
     backend_time_taken = backend_end_time - backend_start_time
     
@@ -40,9 +46,7 @@ def generate_einvoice(doc, method=None):
     if not company.custom_zatca_phase == "ZATCA Phase 2":
         return
         
-    # Buyer Information
-    customer = frappe.get_doc("Customer", doc.customer)
-    customer_type = customer.customer_type
+    
 
     validate_invoice_dates(doc, company, customer_type)
     
@@ -88,6 +92,7 @@ def _submit_reporting_request(config, payload, doc):
     except requests.exceptions.RequestException as e:
         frappe.throw(f"Error Reporting Invoice: {str(e)}")
         
+
 def _submit_clearance_request(config, payload):
     """Submit clearance request for Company customers."""
     start_time = time.time()
@@ -109,16 +114,14 @@ def _submit_clearance_request(config, payload):
     except requests.exceptions.RequestException as e:
         frappe.throw(f"Error Clearing Invoice: {str(e)}")
         
+        
 def validate_invoice_dates(doc,company,customer_type):
-    # Set Invoice Date and Time
     invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
         
     # Set and Validate Delivery Date
     if isinstance(doc.custom_delivery_date, date):
-    # If it's a datetime.date object, format it as a string
         delivery_date = doc.custom_delivery_date.strftime("%Y-%m-%d")
     elif isinstance(doc.custom_delivery_date, str):
-    # If it's a string, parse it into a datetime object
         delivery_date = datetime.strptime(doc.custom_delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d")
     
     # Validate Invoice Date and Delivery Date for ZATCA Compliance
@@ -148,6 +151,7 @@ def _save_transaction(doc, invoice_data,response, payload, backend_time_taken, z
     })
     transaction.insert()
     
+
 def _handle_zatca_response(doc, response, invoice_data, payload, zatca_status):
     """Handle ZATCA API response"""
     response = response
@@ -173,6 +177,7 @@ def _handle_zatca_response(doc, response, invoice_data, payload, zatca_status):
         _handle_error_response(doc, 'FAILED', json.dumps(response_json))
         frappe.throw("Error submitting invoice, Unknown Error")
         
+    
 def _handle_error_response(doc, status, validation_results):
     """Handle error response from ZATCA"""
     update_status_on_error(doc, status, validation_results)
@@ -201,11 +206,11 @@ def _handle_success_response(doc, response_json, invoice_data, invoice_request, 
     if doc.docstatus == 1:
          _handle_submitted_doc_response(doc,response_json, invoice_data, invoice_request, zatca_status_field)
         
-    # Save cleared invoice XML
+    # Save cleared invoice XML & QR Code
     cleared_invoice_xml = _get_cleared_invoice_xml(response_json, invoice_request, invoice_data['customer_type'])
     _save_invoice_xml(doc, cleared_invoice_xml)
-    # Save QR code
     _save_qr_code(doc, cleared_invoice_xml)
+    
     
 def _save_invoice_xml(doc, cleared_invoice_xml):
     """Save cleared invoice XML as file"""
@@ -213,10 +218,11 @@ def _save_invoice_xml(doc, cleared_invoice_xml):
         "doctype": "File",
         "file_name": doc.name + ".xml",
         "content": cleared_invoice_xml,
-        "is_private": True
+        "is_private": False
     })
     file_doc.insert()
     doc.custom_invoice_xml = file_doc.file_url
+
 
 def _save_qr_code(doc, cleared_invoice_xml):
     """Save invoice QR code as file"""
@@ -225,10 +231,11 @@ def _save_qr_code(doc, cleared_invoice_xml):
         "doctype": "File",
         "file_name": doc.name + ".png",
         "content": qr_code,
-        "is_private": True
+        "is_private": False
     })
     qr_doc.insert()
     doc.custom_invoice_qr_code = qr_doc.file_url
+
 
 def _get_cleared_invoice_xml(response_json, invoice_request, customer_type):
     """Get cleared invoice XML based on customer type"""
@@ -327,8 +334,6 @@ def update_status_on_error(doc, status, validation_results):
     frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_time", frappe.utils.now_datetime(), update_modified=True)
     display_error_ui(validation_results)
     frappe.db.commit()
-#2435
-
 
 def display_error_ui(validation_results):
     try:
@@ -377,7 +382,6 @@ def display_error_ui(validation_results):
         )
 
     
-
 def get_payment_means_code(payment_means):
     if payment_means == "Cash":
         payment_means_code = "10"
@@ -391,10 +395,12 @@ def get_payment_means_code(payment_means):
         payment_means_code = "10" # Default to Cash
     return payment_means_code
 
+
 def get_tax_exemption_code(exempt_reason):
     reason, code = exempt_reason.split('(', 1)
     code = code.rstrip(')')
     return reason.strip(), code.strip()
+
 
 def get_clearence_headers():
     return {
@@ -454,8 +460,8 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
 
     return img_byte_arr
 
+
 def validate_delivery_date(delivery_date, invoice_date, customer_type):
-    # Validate Delivery Date
     del_date = datetime.strptime(delivery_date, "%Y-%m-%d")
     inv_date = datetime.strptime(invoice_date, "%Y-%m-%d")
 
@@ -477,15 +483,19 @@ def validate_delivery_date(delivery_date, invoice_date, customer_type):
     else:
         frappe.throw("Customer Type is not Supported")
 
+
 def decode_certificate(production_certificate):
     decoded_production_certificate = base64.b64decode(production_certificate.encode('utf-8'))
     return decoded_production_certificate.decode('utf-8')
 
+
 def round_to_two_places(value):
     return round(value, 2)
 
+
 def round_to_four_places(value):
     return round(value, 4)
+
 
 @frappe.whitelist()
 def resend_einvoice(doc):
@@ -496,6 +506,7 @@ def resend_einvoice(doc):
         doc = frappe.get_doc(doc)
     generate_einvoice(doc)
     
+
 def _handle_submitted_doc_response(doc, response_json, invoice_data, invoice_request, zatca_status_field):
     """Handle successful ZATCA response using db.set_value"""
     
@@ -521,3 +532,21 @@ def _handle_submitted_doc_response(doc, response_json, invoice_data, invoice_req
     frappe.db.set_value(doc.doctype, doc.name, "custom_buyer_name", buyer.get("organizationName"))
     frappe.db.set_value(doc.doctype, doc.name, "custom_buyer_vat", buyer.get("vatNumber"))
     frappe.db.set_value(doc.doctype, doc.name, "custom_buyer_address", buyer.get("full_address"))
+
+
+def get_compliance_type(doc, customer_type):
+    compliance_type = "0"
+    if customer_type == "Individual" and doc.is_return==0 and doc.is_debit_note==0:
+        compliance_type = "1"
+    elif customer_type == "Company" and doc.is_return==0 and doc.is_debit_note==0:
+        compliance_type = "2"
+    elif customer_type == "Individual" and doc.is_return==1:
+        compliance_type = "3"
+    elif customer_type == "Company" and doc.is_return==1:
+        compliance_type = "4"
+    elif customer_type == "Individual" and doc.is_debit_note==1:
+        compliance_type = "5"
+    elif customer_type == "Company" and doc.is_debit_note==1:
+        compliance_type = "6"
+        
+    return compliance_type

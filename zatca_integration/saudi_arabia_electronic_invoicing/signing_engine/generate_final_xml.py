@@ -7,9 +7,7 @@ from frappe.utils.data import get_time
 from decimal import Decimal, ROUND_HALF_UP
 import frappe
 from frappe import _
-from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_tax_data import (
-    get_tax_for_item
-)
+
 from frappe.utils import flt
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_tax_category_details, get_exemption_reason_map
 
@@ -89,13 +87,13 @@ def tax_data_nominal(invoice, sales_invoice_doc):
         cbc_taxamount_sar.set("currencyID", "SAR")
 
         total_tax_amount_sar = sum(t["tax_amount"] for t in tax_category_totals.values())
-        cbc_taxamount_sar.text = f"{round(total_tax_amount_sar, 2):.2f}"
+        cbc_taxamount_sar.text = f"{abs(round(total_tax_amount_sar, 2)):.2f}"
 
         # === Tax Total (Invoice Currency) ===
         cac_taxtotal_currency = ET.SubElement(invoice, CAC_TAX_TOTAL)
         cbc_taxamount_cur = ET.SubElement(cac_taxtotal_currency, CBC_TAX_AMOUNT)
         cbc_taxamount_cur.set("currencyID", sales_invoice_doc.currency)
-        cbc_taxamount_cur.text = f"{round(total_tax_amount_sar, 2):.2f}"
+        cbc_taxamount_cur.text = f"{abs(round(total_tax_amount_sar, 2)):.2f}"
 
         # === Add Tax Subtotals ===
         for category, data in tax_category_totals.items():
@@ -107,7 +105,7 @@ def tax_data_nominal(invoice, sales_invoice_doc):
 
             cbc_taxamount = ET.SubElement(cac_taxsubtotal, CBC_TAX_AMOUNT)
             cbc_taxamount.set("currencyID", sales_invoice_doc.currency)
-            cbc_taxamount.text = f"{round(data['tax_amount'], 2):.2f}"
+            cbc_taxamount.text = f"{abs(round(data['tax_amount'], 2)):.2f}"
 
             cac_taxcategory = ET.SubElement(cac_taxsubtotal, "cac:TaxCategory")
             cbc_id = ET.SubElement(cac_taxcategory, "cbc:ID")
@@ -182,8 +180,7 @@ def tax_data_nominal(invoice, sales_invoice_doc):
             cac_legalmonetarytotal, "cbc:TaxInclusiveAmount"
         )
         cbc_taxinclusiveamount.set("currencyID", sales_invoice_doc.currency)
-        cbc_taxinclusiveamount.text = f"{round(sales_invoice_doc.grand_total, 2):.2f}"
-
+        cbc_taxinclusiveamount.text = f"{abs(round(sales_invoice_doc.grand_total, 2)):.2f}"
         cbc_allowancetotalamount = ET.SubElement(
             cac_legalmonetarytotal, "cbc:AllowanceTotalAmount"
         )
@@ -192,7 +189,7 @@ def tax_data_nominal(invoice, sales_invoice_doc):
 
         cbc_payableamount = ET.SubElement(cac_legalmonetarytotal, "cbc:PayableAmount")
         cbc_payableamount.set("currencyID", sales_invoice_doc.currency)
-        cbc_payableamount.text = f"{round(sales_invoice_doc.grand_total, 2):.2f}"
+        cbc_payableamount.text = f"{abs(round(sales_invoice_doc.grand_total, 2)):.2f}"
 
         return invoice
 
@@ -288,7 +285,7 @@ def item_data(invoice, sales_invoice_doc):
                 tax_amount = item_amount * tax_rate / Decimal("100")
 
 
-            tax_amount_elem.text = str(Decimal(tax_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            tax_amount_elem.text = str(abs(Decimal(tax_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)))
 
             # Optional Rounding Amount
             rounding = ET.SubElement(cac_taxtotal, "cbc:RoundingAmount")
@@ -463,12 +460,6 @@ def item_data_with_template(invoice, sales_invoice_doc):
                 # If nominal invoice, only set cbc_PriceAmount
                 cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
             else:
-                # Check for line item discount submission to ZATCA
-                # if sales_invoice_doc.custom_submit_line_item_discount_to_zatca != 1:
-                #     # No discount submission to ZATCA
-                #     cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
-                # elif sales_invoice_doc.custom_submit_line_item_discount_to_zatca == 1:
-                    # Discount submission to ZATCA
                 cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
                 cbc_basequantity = ET.SubElement(
                     cac_price, qty, unitCode=str(single_item.uom)
@@ -567,19 +558,9 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
                 # If nominal invoice, only set cbc_PriceAmount
                 cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
             else:
-                # Check for line item discount submission to ZATCA
-                # if sales_invoice_doc.custom_submit_line_item_discount_to_zatca != 1:
                     # No discount submission to ZATCA
                 cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
-                # elif sales_invoice_doc.custom_submit_line_item_discount_to_zatca == 1:
-                #     # Discount submission to ZATCA
-                #     cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
-                #     cbc_basequantity = ET.SubElement(
-                #         cac_price, qty, unitCode=str(single_item.uom)
-                #     )
-                #     cbc_basequantity.text = "1"
-                #     add_line_item_discount(cac_price, single_item, sales_invoice_doc)
-
+              
         if (
             "claudion4saudi" in frappe.get_installed_apps()
             and hasattr(sales_invoice_doc, "custom_advances_copy")
@@ -713,8 +694,6 @@ def xml_structuring(invoice):
     """
     Xml structuring and final saving of the xml into private files
     """
-    print("+++++++++++++++Here yess", invoice)
-    # frappe.throw(str(invoice))
     try:
 
         tree = ET.ElementTree(invoice)
@@ -726,13 +705,12 @@ def xml_structuring(invoice):
         # Read the XML file and format it
         with open(xml_file_path, "r", encoding="utf-8") as file:
             xml_string = file.read()
-        # frappe.throw(str(xml_string))
         # Format the XML string to make it pretty
         xml_dom = minidom.parseString(xml_string)
         pretty_xml_string = xml_dom.toprettyxml(indent="  ")
 
         # Write the formatted XML to the final file
-        final_xml_path = frappe.local.site + "/private/files/finalzatcaxml.xml"
+        final_xml_path = frappe.local.site + "/private/files/zatca_invoice_final.xml"
 
         with open(final_xml_path, "w", encoding="utf-8") as file:
             file.write(pretty_xml_string)

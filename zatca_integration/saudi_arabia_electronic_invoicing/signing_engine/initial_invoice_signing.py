@@ -159,11 +159,11 @@ def xml_base64_decode(signed_xmlfile_name):
 
 def signxml_modify(sales_invoice_doc):
     """modify the signed xml by adding the values like signing time,serial number etc"""
-    # try:
+    
     encoded_certificate_hash = certificate_hash(sales_invoice_doc)
     issuer_name, serial_number = extract_certificate_details(sales_invoice_doc)
     original_invoice_xml = etree.parse(
-        frappe.local.site + "/private/files/finalzatcaxml.xml"
+        frappe.local.site + "/private/files/zatca_invoice_final.xml"
     )
     root = original_invoice_xml.getroot()
     namespaces = {
@@ -187,17 +187,14 @@ def signxml_modify(sales_invoice_doc):
     signing_time = element_st.text
     element_in.text = issuer_name
     element_sn.text = str(serial_number)
-    with open(frappe.local.site + "/private/files/after_step_4.xml", "wb") as file:
+    with open(frappe.local.site + "/private/files/zatca_signed_with_cert_info.xml", "wb") as file:
         original_invoice_xml.write(
             file,
             encoding="utf-8",
             xml_declaration=True,
         )
     return namespaces, signing_time
-    # except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-    #     frappe.throw(_(" error in modification of xml sign part: " + str(e)))
-    #     return None
-
+   
 
 def generate_signed_properties_hash(
     signing_time, issuer_name, serial_number, encoded_certificate_hash
@@ -250,7 +247,7 @@ def populate_the_ubl_extensions_output(
     """populate the ubl extension output by giving the signature values and digest values"""
     try:
         updated_invoice_xml = etree.parse(
-            frappe.local.site + "/private/files/after_step_4.xml"
+            frappe.local.site + "/private/files/zatca_signed_with_cert_info.xml"
         )
         root3 = updated_invoice_xml.getroot()
         
@@ -275,7 +272,7 @@ def populate_the_ubl_extensions_output(
         digestvalue6_2.text = encoded_hash
 
         with open(
-            frappe.local.site + "/private/files/final_xml_after_sign.xml", "wb"
+            frappe.local.site + "/private/files/final_signed_invoice.xml", "wb"
         ) as file:
             updated_invoice_xml.write(file, encoding="utf-8", xml_declaration=True)
 
@@ -357,10 +354,8 @@ def tag9_signature_ecdsa():
 
 def generate_tlv_xml(sales_invoice_doc):
     """generate xml by adding the tlv data"""
-    # try:
-
     with open(
-        frappe.local.site + "/private/files/final_xml_after_sign.xml", "rb"
+        frappe.local.site + "/private/files/final_signed_invoice.xml", "rb"
     ) as file:
         xml_data = file.read()
     root = etree.fromstring(xml_data)
@@ -429,15 +424,12 @@ def generate_tlv_xml(sales_invoice_doc):
         "utf-8"
     )  # Handling Arabic company name in QR Code
     return result_dict
-    # except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-    #     frappe.throw(_("Error in getting the entire TLV data: " + str(e)))
-    #     # return None
-
+  
 
 def update_qr_toxml(qrcodeb64):
     """updating the  alla values of qr to xml"""
     try:
-        xml_file_path = frappe.local.site + "/private/files/final_xml_after_sign.xml"
+        xml_file_path = frappe.local.site + "/private/files/final_signed_invoice.xml"
         xml_tree = etree.parse(xml_file_path)
         namespaces = {
             "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
@@ -464,7 +456,7 @@ def structuring_signedxml():
     """structuring the signed xml"""
     try:
         with open(
-            frappe.local.site + "/private/files/final_xml_after_sign.xml",
+            frappe.local.site + "/private/files/final_signed_invoice.xml",
             "r",
             encoding="utf-8",
         ) as file:
@@ -511,13 +503,13 @@ def structuring_signedxml():
 
         adjusted_xml_content = [adjust_indentation(line) for line in xml_content]
         with open(
-            frappe.local.site + "/private/files/final_xml_after_indent.xml",
+            frappe.local.site + "/private/files/zatca_signed_output.xml",
             "w",
             encoding="utf-8",
         ) as file:
             file.writelines(adjusted_xml_content)
         signed_xmlfile_name = (
-            frappe.local.site + "/private/files/final_xml_after_indent.xml"
+            frappe.local.site + "/private/files/zatca_signed_output.xml"
         )
         return signed_xmlfile_name
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:

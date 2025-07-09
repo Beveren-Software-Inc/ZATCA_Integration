@@ -7,30 +7,17 @@ from frappe import _
 import frappe
 from frappe.utils.data import get_time
 from types import SimpleNamespace
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_config, get_previous_invoice_hash
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_config, get_previous_invoice_hash, get_previous_invoice_counter
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_address
 
 
 CBC_ID = "cbc:ID"
 DS_TRANSFORM = "ds:Transform"
 
-
-def get_icv_code(invoice_number):
-    """
-    Extracts the numeric part from the invoice number to generate the ICV code.
-    """
-    try:
-        icv_code = re.sub(
-            r"\D", "", invoice_number
-        )  # taking the number part only  from doc name
-        return icv_code
-    except TypeError as e:
-        frappe.throw(_("Type error in getting ICV number: " + str(e)))
-        return None
-    except re.error as e:
-        frappe.throw(_("Regex error in getting ICV number: " + str(e)))
-        return None
-
+def generate_new_invoice_counter(sales_invoice_doc):
+    config = get_zatca_config(frappe.get_doc("Company", sales_invoice_doc.company))
+    previous_counter = int(get_previous_invoice_counter(config["production_csid"].name))
+    return previous_counter + 1
 
 def get_issue_time(invoice_number):
     """
@@ -204,7 +191,7 @@ def salesinvoice_data(invoice, invoice_number):
     """
     Populates the Sales Invoice XML with key elements and metadata.
     """
-    # try:
+   
     sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
 
     cbc_profile_id = ET.SubElement(invoice, "cbc:ProfileID")
@@ -224,9 +211,7 @@ def salesinvoice_data(invoice, invoice_number):
     cbc_issue_time.text = get_issue_time(invoice_number)
 
     return invoice, uuid1, sales_invoice_doc
-    # except (AttributeError, ValueError, frappe.ValidationError) as e:
-    #     frappe.throw(_(("Error occurred in SalesInvoice data: " f"{str(e)}")))
-    #     return None
+    
 
 
 def invoice_typecode_compliance(invoice, compliance_type):
@@ -324,7 +309,7 @@ def invoice_typecode_standard(invoice, sales_invoice_doc):
         frappe.throw(_(f"Error in standard invoice type code: {e}"))
         return None
 
-def doc_reference(invoice, sales_invoice_doc, invoice_number):
+def doc_reference(invoice, sales_invoice_doc):
     """
     Adds document reference elements to the XML invoice,
     including currency codes and additional document references.
@@ -344,7 +329,7 @@ def doc_reference(invoice, sales_invoice_doc, invoice_number):
         cbc_id_1 = ET.SubElement(cac_additionaldocumentreference, CBC_ID)
         cbc_id_1.text = "ICV"
         cbc_uuid_1 = ET.SubElement(cac_additionaldocumentreference, "cbc:UUID")
-        cbc_uuid_1.text = str(get_icv_code(invoice_number))
+        cbc_uuid_1.text = str(generate_new_invoice_counter(sales_invoice_doc))
         return invoice
     except (ET.ParseError, AttributeError, ValueError) as e:
         frappe.throw(_(f"Error occurred in reference doc: {e}"))
@@ -352,7 +337,7 @@ def doc_reference(invoice, sales_invoice_doc, invoice_number):
 
 
 def doc_reference_compliance(
-    invoice, sales_invoice_doc, invoice_number, compliance_type
+    invoice, sales_invoice_doc, compliance_type
 ):
     """
     Adds document reference elements to the XML invoice, including currency codes,
@@ -378,7 +363,7 @@ def doc_reference_compliance(
         cbc_id_1 = ET.SubElement(cac_additionaldocumentreference, CBC_ID)
         cbc_id_1.text = "ICV"
         cbc_uuid_1 = ET.SubElement(cac_additionaldocumentreference, "cbc:UUID")
-        cbc_uuid_1.text = str(get_icv_code(invoice_number))
+        cbc_uuid_1.text = str(generate_new_invoice_counter(sales_invoice_doc))
         return invoice
     except (ET.ParseError, AttributeError, ValueError) as e:
         frappe.throw(_(f"Error occurred in reference doc: {e}"))
@@ -472,22 +457,11 @@ def company_data(invoice, sales_invoice_doc):
     """
     try:
         company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
-        # if company_doc.custom_costcenter == 1 and not sales_invoice_doc.cost_center:
-        #     frappe.throw(_("no Cost Center is set in the invoice.Give the feild"))
-        # # Determine whether to fetch data from Cost Center or Company
-        # if company_doc.custom_costcenter == 1 and sales_invoice_doc.cost_center:
-        #     cost_center_doc = frappe.get_doc(
-        #         "Cost Center", sales_invoice_doc.cost_center
-        #     )
-        #     custom_registration_type = cost_center_doc.custom_zatca__registration_type
-        #     custom_company_registration = (
-        #         cost_center_doc.custom_zatca__registration_number
-        #     )
-        # else:
-        #     custom_registration_type = company_doc.custom_registration_type
-        #     custom_company_registration = company_doc.custom_company_registration
+        config = get_zatca_config(frappe.get_doc("Company", sales_invoice_doc.company))
+        company_reg = config["compliance_csr"].registration_number
+       
         custom_registration_type = "CRN"
-        custom_company_registration = "399999999900003"
+        custom_company_registration = company_reg
         cac_accountingsupplierparty = ET.SubElement(
             invoice, "cac:AccountingSupplierParty"
         )
@@ -563,7 +537,6 @@ def customer_data(invoice, sales_invoice_doc):
     try:
         
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
-        # frappe.throw(str(customer_doc))
         cac_accountingcustomerparty = ET.SubElement(
             invoice, "cac:AccountingCustomerParty"
         )

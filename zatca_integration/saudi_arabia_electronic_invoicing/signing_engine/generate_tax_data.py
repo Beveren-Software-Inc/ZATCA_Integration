@@ -138,7 +138,7 @@ def tax_data(invoice, sales_invoice_doc):
 
         tax_inclusive = ET.SubElement(legal_total, "cbc:TaxInclusiveAmount")
         tax_inclusive.set("currencyID", sales_invoice_doc.currency)
-        tax_inclusive.text = str(round(taxable_amount + tax_amount, 2))
+        tax_inclusive.text = str(abs(round(taxable_amount + tax_amount, 2)))
 
         allowance = ET.SubElement(legal_total, "cbc:AllowanceTotalAmount")
         allowance.set("currencyID", sales_invoice_doc.currency)
@@ -163,7 +163,7 @@ def tax_data(invoice, sales_invoice_doc):
 
         payable = ET.SubElement(legal_total, "cbc:PayableAmount")
         payable.set("currencyID", sales_invoice_doc.currency)
-        payable.text = str(round(total_amount, 2))
+        payable.text = str(abs(round(total_amount, 2)))
 
         return invoice
 
@@ -246,7 +246,7 @@ def tax_data_with_template(invoice, sales_invoice_doc):
 
         tax_inclusive = ET.SubElement(legal_total, "cbc:TaxInclusiveAmount")
         tax_inclusive.set("currencyID", sales_invoice_doc.currency)
-        tax_inclusive.text = str((taxable_amount + tax_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        tax_inclusive.text = str(abs(taxable_amount + tax_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
         allowance = ET.SubElement(legal_total, "cbc:AllowanceTotalAmount")
         allowance.set("currencyID", sales_invoice_doc.currency)
@@ -258,7 +258,7 @@ def tax_data_with_template(invoice, sales_invoice_doc):
         # PayableAmount
         payable = ET.SubElement(legal_total, "cbc:PayableAmount")
         payable.set("currencyID", sales_invoice_doc.currency)
-        payable.text = str(total_amount.quantize(Decimal("0.01")))
+        payable.text = str(abs(total_amount.quantize(Decimal("0.01"))))
 
         return invoice
 

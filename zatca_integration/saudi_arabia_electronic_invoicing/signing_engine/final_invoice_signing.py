@@ -17,7 +17,6 @@ from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate
     invoice_typecode_simplified,
     invoice_typecode_standard,
 )
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_address
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_tax_data import tax_data, tax_data_with_template
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_final_xml import (
     item_data,
@@ -146,7 +145,7 @@ def process_invoice_for_zatca_submission(
         else:
             invoice = invoice_typecode_compliance(invoice, compliance_type)
         
-        invoice = doc_reference(invoice, sales_invoice_doc, invoice_number)
+        invoice = doc_reference(invoice, sales_invoice_doc)
         invoice = additional_reference(invoice, sales_invoice_doc)
         invoice = company_data(invoice, sales_invoice_doc)
         invoice = customer_data(invoice, sales_invoice_doc)
@@ -179,7 +178,7 @@ def process_invoice_for_zatca_submission(
         
         try:
             with open(
-                frappe.local.site + "/private/files/finalzatcaxml.xml",
+                frappe.local.site + "/private/files/zatca_invoice_final.xml",
                 "r",
                 encoding="utf-8",
             ) as file:
