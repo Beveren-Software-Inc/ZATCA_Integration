@@ -153,10 +153,10 @@ def process_invoice_for_zatca_submission(
             invoice, sales_invoice_doc, sales_invoice_doc.is_return
         )
 
-        if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
-            invoice = add_nominal_discount_tax(invoice, sales_invoice_doc)
+        # if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
+        #     invoice = add_nominal_discount_tax(invoice, sales_invoice_doc)
 
-        elif not any_item_has_tax_template:
+        if not any_item_has_tax_template:
             invoice = add_document_level_discount_with_tax(invoice, sales_invoice_doc)
         else:
             # Add document-level discount with tax template
