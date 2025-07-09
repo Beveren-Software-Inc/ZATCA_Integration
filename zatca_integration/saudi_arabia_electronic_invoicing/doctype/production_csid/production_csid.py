@@ -106,7 +106,6 @@ class ProductionCSID(Document):
 			if response.status_code == 200:
 				
 				response_json = response.json()
-				# Update doc with renewed credentials
 				self.created_time = frappe.utils.now_datetime()
 				self.request_id = response_json.get("requestID", "")
 				self.disposition_message = response_json.get("dispositionMessage", "")
