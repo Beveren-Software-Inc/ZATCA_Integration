@@ -456,16 +456,16 @@ def item_data_with_template(invoice, sales_invoice_doc):
             cbc_priceamount = ET.SubElement(cac_price, "cbc:PriceAmount")
             cbc_priceamount.set("currencyID", sales_invoice_doc.currency)
 
-            if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
-                # If nominal invoice, only set cbc_PriceAmount
-                cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
-            else:
-                cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
-                cbc_basequantity = ET.SubElement(
-                    cac_price, qty, unitCode=str(single_item.uom)
-                )
-                cbc_basequantity.text = "1"
-                add_line_item_discount(cac_price, single_item, sales_invoice_doc)
+            # if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
+            #     # If nominal invoice, only set cbc_PriceAmount
+            #     cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
+            # else:
+            cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
+            cbc_basequantity = ET.SubElement(
+                cac_price, qty, unitCode=str(single_item.uom)
+            )
+            cbc_basequantity.text = "1"
+            add_line_item_discount(cac_price, single_item, sales_invoice_doc)
         return invoice
     except (ValueError, KeyError, TypeError) as e:
         frappe.throw(_(f"Error occurred in item template data processing: {str(e)}"))
@@ -554,12 +554,12 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
             cbc_priceamount = ET.SubElement(cac_price, "cbc:PriceAmount")
             cbc_priceamount.set("currencyID", sales_invoice_doc.currency)
 
-            if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
-                # If nominal invoice, only set cbc_PriceAmount
-                cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
-            else:
+            # if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
+            #     # If nominal invoice, only set cbc_PriceAmount
+            #     cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
+            # else:
                     # No discount submission to ZATCA
-                cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
+            cbc_priceamount.text = f"{abs(single_item.rate):.6f}"
               
         if (
             "claudion4saudi" in frappe.get_installed_apps()
