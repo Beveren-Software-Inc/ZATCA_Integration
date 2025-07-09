@@ -5,7 +5,7 @@ frappe.ui.form.on("Production CSID", {
     refresh: frm => {
         if(!frm.is_new()) {
             frm.trigger("genereate_zatca_production_csid");
-            test_sign_invoice(frm);
+            frm.trigger("re_generate_production_csid");
         }
     },
     genereate_zatca_production_csid: frm => {
@@ -27,18 +27,15 @@ frappe.ui.form.on("Production CSID", {
                 }
             });
         });
-    }
-});
+    },
 
-
-function test_sign_invoice(frm){
-    frm.add_custom_button('Test Sign Invoice', async function () {
-           
+    re_generate_production_csid:frm => {
+    frm.add_custom_button('Renew Production CSID', async function () {
             frappe.call({
-                method: 'zatca_integration.saudi_arabia_electronic_invoicing.sign_invoice.test_sign_invoice',
-                args:{
-                    invoice: "ACC-SINV-2025-00009"
-                },
+                method: 'renew_zatca_production_csid',
+                
+                    doc: frm.doc,
+                
                 callback(r) {
                     if (r.message) {
                         frappe.msgprint(`ZATCA XML File created: <a href="${r.message}" target="_blank">${r.message}</a>`);
@@ -49,3 +46,5 @@ function test_sign_invoice(frm){
             });
         });
     }
+
+});
