@@ -13,9 +13,9 @@ import qrcode
 from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_config, get_previous_invoice_counter, get_previous_invoice_hash
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import process_invoice_for_zatca_submission, xml_base64_decode
+import io
 
 def generate_einvoice(doc, method=None):
-    
     
     # Buyer Information
     customer = frappe.get_doc("Customer", doc.customer)
@@ -453,7 +453,6 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
     img = qr.make_image(fill_color="black", back_color="white")
 
     # Save the QR code image to a byte stream
-    import io
     img_byte_arr = io.BytesIO()
     img.save(img_byte_arr, format='PNG')
     img_byte_arr = img_byte_arr.getvalue()

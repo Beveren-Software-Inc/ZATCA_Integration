@@ -1,10 +1,6 @@
 import frappe
 import base64
 from frappe import _
-import hashlib
-from datetime import datetime
-from xml import etree 
-import lxml.etree as MyTree
 from cryptography import x509
 from cryptography.hazmat._oid import NameOID
 from cryptography.hazmat.backends import default_backend
@@ -504,21 +500,17 @@ def get_zatca_config(company):
     }
     
 def get_previous_invoice_counter(production_csid):
-    # Get the latest Zatca Transaction for the given production_csid based on transaction_time
     latest_transaction = frappe.get_all('Zatca Transactions', 
                                         filters={'production_csid': production_csid}, 
                                         fields=['invoice_icv'], 
                                         order_by='transaction_time desc', 
                                         limit_page_length=1)
     if latest_transaction:
-        # Return the invoice_icv of the latest transaction
         return latest_transaction[0].invoice_icv
     else:
-        # Return 0 if there are no Zatca Transactions
         return 0
     
 def get_previous_invoice_hash(production_csid):
-    # Get the latest Zatca Transaction for the given production_csid based on transaction_time
     latest_transaction = frappe.get_all('Zatca Transactions', 
                                         filters={'production_csid': production_csid}, 
                                         fields=['invoice_hash','name'], 
@@ -526,7 +518,6 @@ def get_previous_invoice_hash(production_csid):
                                         limit_page_length=1)
     if latest_transaction:
         # Return the invoice_hash of the latest transaction
-        # frappe.throw(str(latest_transaction[0].name))
         return latest_transaction[0].invoice_hash
     else:
         # Return default hash if there are no Zatca Transactions
