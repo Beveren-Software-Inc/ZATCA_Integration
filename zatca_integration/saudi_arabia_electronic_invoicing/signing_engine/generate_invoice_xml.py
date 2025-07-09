@@ -7,8 +7,7 @@ from frappe import _
 import frappe
 from frappe.utils.data import get_time
 from types import SimpleNamespace
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_config, get_previous_invoice_hash, get_previous_invoice_counter
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_address
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_config, get_previous_invoice_hash, get_previous_invoice_counter,get_address, get_zatca_tax_category_details
 
 
 CBC_ID = "cbc:ID"
@@ -743,17 +742,8 @@ def add_document_level_discount_with_tax(invoice, sales_invoice_doc):
 
         cac_tax_category = ET.SubElement(cac_allowance_charge, "cac:TaxCategory")
         cbc_id = ET.SubElement(cac_tax_category, CBC_ID)
-        if sales_invoice_doc.custom_zatca_tax_category == "Standard":
-            cbc_id.text = "S"
-        elif sales_invoice_doc.custom_zatca_tax_category == "Zero Rated":
-            cbc_id.text = "Z"
-        elif sales_invoice_doc.custom_zatca_tax_category == "Exempted":
-            cbc_id.text = "E"
-        elif (
-            sales_invoice_doc.custom_zatca_tax_category
-            == "Services outside scope of tax / Not subject to VAT"
-        ):
-            cbc_id.text = "O"
+        tax_details = get_zatca_tax_category_details(sales_invoice_doc)
+        cbc_id.text = tax_details["code"]
 
         cbc_percent = ET.SubElement(cac_tax_category, "cbc:Percent")
         cbc_percent.text = f"{float(sales_invoice_doc.taxes[0].rate):.2f}"
@@ -822,7 +812,7 @@ def add_document_level_discount_with_tax_template(invoice, sales_invoice_doc):
             item_tax_template_doc = frappe.get_doc(
                 "Item Tax Template", item.item_tax_template
             )
-            vat_category_code = item_tax_template_doc.custom_zatca_tax_category
+            # vat_category_code = item_tax_template_doc.custom_zatca_tax_category
             tax_percentage = (
                 item_tax_template_doc.taxes[0].tax_rate
                 if item_tax_template_doc.taxes
@@ -830,21 +820,15 @@ def add_document_level_discount_with_tax_template(invoice, sales_invoice_doc):
             )
             break  # Assuming that all items will have the same tax category and percentage
 
-        if vat_category_code == "Standard":
-            cbc_id.text = "S"
-        elif vat_category_code == "Zero Rated":
-            cbc_id.text = "Z"
-        elif vat_category_code == "Exempted":
-            cbc_id.text = "E"
-        elif vat_category_code == "Services outside scope of tax / Not subject to VAT":
-            cbc_id.text = "O"
-        else:
-            frappe.throw(
-                "Invalid or missing ZATCA VAT category in the Item Tax Template " 
-                "linked to Sales Invoice Item. Ensure each Item Tax Template " 
-                "includes one of the following categories: "
-                "'Standard', 'Zero Rated', 'Exempted', or 'Services outside scope of tax / Not subject to VAT'."
-            )
+        tax_details = get_zatca_tax_category_details(sales_invoice_doc)
+        cbc_id.text = tax_details["code"]
+        # else:
+        #     frappe.throw(
+        #         "Invalid or missing ZATCA VAT category in the Item Tax Template " 
+        #         "linked to Sales Invoice Item. Ensure each Item Tax Template " 
+        #         "includes one of the following categories: "
+        #         "'Standard', 'Zero Rated', 'Exempted', or 'Services outside scope of tax / Not subject to VAT'."
+        #     )
 
         cbc_percent = ET.SubElement(cac_tax_category, "cbc:Percent")
         cbc_percent.text = f"{tax_percentage:.2f}"

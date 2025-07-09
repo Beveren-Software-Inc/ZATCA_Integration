@@ -435,15 +435,9 @@ def item_data_with_template(invoice, sales_invoice_doc):
                 cac_item, "cac:ClassifiedTaxCategory"
             )
             cbc_id_11 = ET.SubElement(cac_classifiedtaxcategory, "cbc:ID")
-            zatca_tax_category = item_tax_template.custom_zatca_tax_category
-            if zatca_tax_category == "Standard":
-                cbc_id_11.text = "S"
-            elif zatca_tax_category == ZERO_RATED:
-                cbc_id_11.text = "Z"
-            elif zatca_tax_category == "Exempted":
-                cbc_id_11.text = "E"
-            elif zatca_tax_category == OUTSIDE_SCOPE:
-                cbc_id_11.text = "O"
+            tax_details = get_zatca_tax_category_details(sales_invoice_doc)
+            cbc_id_11.text = tax_details["code"]
+
 
             cbc_percent_2 = ET.SubElement(cac_classifiedtaxcategory, "cbc:Percent")
             cbc_percent_2.text = f"{float(item_tax_percentage):.2f}"
@@ -533,15 +527,8 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
                 cac_item, "cac:ClassifiedTaxCategory"
             )
             cbc_id_11 = ET.SubElement(cac_classifiedtaxcategory, "cbc:ID")
-            zatca_tax_category = item_tax_template.custom_zatca_tax_category
-            if zatca_tax_category == "Standard":
-                cbc_id_11.text = "S"
-            elif zatca_tax_category == ZERO_RATED:
-                cbc_id_11.text = "Z"
-            elif zatca_tax_category == "Exempted":
-                cbc_id_11.text = "E"
-            elif zatca_tax_category == OUTSIDE_SCOPE:
-                cbc_id_11.text = "O"
+            tax_details = get_zatca_tax_category_details(sales_invoice_doc)
+            cbc_id_11.text = tax_details["code"]
 
             cbc_percent_2 = ET.SubElement(cac_classifiedtaxcategory, "cbc:Percent")
             cbc_percent_2.text = f"{float(item_tax_percentage):.2f}"
@@ -644,15 +631,8 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
                     )
 
                     tax_cat = ET.SubElement(subtotal, "cac:TaxCategory")
-                    zatca_tax_category = item_tax_template.custom_zatca_tax_category
-                    if zatca_tax_category == "Standard":
-                        cbc_id_12.text = "S"
-                    elif zatca_tax_category == ZERO_RATED:
-                        cbc_id_12.text = "Z"
-                    elif zatca_tax_category == "Exempted":
-                        cbc_id_12.text = "E"
-                    elif zatca_tax_category == OUTSIDE_SCOPE:
-                        cbc_id_12.text = "O"
+                    tax_details = get_zatca_tax_category_details(sales_invoice_doc)
+                    cbc_id_11.text = tax_details["code"]
                     ET.SubElement(tax_cat, "cbc:ID").text = cbc_id_12.text
                     ET.SubElement(tax_cat, "cbc:Percent").text = (
                         f"{float(item_tax_percentage):.2f}"
