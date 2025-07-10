@@ -1,7 +1,6 @@
 import frappe
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_or_create_scheduled_job, delete_scheduled_job
 from zatca_integration.clearence_util import generate_einvoice
-import frappe
 
 from frappe.utils import now_datetime, add_to_date, add_days
 
