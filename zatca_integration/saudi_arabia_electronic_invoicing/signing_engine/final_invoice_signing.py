@@ -10,18 +10,16 @@ from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate
     company_data,
     customer_data,
     invoice_typecode_compliance,
-    add_nominal_discount_tax,
     doc_reference,
     additional_reference,
     delivery_and_payment_means,
     invoice_typecode_simplified,
     invoice_typecode_standard,
 )
-from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_tax_data import tax_data, tax_data_with_template
+from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_tax_data import build_zatca_tax_section
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.generate_final_xml import (
     item_data,
-    item_data_with_template,
-    xml_structuring,
+    save_formatted_zatca_xml,
 )
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.initial_invoice_signing import (
     removetags,
@@ -165,16 +163,12 @@ def process_invoice_for_zatca_submission(
             )
 
         if not any_item_has_tax_template:
-            invoice = tax_data(invoice, sales_invoice_doc)
-        else:
-            invoice = tax_data_with_template(invoice, sales_invoice_doc)
-      
+            invoice = build_zatca_tax_section(invoice, sales_invoice_doc)
+    
         if not any_item_has_tax_template:
             invoice = item_data(invoice, sales_invoice_doc)
-        else:
-            invoice = item_data_with_template(invoice, sales_invoice_doc)
-
-        xml_structuring(invoice)
+   
+        save_formatted_zatca_xml(invoice)
         
         try:
             with open(
