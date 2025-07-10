@@ -108,3 +108,19 @@ def get_emails_for_roles(roles):
             if user_email:
                 emails.add(user_email)
     return list(emails)
+
+
+def prod_csid_auto_renew():
+    companies = frappe.get_all("Company", filters={"custom_enable_zatca_e_invoicing":1}, fields=["name"])
+    
+    results = []
+    for company in companies:
+        try:
+            company_doc = frappe.get_doc("Company", company.name)
+            prod_csid = frappe.get_doc("Production CSID", company_doc.custom_production_csid)
+            result = prod_csid.renew_zatca_production_csid()
+            results.append((company.name, "Success", result))
+        except Exception as e:
+            results.append((company.name, "Failed", str(e)))
+
+    return results

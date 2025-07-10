@@ -15,6 +15,7 @@ from frappe import _
 import numpy as np
 from frappe.utils import get_site_path
 import uuid
+from typing import Optional
 
 @frappe.whitelist()
 def generate_private_keys(doc_name):
@@ -522,3 +523,23 @@ def get_previous_invoice_hash(production_csid):
     else:
         # Return default hash if there are no Zatca Transactions
         return "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
+
+def get_or_create_scheduled_job(
+            method_name: str, frequency: str, cron_format: Optional[str] = None
+        ) -> None:
+            task: Optional[str] = frappe.db.exists(
+                "Scheduled Job Type", {"method": ["like", f"%{method_name}%"]}
+            )
+
+            if task:
+                task = frappe.get_doc("Scheduled Job Type", task)
+            else:
+                task = frappe.new_doc("Scheduled Job Type")
+                task.method = method_name
+
+            task.frequency = frequency
+
+            if frequency == "Cron" and cron_format:
+                task.cron_format = cron_format
+
+            task.save(ignore_permissions=True)
