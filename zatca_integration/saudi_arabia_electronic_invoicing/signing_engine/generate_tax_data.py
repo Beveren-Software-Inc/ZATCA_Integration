@@ -11,7 +11,7 @@ def extract_tax_details_for_item(full_string, item):
     """
     Extracts the tax amount and tax percentage for a specific item from a JSON-encoded string.
     """
-    try:  # getting tax percentage and tax amount
+    try: 
         data = json.loads(full_string)
         tax_percentage = data.get(item, [0, 0])[0]
         tax_amount = data.get(item, [0, 0])[1]
