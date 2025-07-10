@@ -153,7 +153,6 @@ def get_cert_pem(compliance_csid):
   
 	
 def handle_error(response):
-
         error_data = response.json()
         error_code = error_data.get("code", "").replace("-", " ").title()
         error_message = error_data.get("message", "")

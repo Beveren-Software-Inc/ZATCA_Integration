@@ -72,8 +72,16 @@ fixtures = [
         "Customer",
         "Sales Invoice",
         "Purchase Taxes and Charges Template",
-        "Sales Taxes and Charges Template"
-    ]]]},
+        "Sales Taxes and Charges Template",
+        "Company-custom_production_csid_cron_format",
+        "Company-custom_auto_renewal_frequency",
+        "Company-custom_allow_auto_renewal_production_csid",
+        "Company-custom_column_break_6cz34",
+        "Company-custom_b2c_cron_format",
+        "Company-custom_sales_information_submission_frequency",
+        "Company-custom_b2c_auto_sales_submission_enabled",
+        "Company-custom_submission_frequency_settings"
+]]]},
     # Property Setters
     {"doctype": "Property Setter", "filters": [["doc_type", "in", [
         "Address",
@@ -194,6 +202,9 @@ doc_events = {
         ]
 	},
     "POS Invoice": {"on_submit": ["zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code"]},
+    "Company":{
+        "on_update":"zatca_integration.saudi_arabia_electronic_invoicing.background_task.on_update"
+    }
 }
 
 # doc_events = {
