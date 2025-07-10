@@ -26,6 +26,7 @@ def is_zatca_compliance_ready(company_name):
 
 
 def send_multiple_signed_compliance_invoices_to_zatca():
+    
     """
     Automatically send all signed B2C invoices (not yet reported) to ZATCA compliance API.
     """
@@ -39,6 +40,7 @@ def send_multiple_signed_compliance_invoices_to_zatca():
 
     for company in companies:
         is_zatca_compliance_ready(company.name)
+        
         # Only include invoices posted in the last 24 hours
         cutoff_time = add_to_date(now_datetime(), hours=-24)
 
@@ -52,8 +54,9 @@ def send_multiple_signed_compliance_invoices_to_zatca():
             },
             fields=["name"]
         )
-
+       
         for invoice_data in invoices:
+            
             try:
                 invoice = frappe.get_doc("Sales Invoice", invoice_data.name)
                 generate_einvoice(invoice)
@@ -108,3 +111,19 @@ def get_emails_for_roles(roles):
             if user_email:
                 emails.add(user_email)
     return list(emails)
+
+
+def prod_csid_auto_renew():
+    companies = frappe.get_all("Company", filters={"custom_enable_zatca_e_invoicing":1}, fields=["name"])
+    
+    results = []
+    for company in companies:
+        try:
+            company_doc = frappe.get_doc("Company", company.name)
+            prod_csid = frappe.get_doc("Production CSID", company_doc.custom_production_csid)
+            result = prod_csid.renew_zatca_production_csid()
+            results.append((company.name, "Success", result))
+        except Exception as e:
+            results.append((company.name, "Failed", str(e)))
+
+    return results

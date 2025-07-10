@@ -7,6 +7,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.bindings._rust import ObjectIdentifier
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
+from datetime import datetime, date, timedelta, time
+
 import asn1
 import qrcode
 import base64
@@ -15,6 +17,7 @@ from frappe import _
 import numpy as np
 from frappe.utils import get_site_path
 import uuid
+from typing import Optional
 
 @frappe.whitelist()
 def generate_private_keys(doc_name):
@@ -522,3 +525,42 @@ def get_previous_invoice_hash(production_csid):
     else:
         # Return default hash if there are no Zatca Transactions
         return "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
+
+def get_or_create_scheduled_job(
+            method_name: str, frequency: str, cron_format: Optional[str] = None
+        ) -> None:
+            task: Optional[str] = frappe.db.exists(
+                "Scheduled Job Type", {"method": ["like", f"%{method_name}%"]}
+            )
+
+            if task:
+                task = frappe.get_doc("Scheduled Job Type", task)
+            else:
+                task = frappe.new_doc("Scheduled Job Type")
+                task.method = method_name
+
+            task.frequency = frequency
+
+            if frequency == "Cron" and cron_format:
+                task.cron_format = cron_format
+
+            task.save(ignore_permissions=True)
+            
+def time_formatter(posting_time):
+    if isinstance(posting_time, str):
+        try:
+            invoice_time = datetime.strptime(posting_time, "%H:%M:%S.%f").strftime("%H:%M:%S")
+        except ValueError:
+            invoice_time = datetime.strptime(posting_time, "%H:%M:%S").strftime("%H:%M:%S")
+    elif hasattr(posting_time, 'strftime'):  # Check if it's a time-like object
+        invoice_time = posting_time.strftime("%H:%M:%S")
+    elif isinstance(posting_time, timedelta):
+        total_seconds = int(posting_time.total_seconds())
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        invoice_time = f"{hours:02}:{minutes:02}:{seconds:02}"
+    else:
+        frappe.throw(f"Unsupported type for posting_time: {type(posting_time)}")
+        
+    return invoice_time

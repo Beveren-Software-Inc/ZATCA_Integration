@@ -92,7 +92,7 @@ class ProductionCSID(Document):
 		zatca_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
 		zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
 		otp = compliance_csid.otp
-  
+		
 		data = json.dumps({"csr": f"{get_cert_pem(compliance_csid)}"})
 
 		try:
@@ -165,3 +165,6 @@ def handle_error(response):
             indicator="red"
         )
     
+
+        
+        

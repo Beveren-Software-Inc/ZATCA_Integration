@@ -5,8 +5,11 @@ import frappe
 import requests
 from frappe.model.document import Document
 import uuid
-
-
+from typing import Optional
+from zatca_integration.saudi_arabia_electronic_invoicing.background_task import (
+    send_multiple_signed_compliance_invoices_to_zatca, prod_csid_auto_renew
+)
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_or_create_scheduled_job
 class ZatcaCSRSettings(Document):
 	def before_save(self):
 		if not self.csrserialnumber:
@@ -52,8 +55,7 @@ class ZatcaCSRSettings(Document):
 			'location': self.csrlocationaddress,
 			'industry': self.csrindustrybusinesscategory,
 		}
-		# frappe.throw(str(data))
-		# Make the POST request
+	
 		response = requests.post(url, headers=headers, json=data)
 		
 		try:
@@ -71,7 +73,33 @@ class ZatcaCSRSettings(Document):
 			self.created_time = frappe.utils.now_datetime()
 			self.save()
 		else:
-			# Raise an exception
-			# error_message = response.json
 			frappe.throw(f"Error in generating CSR: {response.text}")
+	def on_update(self):
+		on_update_create_schedulers(self)
 
+            
+def on_update_create_schedulers(doc):
+    if doc.b2c_auto_sales_submission_enabled:
+        get_or_create_scheduled_job(
+			f"{send_multiple_signed_compliance_invoices_to_zatca.__module__}.{send_multiple_signed_compliance_invoices_to_zatca.__name__}",
+			doc.sales_information_submission_frequency, 
+			(
+				doc.sales_info_cron_format
+			if doc.sales_information_submission_frequency == "Cron"
+			else None
+			),
+
+		)
+        
+    if doc.allow_auto_renewal_production_csid:
+        get_or_create_scheduled_job(
+			f"{prod_csid_auto_renew.__module__}.{prod_csid_auto_renew.__name__}",
+			doc.auto_renewal_frequency, 
+			(
+				doc.production_csid_cron_format
+			if doc.auto_renewal_frequency == "Cron"
+			else None
+			),
+
+		)
+        

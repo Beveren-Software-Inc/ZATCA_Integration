@@ -44,7 +44,15 @@
   "column_break_pyrl",
   "private_key",
   "private_key_pem_format",
-  "created_time"
+  "created_time",
+  "submission_frequency_settings_tab",
+  "b2c_auto_sales_submission_enabled",
+  "sales_information_submission_frequency",
+  "b2c_cron_format",
+  "column_break_ffkv",
+  "allow_auto_renewal_production_csid",
+  "auto_renewal_frequency",
+  "production_csid_cron_format"
  ],
  "fields": [
   {
@@ -281,8 +289,56 @@
    "fieldname": "zatca_phase_section",
    "fieldtype": "Section Break",
    "label": "ZATCA Phase"
+  },
+  {
+   "fieldname": "submission_frequency_settings_tab",
+   "fieldtype": "Tab Break",
+   "label": "Submission Frequency Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "b2c_auto_sales_submission_enabled",
+   "fieldtype": "Check",
+   "label": "B2C Auto Sales Submission Enabled"
+  },
+  {
+   "depends_on": "eval:doc.b2c_auto_sales_submission_enabled==1",
+   "fieldname": "sales_information_submission_frequency",
+   "fieldtype": "Select",
+   "label": "Sales Information Submission Frequency",
+   "options": "\nAll\nHourly\nDaily\nWeekly\nMonthly\nYearly\nAnnual\nCron"
+  },
+  {
+   "depends_on": "eval:doc.b2c_auto_sales_submission_enabled ==1 && doc.sales_information_submission_frequency == \"Cron\"",
+   "fieldname": "b2c_cron_format",
+   "fieldtype": "Data",
+   "label": "B2C Cron Format"
+  },
+  {
+   "fieldname": "column_break_ffkv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_auto_renewal_production_csid",
+   "fieldtype": "Check",
+   "label": "Allow Auto Renewal Production CSID"
+  },
+  {
+   "depends_on": "eval: doc.allow_auto_renewal_production_csid==1",
+   "fieldname": "auto_renewal_frequency",
+   "fieldtype": "Select",
+   "label": "Auto Renewal Frequency",
+   "options": "\nAll\nHourly\nDaily\nWeekly\nMonthly\nYearly\nAnnual\nCron"
+  },
+  {
+   "depends_on": "eval:doc.allow_auto_renewal_production_csid==1 && doc.auto_renewal_frequency==\"Cron\"",
+   "fieldname": "production_csid_cron_format",
+   "fieldtype": "Data",
+   "label": "Production CSID Cron Format"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [
   {
@@ -290,7 +346,7 @@
    "link_fieldname": "csr_settings"
   }
  ],
- "modified": "2024-10-08 22:03:21.436122",
+ "modified": "2025-07-10 08:57:53.648773",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca CSR Settings",
@@ -308,6 +364,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
