@@ -7,6 +7,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.bindings._rust import ObjectIdentifier
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
+from datetime import datetime, date, timedelta, time
+
 import asn1
 import qrcode
 import base64
@@ -543,3 +545,22 @@ def get_or_create_scheduled_job(
                 task.cron_format = cron_format
 
             task.save(ignore_permissions=True)
+            
+def time_formatter(posting_time):
+    if isinstance(posting_time, str):
+        try:
+            invoice_time = datetime.strptime(posting_time, "%H:%M:%S.%f").strftime("%H:%M:%S")
+        except ValueError:
+            invoice_time = datetime.strptime(posting_time, "%H:%M:%S").strftime("%H:%M:%S")
+    elif hasattr(posting_time, 'strftime'):  # Check if it's a time-like object
+        invoice_time = posting_time.strftime("%H:%M:%S")
+    elif isinstance(posting_time, timedelta):
+        total_seconds = int(posting_time.total_seconds())
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        invoice_time = f"{hours:02}:{minutes:02}:{seconds:02}"
+    else:
+        frappe.throw(f"Unsupported type for posting_time: {type(posting_time)}")
+        
+    return invoice_time

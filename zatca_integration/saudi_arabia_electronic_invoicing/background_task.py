@@ -26,6 +26,7 @@ def is_zatca_compliance_ready(company_name):
 
 
 def send_multiple_signed_compliance_invoices_to_zatca():
+    
     """
     Automatically send all signed B2C invoices (not yet reported) to ZATCA compliance API.
     """
@@ -39,6 +40,7 @@ def send_multiple_signed_compliance_invoices_to_zatca():
 
     for company in companies:
         is_zatca_compliance_ready(company.name)
+        
         # Only include invoices posted in the last 24 hours
         cutoff_time = add_to_date(now_datetime(), hours=-24)
 
@@ -52,8 +54,9 @@ def send_multiple_signed_compliance_invoices_to_zatca():
             },
             fields=["name"]
         )
-
+       
         for invoice_data in invoices:
+            
             try:
                 invoice = frappe.get_doc("Sales Invoice", invoice_data.name)
                 generate_einvoice(invoice)

@@ -1,17 +1,19 @@
 
 import json
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
+
 from dateutil.parser import parse
 import uuid
 import frappe
-import time
+import time as time_module
 import requests
 import base64
 from requests.auth import HTTPBasicAuth
 from lxml import etree
 import qrcode
 from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_config, get_previous_invoice_counter, get_previous_invoice_hash
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
+    get_zatca_config, get_previous_invoice_counter, get_previous_invoice_hash, time_formatter)
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import process_invoice_for_zatca_submission, xml_base64_decode
 import io
 
@@ -22,9 +24,9 @@ def generate_einvoice(doc, method=None):
     customer_type = customer.customer_type
     compliance_type = get_compliance_type(doc, customer_type)
     
-    backend_start_time = time.time()
+    backend_start_time = time_module.time()
     signed_xmlfile_name, uuid1, encoded_hash = process_invoice_for_zatca_submission(doc.name, compliance_type=compliance_type,any_item_has_tax_template=False)
-    backend_end_time = time.time()
+    backend_end_time = time_module.time()
     backend_time_taken = backend_end_time - backend_start_time
     
     payload = {
@@ -73,7 +75,7 @@ def _submit_reporting_request(config, payload, doc):
     _save_invoice_xml(doc, invoice_xml)
     _save_qr_code(doc, invoice_xml)
     
-    start_time = time.time()
+    start_time = time_module.time()
     
     try:
         response = requests.post(
@@ -86,7 +88,7 @@ def _submit_reporting_request(config, payload, doc):
             json=payload
         )
         
-        end_time = time.time()
+        end_time = time_module.time()
         return response, {'duration': end_time - start_time}
         
     except requests.exceptions.RequestException as e:
@@ -95,7 +97,7 @@ def _submit_reporting_request(config, payload, doc):
 
 def _submit_clearance_request(config, payload):
     """Submit clearance request for Company customers."""
-    start_time = time.time()
+    start_time = time_module.time()
     
     try:
         response = requests.post(
@@ -108,26 +110,33 @@ def _submit_clearance_request(config, payload):
             json=payload
         )
         
-        end_time = time.time()
+        end_time = time_module.time()
         return response, {'duration': end_time - start_time}
         
     except requests.exceptions.RequestException as e:
         frappe.throw(f"Error Clearing Invoice: {str(e)}")
         
         
-def validate_invoice_dates(doc,company,customer_type):
-    invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
-        
+def validate_invoice_dates(doc, company, customer_type):
+    if isinstance(doc.posting_date, date):
+        invoice_date = doc.posting_date.strftime("%Y-%m-%d")
+    elif isinstance(doc.posting_date, str):
+        invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
+    else:
+        frappe.throw("Invalid format for posting_date. Must be a string or date object.")
+
     # Set and Validate Delivery Date
     if isinstance(doc.custom_delivery_date, date):
         delivery_date = doc.custom_delivery_date.strftime("%Y-%m-%d")
     elif isinstance(doc.custom_delivery_date, str):
         delivery_date = datetime.strptime(doc.custom_delivery_date, "%Y-%m-%d").strftime("%Y-%m-%d")
-    
+    else:
+        frappe.throw("Invalid format for custom_delivery_date. Must be a string or date object.")
+
     # Validate Invoice Date and Delivery Date for ZATCA Compliance
     if company.custom_enforce_date_validation == 1:
         validate_delivery_date(delivery_date, invoice_date, customer_type)
-        
+
         
         
 def _save_transaction(doc, invoice_data,response, payload, backend_time_taken, zatca_time_taken, config):
@@ -246,7 +255,6 @@ def _get_cleared_invoice_xml(response_json, invoice_request, customer_type):
     else:
         frappe.throw("Customer Type is not Supported")
 
-
 def _prepare_invoice_data(doc, config):
     """Prepare invoice data for submission"""
     customer = frappe.get_doc("Customer", doc.customer)
@@ -271,9 +279,16 @@ def _prepare_invoice_data(doc, config):
     previous_invoice_hash = get_previous_invoice_hash(config['production_csid'].name)
     
     # Set dates
-    invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
-    invoice_time = parse(doc.posting_time).time().strftime("%H:%M:%S")
-    
+    if isinstance(doc.posting_date, date):
+        invoice_date = doc.posting_date.strftime("%Y-%m-%d")
+    elif isinstance(doc.posting_date, str):
+        invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
+    # else:
+    #     frappe.thr
+    # invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
+  
+    invoice_time = time_formatter(doc.posting_time)
+  
     # Handle delivery date
     delivery_date = _format_delivery_date(doc.custom_delivery_date)
     
@@ -300,7 +315,6 @@ def _prepare_invoice_data(doc, config):
         'currency_info': currency_info,
         
     }
-
     
 def _format_delivery_date(delivery_date):
     """Format delivery date to string"""
