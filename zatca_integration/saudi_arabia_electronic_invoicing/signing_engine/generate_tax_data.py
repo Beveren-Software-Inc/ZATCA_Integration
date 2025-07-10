@@ -138,28 +138,28 @@ def tax_data(invoice, sales_invoice_doc):
 
         tax_inclusive = ET.SubElement(legal_total, "cbc:TaxInclusiveAmount")
         tax_inclusive.set("currencyID", sales_invoice_doc.currency)
-        tax_inclusive.text = str(abs(round(taxable_amount + tax_amount, 2)))
+        tax_inclusive.text = str(abs(round(abs(taxable_amount) + abs(tax_amount), 2)))
 
         allowance = ET.SubElement(legal_total, "cbc:AllowanceTotalAmount")
         allowance.set("currencyID", sales_invoice_doc.currency)
         allowance.text = str(abs(sales_invoice_doc.get("discount_amount", 0.0)))
 
-        total_amount = taxable_amount + tax_amount
+        total_amount = abs(taxable_amount) + abs(tax_amount)
 
         # Advance Adjustment
-        if (
-            "claudion4saudi" in frappe.get_installed_apps()
-            and hasattr(sales_invoice_doc, "custom_advances_copy")
-            and sales_invoice_doc.custom_advances_copy
-            and sales_invoice_doc.custom_advances_copy[0].reference_name
-        ):
-            advance_amount = sum(
-                advance.advance_amount for advance in sales_invoice_doc.custom_advances_copy
-            )
-            prepaid = ET.SubElement(legal_total, "cbc:PrepaidAmount")
-            prepaid.set("currencyID", sales_invoice_doc.currency)
-            prepaid.text = str(advance_amount)
-            total_amount -= advance_amount
+        # if (
+        #     "claudion4saudi" in frappe.get_installed_apps()
+        #     and hasattr(sales_invoice_doc, "custom_advances_copy")
+        #     and sales_invoice_doc.custom_advances_copy
+        #     and sales_invoice_doc.custom_advances_copy[0].reference_name
+        # ):
+        #     advance_amount = sum(
+        #         advance.advance_amount for advance in sales_invoice_doc.custom_advances_copy
+        #     )
+        #     prepaid = ET.SubElement(legal_total, "cbc:PrepaidAmount")
+        #     prepaid.set("currencyID", sales_invoice_doc.currency)
+        #     prepaid.text = str(advance_amount)
+        #     total_amount -= advance_amount
 
         payable = ET.SubElement(legal_total, "cbc:PayableAmount")
         payable.set("currencyID", sales_invoice_doc.currency)
@@ -246,7 +246,7 @@ def tax_data_with_template(invoice, sales_invoice_doc):
 
         tax_inclusive = ET.SubElement(legal_total, "cbc:TaxInclusiveAmount")
         tax_inclusive.set("currencyID", sales_invoice_doc.currency)
-        tax_inclusive.text = str(abs(taxable_amount + tax_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        tax_inclusive.text = str(abs(abs(taxable_amount) + abs(tax_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
         allowance = ET.SubElement(legal_total, "cbc:AllowanceTotalAmount")
         allowance.set("currencyID", sales_invoice_doc.currency)
