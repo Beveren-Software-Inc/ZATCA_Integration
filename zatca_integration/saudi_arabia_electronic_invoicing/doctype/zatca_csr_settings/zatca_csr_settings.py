@@ -74,32 +74,6 @@ class ZatcaCSRSettings(Document):
 			self.save()
 		else:
 			frappe.throw(f"Error in generating CSR: {response.text}")
-	def on_update(self):
-		on_update_create_schedulers(self)
+	# def on_update(self):
+	# 	on_update_create_schedulers(self)
 
-            
-def on_update_create_schedulers(doc):
-    if doc.b2c_auto_sales_submission_enabled:
-        get_or_create_scheduled_job(
-			f"{send_multiple_signed_compliance_invoices_to_zatca.__module__}.{send_multiple_signed_compliance_invoices_to_zatca.__name__}",
-			doc.sales_information_submission_frequency, 
-			(
-				doc.sales_info_cron_format
-			if doc.sales_information_submission_frequency == "Cron"
-			else None
-			),
-
-		)
-        
-    if doc.allow_auto_renewal_production_csid:
-        get_or_create_scheduled_job(
-			f"{prod_csid_auto_renew.__module__}.{prod_csid_auto_renew.__name__}",
-			doc.auto_renewal_frequency, 
-			(
-				doc.production_csid_cron_format
-			if doc.auto_renewal_frequency == "Cron"
-			else None
-			),
-
-		)
-        

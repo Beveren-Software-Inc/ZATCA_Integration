@@ -529,6 +529,7 @@ def get_previous_invoice_hash(production_csid):
 def get_or_create_scheduled_job(
             method_name: str, frequency: str, cron_format: Optional[str] = None
         ) -> None:
+            
             task: Optional[str] = frappe.db.exists(
                 "Scheduled Job Type", {"method": ["like", f"%{method_name}%"]}
             )
@@ -545,7 +546,14 @@ def get_or_create_scheduled_job(
                 task.cron_format = cron_format
 
             task.save(ignore_permissions=True)
-            
+
+def delete_scheduled_job(method_name: str) -> None:
+    """Delete the Scheduled Job Type for the given method if it exists."""
+    job_name = frappe.db.exists("Scheduled Job Type", {"method": ["like", f"%{method_name}%"]})
+    if job_name:
+        frappe.delete_doc("Scheduled Job Type", job_name, ignore_permissions=True)
+
+
 def time_formatter(posting_time):
     if isinstance(posting_time, str):
         try:

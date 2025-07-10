@@ -1,10 +1,9 @@
 import frappe
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_api_url
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_or_create_scheduled_job, delete_scheduled_job
 from zatca_integration.clearence_util import generate_einvoice
 import frappe
-from frappe.utils import now_datetime, add_days
 
-from frappe.utils import now_datetime, add_to_date
+from frappe.utils import now_datetime, add_to_date, add_days
 
 def is_zatca_compliance_ready(company_name):
     """
@@ -127,3 +126,71 @@ def prod_csid_auto_renew():
             results.append((company.name, "Failed", str(e)))
 
     return results
+
+
+def on_update(doc, method=None):
+    on_update_create_schedulers(doc)
+    
+# def on_update_create_schedulers(doc):
+#     schedulers = [
+#         {
+#             "enabled_field": "custom_b2c_auto_sales_submission_enabled",
+#             "method": send_multiple_signed_compliance_invoices_to_zatca,
+#             "frequency_field": "custom_sales_information_submission_frequency",
+#             "cron_field": "custom_sales_info_cron_format"
+#         },
+#         {
+#             "enabled_field": "custom_allow_auto_renewal_production_csid",
+#             "method": prod_csid_auto_renew,
+#             "frequency_field": "custom_auto_renewal_frequency",
+#             "cron_field": "custom_production_csid_cron_format"
+#         }
+#     ]
+
+#     for scheduler in schedulers:
+#         if getattr(doc, scheduler["enabled_field"], False):
+#             frequency = getattr(doc, scheduler["frequency_field"], None)
+#             cron_format = getattr(doc, scheduler["cron_field"], None) if frequency == "Cron" else None
+
+#             get_or_create_scheduled_job(
+#                 f"{scheduler['method'].__module__}.{scheduler['method'].__name__}",
+#                 frequency,
+#                 cron_format
+#             )
+
+def on_update_create_schedulers(doc):
+    schedulers = [
+        {
+            "enabled_field": "custom_b2c_auto_sales_submission_enabled",
+            "method": send_multiple_signed_compliance_invoices_to_zatca,
+            "frequency_field": "custom_sales_information_submission_frequency",
+            "cron_field": "custom_sales_info_cron_format"
+        },
+        {
+            "enabled_field": "custom_allow_auto_renewal_production_csid",
+            "method": prod_csid_auto_renew,
+            "frequency_field": "custom_auto_renewal_frequency",
+            "cron_field": "custom_production_csid_cron_format"
+        }
+    ]
+
+    old_doc = doc.get_doc_before_save()
+
+    for scheduler in schedulers:
+        enabled_now = getattr(doc, scheduler["enabled_field"], False)
+        enabled_before = getattr(old_doc, scheduler["enabled_field"], False) if old_doc else False
+
+        job_name = f"{scheduler['method'].__module__}.{scheduler['method'].__name__}"
+
+        if enabled_now:
+            frequency = getattr(doc, scheduler["frequency_field"], None)
+            cron_format = getattr(doc, scheduler["cron_field"], None) if frequency == "Cron" else None
+
+            get_or_create_scheduled_job(
+                job_name,
+                frequency,
+                cron_format
+            )
+        elif enabled_before and not enabled_now:
+            # Previously enabled but now disabled — delete job
+            delete_scheduled_job(job_name)

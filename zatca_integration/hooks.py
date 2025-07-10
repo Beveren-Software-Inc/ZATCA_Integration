@@ -194,6 +194,9 @@ doc_events = {
         ]
 	},
     "POS Invoice": {"on_submit": ["zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code"]},
+    "Company":{
+        "on_update":"zatca_integration.saudi_arabia_electronic_invoicing.background_task.on_update"
+    }
 }
 
 # doc_events = {
