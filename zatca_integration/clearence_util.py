@@ -16,6 +16,7 @@ from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
     get_zatca_config, get_previous_invoice_counter, get_previous_invoice_hash, time_formatter)
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import process_invoice_for_zatca_submission, xml_base64_decode
 import io
+from frappe import ValidationError, _
 
 def generate_einvoice(doc, submit_now=True):
     
@@ -176,11 +177,11 @@ def _handle_zatca_response(doc, response, invoice_data, payload, zatca_status):
         _handle_success_response(doc, response_json, invoice_data, payload, zatca_status_field)
     elif response.status_code == 303:
         _handle_error_response(doc, 'FAILED', json.dumps(response_json.get('message', '')))
-        frappe.throw("Error submitting invoice, Clearance is Deactivated")
+        # frappe.throw("Error submitting invoice, Clearance is Deactivated")
     elif response.status_code == 400:
         _handle_error_response(doc, zatca_status_field, 
                              json.dumps(response_json.get('validationResults', '')))
-        frappe.throw("Error submitting invoice, Bad Request")
+        # frappe.throw("Error submitting invoice, Bad Request")
     elif response.status_code == 401:
         _handle_error_response(doc, 'FAILED', json.dumps(response_json))
         frappe.throw("Error submitting invoice, Invalid Credentials")
@@ -195,7 +196,7 @@ def _handle_zatca_response(doc, response, invoice_data, payload, zatca_status):
 def _handle_error_response(doc, status, validation_results):
     """Handle error response from ZATCA"""
     update_status_on_error(doc, status, validation_results)
-    frappe.throw("Error submitting invoice, " + validation_results)
+    # frappe.throw("Error submitting invoice, " + validation_results)
     
 
 def _handle_success_response(doc, response_json, invoice_data, invoice_request, zatca_status_field):
@@ -393,13 +394,19 @@ def display_error_ui(validation_results):
                 <ul>{formatted_warnings}</ul>
             </div>
         """
-    # Show everything in one frappe.msgprint
-    if html_output:
-        return frappe.throw(
+
+    if formatted_errors:
+        # 👇 Throw an empty string with a space to prevent default Frappe modal
+        return frappe.throw(html_output, title="ZATCA Submission Failed")
+    
+    elif html_output:
+        return frappe.msgprint(
             title="ZATCA Submission Failed",
             msg=html_output,
             indicator="red" if formatted_errors else "orange"
         )
+        
+
 
     
 def get_payment_means_code(payment_means):
