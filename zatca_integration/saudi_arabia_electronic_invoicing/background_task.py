@@ -1,6 +1,6 @@
 import frappe
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_or_create_scheduled_job, delete_scheduled_job
-from zatca_integration.clearence_util import generate_einvoice
+from zatca_integration.clearence_util import generate_einvoice, bg_generate_einvoice
 
 from frappe.utils import now_datetime, add_to_date, add_days
 
@@ -57,7 +57,7 @@ def send_multiple_signed_compliance_invoices_to_zatca():
             
             try:
                 invoice = frappe.get_doc("Sales Invoice", invoice_data.name)
-                generate_einvoice(invoice)
+                bg_generate_einvoice(invoice)
             except Exception as e:
                 frappe.log_error(f"Error generating einvoice for {invoice_data.name}: {str(e)}")
                 continue
@@ -130,32 +130,6 @@ def prod_csid_auto_renew():
 def on_update(doc, method=None):
     on_update_create_schedulers(doc)
     
-# def on_update_create_schedulers(doc):
-#     schedulers = [
-#         {
-#             "enabled_field": "custom_b2c_auto_sales_submission_enabled",
-#             "method": send_multiple_signed_compliance_invoices_to_zatca,
-#             "frequency_field": "custom_sales_information_submission_frequency",
-#             "cron_field": "custom_sales_info_cron_format"
-#         },
-#         {
-#             "enabled_field": "custom_allow_auto_renewal_production_csid",
-#             "method": prod_csid_auto_renew,
-#             "frequency_field": "custom_auto_renewal_frequency",
-#             "cron_field": "custom_production_csid_cron_format"
-#         }
-#     ]
-
-#     for scheduler in schedulers:
-#         if getattr(doc, scheduler["enabled_field"], False):
-#             frequency = getattr(doc, scheduler["frequency_field"], None)
-#             cron_format = getattr(doc, scheduler["cron_field"], None) if frequency == "Cron" else None
-
-#             get_or_create_scheduled_job(
-#                 f"{scheduler['method'].__module__}.{scheduler['method'].__name__}",
-#                 frequency,
-#                 cron_format
-#             )
 
 def on_update_create_schedulers(doc):
     schedulers = [

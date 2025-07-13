@@ -9,9 +9,11 @@
   "onboarding_apis_section",
   "compliance_csid_api",
   "compliance_invoice_api",
+  "column_break_tbpl",
   "production_csid_api",
   "core_solution_apis_section",
   "invoice_clearance_api",
+  "column_break_hnjv",
   "invoice_reporting_api"
  ],
  "fields": [
@@ -55,6 +57,14 @@
    "fieldtype": "Data",
    "label": "Invoice Reporting API",
    "reqd": 1
+  },
+  {
+   "fieldname": "column_break_tbpl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_hnjv",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
@@ -65,7 +75,7 @@
    "link_fieldname": "zatca_environment"
   }
  ],
- "modified": "2025-07-13 10:12:00.912848",
+ "modified": "2025-07-13 11:39:37.227722",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Environment",

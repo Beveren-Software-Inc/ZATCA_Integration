@@ -192,7 +192,7 @@ doc_events = {
         ],
         "before_submit": [
             "zatca_integration.common_util.validate_sales_invoice",
-            "zatca_integration.clearence_util.generate_einvoice"
+            "zatca_integration.clearence_util.generate_einvoice_on_submit"
         ],
         "on_submit": [
             "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code",
