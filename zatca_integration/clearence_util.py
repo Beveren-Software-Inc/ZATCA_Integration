@@ -16,8 +16,16 @@ from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
     get_zatca_config, get_previous_invoice_counter, get_previous_invoice_hash, time_formatter)
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import process_invoice_for_zatca_submission, xml_base64_decode
 import io
+from frappe import ValidationError, _
 
-def generate_einvoice(doc, method=None):
+def generate_einvoice(doc, submit_now=True):
+    
+    company = frappe.get_doc("Company", doc.company)
+    
+    if not company.custom_enable_zatca_e_invoicing:
+        return
+    
+    config = get_zatca_config(company)
     
     # Buyer Information
     customer = frappe.get_doc("Customer", doc.customer)
@@ -35,9 +43,6 @@ def generate_einvoice(doc, method=None):
             "invoice": xml_base64_decode(signed_xmlfile_name),
         }
     
-    company = frappe.get_doc("Company", doc.company)
-    config = get_zatca_config(company)
-    
     invoice_data = _prepare_invoice_data(doc, config)
     
     # Check if Company is a Saudi Arabia based company
@@ -47,20 +52,21 @@ def generate_einvoice(doc, method=None):
     # Check if the active Zacta Phase is Phase 2
     if not company.custom_zatca_phase == "ZATCA Phase 2":
         return
-        
     
+    if customer_type == "Individual" and not submit_now:
+        return
 
     validate_invoice_dates(doc, company, customer_type)
     
     try:
         if customer_type == "Company":
-           zatca_status_field = "clearanceStatus"
-           response, zatca_time_taken = _submit_clearance_request(config, payload)
+            zatca_status_field = "clearanceStatus"
+            response, zatca_time_taken = _submit_clearance_request(config, payload)
         elif customer_type == "Individual":
             zatca_status_field = "reportingStatus"
             response, zatca_time_taken = _submit_reporting_request(config, payload, doc)
         else:
-            frappe.throw("Customer Type is not Supported")     
+            pass   
     except requests.exceptions.RequestException as e:
         frappe.throw("Error Clearing Invoice, " + str(e))
 
@@ -171,7 +177,7 @@ def _handle_zatca_response(doc, response, invoice_data, payload, zatca_status):
         _handle_success_response(doc, response_json, invoice_data, payload, zatca_status_field)
     elif response.status_code == 303:
         _handle_error_response(doc, 'FAILED', json.dumps(response_json.get('message', '')))
-        frappe.throw("Error submitting invoice, Clearance is Deactivated")
+        # frappe.throw("Error submitting invoice, Clearance is Deactivated")
     elif response.status_code == 400:
         _handle_error_response(doc, zatca_status_field, 
                              json.dumps(response_json.get('validationResults', '')))
@@ -190,6 +196,7 @@ def _handle_zatca_response(doc, response, invoice_data, payload, zatca_status):
 def _handle_error_response(doc, status, validation_results):
     """Handle error response from ZATCA"""
     update_status_on_error(doc, status, validation_results)
+    # frappe.throw("Error submitting invoice, " + validation_results)
     
 
 def _handle_success_response(doc, response_json, invoice_data, invoice_request, zatca_status_field):
@@ -387,13 +394,19 @@ def display_error_ui(validation_results):
                 <ul>{formatted_warnings}</ul>
             </div>
         """
-    # Show everything in one frappe.msgprint
-    if html_output:
+
+    if formatted_errors:
+        # 👇 Throw an empty string with a space to prevent default Frappe modal
+        return frappe.throw(html_output, title="ZATCA Submission Failed")
+    
+    elif html_output:
         return frappe.msgprint(
             title="ZATCA Submission Failed",
             msg=html_output,
             indicator="red" if formatted_errors else "orange"
         )
+        
+
 
     
 def get_payment_means_code(payment_means):
@@ -563,3 +576,25 @@ def get_compliance_type(doc, customer_type):
         compliance_type = "6"
         
     return compliance_type
+
+
+def get_auto_sales_submission(company):
+    """Get the auto sales submission setting for the company."""
+    if not company:
+        return False
+    auto_sales_submission = frappe.db.get_value("Company", company, "custom_b2c_auto_sales_submission_enabled")
+    return auto_sales_submission
+
+def generate_einvoice_on_submit(doc, method=None):
+    """Generate einvoice on submit"""
+    submit_now = get_auto_sales_submission(doc.company)
+    if not submit_now:
+        generate_einvoice(doc, submit_now=True)
+    else:
+        generate_einvoice(doc, submit_now=False)
+        
+def bg_generate_einvoice(doc):
+    """Background task to generate einvoice"""
+    submit_now = get_auto_sales_submission(doc.company)
+    if submit_now:
+        generate_einvoice(doc, submit_now=True)

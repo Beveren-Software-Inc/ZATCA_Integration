@@ -37,6 +37,7 @@
   "column_break_nmew",
   "csrlocationaddress",
   "csrindustrybusinesscategory",
+  "csr_generated",
   "generated_csr_section",
   "private_key_column",
   "csr",
@@ -169,7 +170,8 @@
   },
   {
    "fieldname": "column_break_nmew",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "read_only": 1
   },
   {
    "default": "SA",
@@ -281,6 +283,12 @@
    "fieldname": "zatca_phase_section",
    "fieldtype": "Section Break",
    "label": "ZATCA Phase"
+  },
+  {
+   "default": "0",
+   "fieldname": "csr_generated",
+   "fieldtype": "Check",
+   "label": "CSR Generated"
   }
  ],
  "grid_page_length": 50,
@@ -291,7 +299,7 @@
    "link_fieldname": "csr_settings"
   }
  ],
- "modified": "2025-07-10 17:28:37.019181",
+ "modified": "2025-07-13 10:21:04.633339",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca CSR Settings",

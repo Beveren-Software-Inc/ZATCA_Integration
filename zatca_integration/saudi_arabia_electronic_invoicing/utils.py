@@ -123,6 +123,7 @@ def save_and_return_csr(doc, private_key_pem, csr):
     doc.private_key_pem_format = str(private_key_pem)
     doc.csr = base64csr.strip()
     doc.csr_pem_format = csr_pem.decode("utf-8")
+    doc.csr_generated = 1
     doc.save(ignore_permissions=True)
     frappe.msgprint(
             _("CSR and Private Key were generated successfully and saved to the document.<br><br>"

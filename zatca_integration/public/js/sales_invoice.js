@@ -11,8 +11,17 @@ frappe.ui.form.on('Sales Invoice', {
     refresh: frm => {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
-        frm.trigger('add_submit_button')
+        check_zatca_enabled(frm, (enabled) => {
+            frm.zatca_enabled = enabled;
+            if (!enabled){
+                return;
+            }
+            frm.toggle_display("custom_zatca_submit_status", enabled);
+            frm.toggle_display("custom_zatca_submit_time", enabled);
+            frm.trigger('add_submit_button');
+        });
     },
+
     validate: frm => {
         if (frm.is_new() && frm.doc.custom_retention_account && frm.doc.custom_retention_amount) {
             frm.set_value(
@@ -113,7 +122,9 @@ frappe.ui.form.on('Sales Invoice', {
     },
 
     add_submit_button: frm => {
-       
+       if (frm.zatca_enabled === false) {
+        return;
+    }
         if (
             frm.doc.docstatus === 1 &&
             frm.doc.custom_zatca_submit_status !== 'REPORTED' &&
@@ -153,5 +164,30 @@ frappe.ui.form.on('Sales Invoice', {
             
         }
         
-    }
+    },
+       
 });
+
+function check_zatca_enabled(frm, callback) {
+    if (frm.doc.company) {
+        frappe.call({
+            method: "frappe.client.get_value",
+            args: {
+                doctype: "Company",
+                filters: { name: frm.doc.company },
+                fieldname: "custom_enable_zatca_e_invoicing"
+            },
+            callback: function(r) {
+                const enabled = !!r.message?.custom_enable_zatca_e_invoicing ? 1 : 0;
+                frm.zatca_enabled = enabled;
+
+                frm.toggle_display("custom_zatca_submit_status", !!enabled);
+                frm.toggle_display("custom_zatca_submit_time", !!enabled);
+
+                if (callback) callback(enabled);
+            }
+        });
+    } else {
+        if (callback) callback(0);
+    }
+}
