@@ -1,8 +1,8 @@
 import frappe
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_or_create_scheduled_job, delete_scheduled_job
-from zatca_integration.clearence_util import generate_einvoice, bg_generate_einvoice
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_or_create_scheduled_job, delete_scheduled_job, update_cron_format
+from zatca_integration.clearence_util import bg_generate_einvoice
 
-from frappe.utils import now_datetime, add_to_date, add_days
+from frappe.utils import now_datetime, add_to_date, add_days, get_datetime
 
 def is_zatca_compliance_ready(company_name):
     """
@@ -68,7 +68,7 @@ def send_multiple_signed_compliance_invoices_to_zatca():
 # Notify user on the expiry of the production csid
 def notify_expiring_csids():
     today = now_datetime()
-    expiry_threshold = add_days(today, 7)
+    expiry_threshold = add_days(today, 30)
 
     expiring_csids = frappe.get_all(
         "Production CSID", 
@@ -112,15 +112,31 @@ def get_emails_for_roles(roles):
 
 
 def prod_csid_auto_renew():
-    companies = frappe.get_all("Company", filters={"custom_enable_zatca_e_invoicing":1}, fields=["name"])
-    
+    companies = frappe.get_all("Company", filters={"custom_enable_zatca_e_invoicing": 1}, fields=["name"])
+    today = now_datetime()
+
     results = []
+
     for company in companies:
         try:
             company_doc = frappe.get_doc("Company", company.name)
+
+            if not company_doc.custom_allow_auto_renewal_production_csid:
+                continue
+
+            # fallback to 30 days if not set
+            custom_days = company_doc.custom_how_many_days_before_renewal or 30
+            expiry_threshold = add_days(today, custom_days)
+
             prod_csid = frappe.get_doc("Production CSID", company_doc.custom_production_csid)
-            result = prod_csid.renew_zatca_production_csid()
-            results.append((company.name, "Success", result))
+            expiry_date = get_datetime(prod_csid.expiry_date)
+
+            if expiry_date <= expiry_threshold:
+                result = prod_csid.renew_zatca_production_csid()
+                results.append((company.name, "Success", result))
+            else:
+                results.append((company.name, "Skipped", f"Expiry date {expiry_date} > threshold {expiry_threshold}"))
+
         except Exception as e:
             results.append((company.name, "Failed", str(e)))
 
@@ -129,9 +145,12 @@ def prod_csid_auto_renew():
 
 def on_update(doc, method=None):
     on_update_create_schedulers(doc)
-    
 
 def on_update_create_schedulers(doc):
+    before_time = doc.custom_sales_information_submission_frequency
+    cron_format = update_cron_format(doc.custom_sales_information_submission_frequency)
+    doc.custom_sales_info_cron_format = cron_format
+    doc.custom_sales_information_submission_frequency = "Cron"
     schedulers = [
         {
             "enabled_field": "custom_b2c_auto_sales_submission_enabled",
@@ -139,12 +158,7 @@ def on_update_create_schedulers(doc):
             "frequency_field": "custom_sales_information_submission_frequency",
             "cron_field": "custom_sales_info_cron_format"
         },
-        {
-            "enabled_field": "custom_allow_auto_renewal_production_csid",
-            "method": prod_csid_auto_renew,
-            "frequency_field": "custom_auto_renewal_frequency",
-            "cron_field": "custom_production_csid_cron_format"
-        }
+       
     ]
 
     old_doc = doc.get_doc_before_save()
@@ -167,3 +181,8 @@ def on_update_create_schedulers(doc):
         elif enabled_before and not enabled_now:
             # Previously enabled but now disabled — delete job
             delete_scheduled_job(job_name)
+            
+    doc.custom_sales_information_submission_frequency = before_time
+    doc.custom_sales_info_cron_format = cron_format
+            
+    
