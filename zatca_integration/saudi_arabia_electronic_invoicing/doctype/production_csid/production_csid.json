@@ -13,14 +13,17 @@
   "is_active",
   "request_id",
   "disposition_message",
+  "token_type",
+  "column_break_xmpm",
   "created_time",
+  "expiry_date",
   "errors",
+  "section_break_pzku",
   "certificate",
   "public_key",
-  "column_break_xmpm",
+  "column_break_qkbv",
   "binary_security_token",
-  "secret",
-  "token_type"
+  "secret"
  ],
  "fields": [
   {
@@ -106,18 +109,34 @@
   {
    "fieldname": "public_key",
    "fieldtype": "Small Text",
-   "label": "Public Key"
+   "label": "Public Key",
+   "read_only": 1
   },
   {
    "fieldname": "certificate",
    "fieldtype": "Long Text",
-   "label": "Certificate"
+   "label": "Certificate",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_pzku",
+   "fieldtype": "Section Break",
+   "label": "Certificate Details"
+  },
+  {
+   "fieldname": "column_break_qkbv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "expiry_date",
+   "fieldtype": "Datetime",
+   "label": "Expiry Date"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-24 11:12:21.466411",
+ "modified": "2025-07-13 16:02:54.706340",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Production CSID",

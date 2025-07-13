@@ -217,12 +217,9 @@ doc_events = {
 
 #TODO: Uncomment when going to simulation or production
 scheduler_events = {
-    # "cron": {
-    #     "0 */6 * * *": [
-    #         "zatca_integration.saudi_arabia_electronic_invoicing.background_task.send_multiple_signed_compliance_invoices_to_zatca"
-    #     ]
-    # },
-    "daily":["zatca_integration.saudi_arabia_electronic_invoicing.background_task.notify_expiring_csids"]
+    "Weekly":["zatca_integration.saudi_arabia_electronic_invoicing.background_task.notify_expiring_csids",
+              "zatca_integration.saudi_arabia_electronic_invoicing.background_task.prod_csid_auto_renew",
+    ],
 }
 
 # Scheduled Tasks

@@ -3,7 +3,7 @@
 
 # Copyright (c) 2023, Shakir PM and contributors
 # For license information, please see license.txt
-
+from frappe.utils import get_datetime, add_months
 import frappe
 import requests
 from requests.auth import HTTPBasicAuth
@@ -54,6 +54,7 @@ class ProductionCSID(Document):
 			
 			self.is_active = True
 			self.created_time = frappe.utils.now_datetime()
+			self.expiry_date = calculation_expiry_date(self.created_time)
 			self.request_id = response_json.get('requestID', '')
 			self.disposition_message = response_json.get('dispositionMessage', '')
 			self.binary_security_token = response_json.get('binarySecurityToken', '')
@@ -107,6 +108,7 @@ class ProductionCSID(Document):
 				
 				response_json = response.json()
 				self.created_time = frappe.utils.now_datetime()
+				self.expiry_date = calculation_expiry_date(self.created_time)
 				self.request_id = response_json.get("requestID", "")
 				self.disposition_message = response_json.get("dispositionMessage", "")
 				self.binary_security_token = response_json.get("binarySecurityToken", "")
@@ -165,5 +167,8 @@ def handle_error(response):
         )
     
 
-        
-        
+def calculation_expiry_date(created_on):
+    """Returns expiry date 1 year after created_on using Frappe utils"""
+    created_dt = get_datetime(created_on)
+    expiry_dt = add_months(created_dt, 12)
+    return expiry_dt.strftime("%Y-%m-%d %H:%M:%S")
