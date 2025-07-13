@@ -573,3 +573,20 @@ def time_formatter(posting_time):
         frappe.throw(f"Unsupported type for posting_time: {type(posting_time)}")
         
     return invoice_time
+
+
+def update_cron_format(frequency):
+    """Updates custom_b2c_cron_format based on the selected frequency"""
+    cron_map = {
+        "Every 1-Hour": "0 * * * *",
+        "Every 2-Hour": "0 */2 * * *",
+        "Every 6-Hour": "0 */6 * * *",
+        "Every 12-Hour": "0 */12 * * *",
+        "Every 24-Hour": "0 0 * * *"
+    }
+
+
+    # Only auto-update if not "Cron"
+    if frequency in cron_map:
+        return cron_map[frequency]
+  
