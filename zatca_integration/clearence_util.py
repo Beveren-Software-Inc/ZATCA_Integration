@@ -19,6 +19,13 @@ import io
 
 def generate_einvoice(doc, submit_now=True):
     
+    company = frappe.get_doc("Company", doc.company)
+    
+    if not company.custom_enable_zatca_e_invoicing:
+        return
+    
+    config = get_zatca_config(company)
+    
     # Buyer Information
     customer = frappe.get_doc("Customer", doc.customer)
     customer_type = customer.customer_type
@@ -34,9 +41,6 @@ def generate_einvoice(doc, submit_now=True):
             "uuid": uuid1,
             "invoice": xml_base64_decode(signed_xmlfile_name),
         }
-    
-    company = frappe.get_doc("Company", doc.company)
-    config = get_zatca_config(company)
     
     invoice_data = _prepare_invoice_data(doc, config)
     
