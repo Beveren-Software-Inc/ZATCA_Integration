@@ -7,7 +7,7 @@
    "card": "CLEARED INVOICES"
   },
   {
-   "card": "NOT CLEARED INVOICES"
+   "card": "FAILED CLEARED INVOICES"
   },
   {
    "card": "PENDING CREDIT NOTE"
@@ -16,16 +16,16 @@
    "card": "CLEARED CREDIT NOTE"
   },
   {
-   "card": "NOT CLEARED CREDIT NOTE"
+   "card": "FAILED CLEARED CREDIT NOTE"
   },
   {
-   "card": "PENDING CREDIT NOTE"
+   "card": "WEEKLY PENDING INVOICES"
   },
   {
    "card": "REPORTED INVOICES"
   },
   {
-   "card": "NOT REPORTED INVOICES"
+   "card": "FAILED REPORTED INVOICES"
   },
   {
    "card": "PENDING INVOICES"
@@ -34,7 +34,19 @@
    "card": "REPORTED CREDIT NOTE"
   },
   {
-   "card": "NOT REPORTED CREDIT NOTE"
+   "card": "FAILED REPORTED CREDIT NOTE"
+  },
+  {
+   "card": "WEEKLY REPORTED INVOICES"
+  },
+  {
+   "card": "WEEKLY CLEARED INVOICES"
+  },
+  {
+   "card": "WEEKLY FAILED CLEARED INVOICES"
+  },
+  {
+   "card": "WEEKLY FAILED REPORTED INVOICES"
   }
  ],
  "charts": [
@@ -58,7 +70,7 @@
  "idx": 0,
  "is_default": 0,
  "is_standard": 1,
- "modified": "2025-07-14 14:53:29.723681",
+ "modified": "2025-07-14 17:27:51.819424",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca",
