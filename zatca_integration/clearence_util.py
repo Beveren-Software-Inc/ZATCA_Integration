@@ -53,7 +53,10 @@ def generate_einvoice(doc, submit_now=True):
     if not company.custom_zatca_phase == "ZATCA Phase 2":
         return
     
-    if customer_type == "Individual" and not submit_now:
+    if customer_type == "Individual" and not submit_now and not doc.custom_invoice_xml:
+        invoice_xml = decode_invoice(payload.get('invoice'))
+        _save_invoice_xml(doc, invoice_xml)
+        _save_qr_code(doc, invoice_xml)
         return
 
     validate_invoice_dates(doc, company, customer_type)
@@ -77,9 +80,10 @@ def generate_einvoice(doc, submit_now=True):
 def _submit_reporting_request(config, payload, doc):
     """Submit reporting request for Individual customers."""
     # Process invoice XML for individual customers
-    invoice_xml = decode_invoice(payload.get('invoice'))
-    _save_invoice_xml(doc, invoice_xml)
-    _save_qr_code(doc, invoice_xml)
+    if doc.custom_invoice_xml:
+        invoice_xml = decode_invoice(payload.get('invoice'))
+        _save_invoice_xml(doc, invoice_xml)
+        _save_qr_code(doc, invoice_xml)
     
     start_time = time_module.time()
     
