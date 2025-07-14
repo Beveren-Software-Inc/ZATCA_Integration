@@ -9,8 +9,16 @@
     "parenttype": "Workspace"
    }
   ],
-  "content": "[{\"id\":\"-fQK88hAOR\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">ZATCA Integrations</span>\",\"col\":12}},{\"id\":\"HopH4okaba\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAT Report\",\"col\":3}},{\"id\":\"wF2aNtcvOR\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca CSR Settings\",\"col\":3}},{\"id\":\"f0SI5v1N6Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Compliance CSID\",\"col\":3}},{\"id\":\"szitNokyn6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production CSID\",\"col\":3}},{\"id\":\"kqYhDBIvrH\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca Environments\",\"col\":3}},{\"id\":\"Xs9pmrVWPk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"CSID Transactions\",\"col\":3}},{\"id\":\"W1Jx8YKfj9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"PSID Transactions\",\"col\":3}},{\"id\":\"vMVBOyq5fS\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"HuSFmSQdJC\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Zatca Submission Status\",\"col\":12}},{\"id\":\"FPOHaUQitE\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"o-dSS0BYfB\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"CLEARED INVOICES\",\"col\":4}},{\"id\":\"vShS1PhcFj\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"REPORTED INVOICES\",\"col\":4}},{\"id\":\"ZL15rV9SoL\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"PENDING INVOICES\",\"col\":4}},{\"id\":\"zz24Tn7oJB\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"REPORTED with WARNING  INVOICES\",\"col\":4}},{\"id\":\"Hy6PfOk3zU\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"CLEARED with WARNING  INVOICES\",\"col\":4}},{\"id\":\"2UMgFURWLl\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"NOT CLEARED INVOICES\",\"col\":4}},{\"id\":\"56i7jAnVWK\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"NOT REPORTED INVOICES\",\"col\":4}}]",
-  "custom_blocks": [],
+  "content": "[{\"id\":\"-fQK88hAOR\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">ZATCA Integrations</span>\",\"col\":12}},{\"id\":\"HopH4okaba\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAT Report\",\"col\":3}},{\"id\":\"wF2aNtcvOR\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca CSR Settings\",\"col\":3}},{\"id\":\"f0SI5v1N6Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Compliance CSID\",\"col\":3}},{\"id\":\"szitNokyn6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production CSID\",\"col\":3}},{\"id\":\"kqYhDBIvrH\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Zatca Environments\",\"col\":3}},{\"id\":\"Xs9pmrVWPk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"CSID Transactions\",\"col\":3}},{\"id\":\"W1Jx8YKfj9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"PSID Transactions\",\"col\":3}},{\"id\":\"lSqtYuuQwK\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Line Separator\",\"col\":12}},{\"id\":\"HuSFmSQdJC\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Zatca Submission Status\",\"col\":12}},{\"id\":\"FPOHaUQitE\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"o-dSS0BYfB\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"CLEARED INVOICES\",\"col\":4}},{\"id\":\"vShS1PhcFj\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"REPORTED INVOICES\",\"col\":4}},{\"id\":\"ZL15rV9SoL\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"PENDING INVOICES\",\"col\":4}},{\"id\":\"zz24Tn7oJB\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"REPORTED with WARNING  INVOICES\",\"col\":4}},{\"id\":\"Hy6PfOk3zU\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"CLEARED with WARNING  INVOICES\",\"col\":4}},{\"id\":\"2UMgFURWLl\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"FAILED CLEARED INVOICES\",\"col\":4}},{\"id\":\"56i7jAnVWK\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"FAILED REPORTED INVOICES\",\"col\":4}}]",
+  "custom_blocks": [
+   {
+    "custom_block_name": "Line Separator",
+    "label": "Line Separator",
+    "parent": "ZATCA Integrations",
+    "parentfield": "custom_blocks",
+    "parenttype": "Workspace"
+   }
+  ],
   "docstatus": 0,
   "doctype": "Workspace",
   "for_user": "",
@@ -20,13 +28,27 @@
   "is_hidden": 0,
   "label": "ZATCA Integrations",
   "links": [],
-  "modified": "2025-07-14 14:46:25.669201",
+  "modified": "2025-07-14 17:37:56.463313",
   "module": null,
   "name": "ZATCA Integrations",
   "number_cards": [
    {
+    "label": "FAILED CLEARED INVOICES",
+    "number_card_name": "FAILED CLEARED INVOICES",
+    "parent": "ZATCA Integrations",
+    "parentfield": "number_cards",
+    "parenttype": "Workspace"
+   },
+   {
     "label": "CLEARED INVOICES",
     "number_card_name": "CLEARED INVOICES",
+    "parent": "ZATCA Integrations",
+    "parentfield": "number_cards",
+    "parenttype": "Workspace"
+   },
+   {
+    "label": "FAILED REPORTED INVOICES",
+    "number_card_name": "FAILED REPORTED INVOICES",
     "parent": "ZATCA Integrations",
     "parentfield": "number_cards",
     "parenttype": "Workspace"
@@ -55,20 +77,6 @@
    {
     "label": "CLEARED with WARNING  INVOICES",
     "number_card_name": "CLEARED with WARNING  INVOICES",
-    "parent": "ZATCA Integrations",
-    "parentfield": "number_cards",
-    "parenttype": "Workspace"
-   },
-   {
-    "label": "NOT CLEARED INVOICES",
-    "number_card_name": "NOT CLEARED INVOICES",
-    "parent": "ZATCA Integrations",
-    "parentfield": "number_cards",
-    "parenttype": "Workspace"
-   },
-   {
-    "label": "NOT REPORTED INVOICES",
-    "number_card_name": "NOT REPORTED INVOICES",
     "parent": "ZATCA Integrations",
     "parentfield": "number_cards",
     "parenttype": "Workspace"

@@ -4794,7 +4794,7 @@
   "collapsible": 0,
   "collapsible_depends_on": null,
   "columns": 0,
-  "default": "30njkn\nslmknl\ndsknjk",
+  "default": "30",
   "depends_on": "eval:doc.custom_allow_auto_renewal_production_csid==1",
   "description": null,
   "docstatus": 0,
