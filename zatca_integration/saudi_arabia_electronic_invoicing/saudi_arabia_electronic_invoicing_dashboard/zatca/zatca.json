@@ -1,0 +1,66 @@
+{
+ "cards": [
+  {
+   "card": "PENDING INVOICES"
+  },
+  {
+   "card": "CLEARED INVOICES"
+  },
+  {
+   "card": "NOT CLEARED INVOICES"
+  },
+  {
+   "card": "PENDING CREDIT NOTE"
+  },
+  {
+   "card": "CLEARED CREDIT NOTE"
+  },
+  {
+   "card": "NOT CLEARED CREDIT NOTE"
+  },
+  {
+   "card": "PENDING CREDIT NOTE"
+  },
+  {
+   "card": "REPORTED INVOICES"
+  },
+  {
+   "card": "NOT REPORTED INVOICES"
+  },
+  {
+   "card": "PENDING INVOICES"
+  },
+  {
+   "card": "REPORTED CREDIT NOTE"
+  },
+  {
+   "card": "NOT REPORTED CREDIT NOTE"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Document Submission Status",
+   "width": "Half"
+  },
+  {
+   "chart": "Reported vs Not Reported",
+   "width": "Half"
+  },
+  {
+   "chart": "Document Submission Time Analysis",
+   "width": "Half"
+  }
+ ],
+ "creation": "2025-07-14 12:21:32.128505",
+ "dashboard_name": "Zatca",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "idx": 0,
+ "is_default": 0,
+ "is_standard": 1,
+ "modified": "2025-07-14 14:53:29.723681",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Zatca",
+ "owner": "Administrator"
+}

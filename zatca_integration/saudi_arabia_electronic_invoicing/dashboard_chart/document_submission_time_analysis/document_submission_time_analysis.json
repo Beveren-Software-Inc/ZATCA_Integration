@@ -1,0 +1,35 @@
+{
+ "chart_name": "Document Submission Time Analysis",
+ "chart_type": "Report",
+ "creation": "2025-07-14 14:25:39.892292",
+ "currency": "",
+ "custom_options": "",
+ "docstatus": 0,
+ "doctype": "Dashboard Chart",
+ "dynamic_filters_json": "{}",
+ "filters_json": "{}",
+ "group_by_type": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "modified": "2025-07-14 14:27:50.769305",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Document Submission Time Analysis",
+ "number_of_groups": 0,
+ "owner": "Administrator",
+ "report_name": "Document Submission Time Analysis",
+ "roles": [],
+ "time_interval": "Yearly",
+ "timeseries": 0,
+ "timespan": "Last Year",
+ "type": "Bar",
+ "use_report_chart": 0,
+ "x_field": "metric",
+ "y_axis": [
+  {
+   "color": "#449CF0",
+   "y_field": "value"
+  }
+ ]
+}

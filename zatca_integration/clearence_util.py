@@ -57,6 +57,7 @@ def generate_einvoice(doc, submit_now=True):
         invoice_xml = decode_invoice(payload.get('invoice'))
         _save_invoice_xml(doc, invoice_xml)
         _save_qr_code(doc, invoice_xml)
+        doc.custom_zatca_submit_status="PENDING"
         return
 
     validate_invoice_dates(doc, company, customer_type)
@@ -230,6 +231,7 @@ def _handle_success_response(doc, response_json, invoice_data, invoice_request, 
     cleared_invoice_xml = _get_cleared_invoice_xml(response_json, invoice_request, invoice_data['customer_type'])
     _save_invoice_xml(doc, cleared_invoice_xml)
     _save_qr_code(doc, cleared_invoice_xml)
+    display_error_ui(response_json.get('validationResults', ''), doc)
     
     
 def _save_invoice_xml(doc, cleared_invoice_xml):
@@ -357,22 +359,28 @@ def update_status_on_error(doc, status, validation_results):
     frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_status", status, update_modified=True)
     frappe.db.set_value("Sales Invoice", doc.name, "custom_validation_results", validation_results, update_modified=True)
     frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_time", frappe.utils.now_datetime(), update_modified=True)
-    display_error_ui(validation_results)
+    display_error_ui(validation_results, doc)
     frappe.db.commit()
+    
 
-def display_error_ui(validation_results):
+def display_error_ui(validation_results, doc):
+    error_messages = []
+    warning_messages = []
     try:
-        results = json.loads(validation_results)
+        if isinstance(validation_results, str):
+            results = json.loads(validation_results)
+        else:
+            results = validation_results  # already a dict
+
         error_messages = results.get("errorMessages", [])
         warning_messages = results.get("warningMessages", [])
     except Exception:
-        error_messages = [{"message": validation_results}]
-        warning_messages = []
-    
+        # Only fall back if truly invalid JSON
+        error_messages = [{"message": str(validation_results)}]
+
     # Format error messages
     formatted_errors = ""
     for err in error_messages:
-        
         msg = frappe.utils.escape_html(err.get("message", "Unknown error"))
         formatted_errors += f"<li>{msg}</li>"
 
@@ -382,7 +390,6 @@ def display_error_ui(validation_results):
         msg = frappe.utils.escape_html(warn.get("message", "Unknown warning"))
         formatted_warnings += f"<li>{msg}</li>"
 
-    # Combine HTML sections
     html_output = ""
     if formatted_errors:
         html_output += f"""
@@ -398,17 +405,14 @@ def display_error_ui(validation_results):
                 <ul>{formatted_warnings}</ul>
             </div>
         """
+        
 
-    if formatted_errors:
-        # 👇 Throw an empty string with a space to prevent default Frappe modal
+    if error_messages:
         return frappe.throw(html_output, title="ZATCA Submission Failed")
-    
-    elif html_output:
-        return frappe.msgprint(
-            title="ZATCA Submission Failed",
-            msg=html_output,
-            indicator="red" if formatted_errors else "orange"
-        )
+    elif warning_messages:
+        doc.custom_has_warnings = 1
+        return frappe.msgprint(title="ZATCA Warning", msg=html_output, indicator="orange")
+
         
 
 
