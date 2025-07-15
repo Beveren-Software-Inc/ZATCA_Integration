@@ -165,6 +165,32 @@ frappe.ui.form.on('Sales Invoice', {
         }
         
     },
+
+       map_items_to_credit_details: frm => {
+        const existing_qtr_map = {};
+    
+        if (frm.doc.custom_credit_details) {
+            frm.doc.custom_credit_details.forEach(row => {
+                if (!existing_qtr_map[row.item]) {
+                    existing_qtr_map[row.item] = 0;
+                }
+                existing_qtr_map[row.item] += row.qtr;
+            });
+        }
+    
+        frm.doc.items.forEach(item => {
+            const total_existing_qtr = existing_qtr_map[item.item_code] || 0;
+            const remaining_qty = item.qty - total_existing_qtr;
+    
+            if (Math.abs(remaining_qty) > 0) {
+                let new_row = frm.add_child("custom_credit_details");
+                new_row.sales_invoice = item.sales_invoice || '';  
+                new_row.item = item.item_code;
+                new_row.qtr = remaining_qty;  
+            }
+        });
+        frm.refresh_field('custom_credit_details');
+    }
        
 });
 
@@ -189,5 +215,103 @@ function check_zatca_enabled(frm, callback) {
         });
     } else {
         if (callback) callback(0);
+    }
+}
+
+
+
+// New feature from al-kneel
+frappe.ui.form.on("Credit Details", {
+    sales_invoice(frm, cdt, cdn) {
+        fetch_sold_qty(frm, cdt, cdn);  
+        fetch_returned_qty(frm, cdt, cdn);  
+        fetch_available_qty(frm, cdt, cdn);  
+    },
+    already_returned_qty(frm, cdt, cdn) {
+        fetch_available_qty(frm, cdt, cdn);  
+    },
+    item(frm, cdt, cdn) {
+        let row = frappe.get_doc(cdt, cdn); 
+        
+        if (frm.doc.custom_credit_details) {
+            frappe.model.set_value(cdt, cdn, 'qtr', -Math.abs(row.qtr)); 
+        }
+    },
+    qtr(frm, cdt, cdn) {
+        let row = frappe.get_doc(cdt, cdn);
+        
+        if (frm.doc.custom_credit_details) {
+            frappe.model.set_value(cdt, cdn, 'qtr', -Math.abs(row.qtr)); // Ensure qty is negative
+        }
+    }
+});
+
+// HELPER FUNCTIONS To FETCH QUANTITIES IN CREDIT DETAILS TABLE
+function fetch_sold_qty(frm, cdt, cdn) {
+    let row = frappe.get_doc(cdt, cdn);
+    if (row.item) {
+        frappe.call({
+            method: "zatca_integration.customization.sales_invoice.sales_invoice.get_batch",
+            args: {
+                customer: frm.doc.customer,
+                sales_invoice: row.sales_invoice,
+                item: row.item
+            },
+            callback: function (r) {
+                if (r.message) {
+                    r.message.forEach(item => {
+                        frappe.model.set_value(cdt, cdn, "sold_qty", item.qty);
+                        frappe.model.set_value(cdt, cdn, "available_qty_to_return", item.qty-row.total_returned_qty);
+                    });
+                    frm.refresh_field('custom_credit_details');
+                }
+            }
+        });
+    }
+}
+function fetch_returned_qty(frm, cdt, cdn) {
+    let row = frappe.get_doc(cdt, cdn);
+    if (row.item && row.sales_invoice) {
+        frappe.call({
+            method: "zatca_integration.customization.sales_invoice.sales_invoice.returned_qty",
+            args: {
+                customer: frm.doc.customer,
+                sales_invoice: row.sales_invoice,
+                item: row.item
+            },
+            callback: function (r) {
+                if (r.message) {
+                    frappe.model.set_value(cdt, cdn, "already_returned_qty", r.message.total_returned_qty);
+                }
+            }
+        });
+    }
+}
+function fetch_available_qty(frm, cdt, cdn) {
+    let row = frappe.get_doc(cdt, cdn);
+    if (row.item && row.sales_invoice) {
+        frappe.call({
+            method: "zatca_integration.customization.sales_invoice.sales_invoice.returned_qty",
+            args: {
+                customer: frm.doc.customer,
+                sales_invoice: row.sales_invoice,
+                item: row.item
+            },
+            callback: function (r) {
+                if (r.message) {
+                    let total_qtr = 0;
+                    (frm.doc.custom_credit_details || []).forEach(function (child_row) {
+                        if (
+                            child_row.sales_invoice === row.sales_invoice &&
+                            child_row.item === row.item &&
+                            child_row.name !== row.name 
+                        ) {
+                            total_qtr += child_row.qtr || 0;
+                        }
+                    });
+                    frappe.model.set_value(cdt, cdn, "available_qty_to_return", row.sold_qty + r.message.total_returned_qty + total_qtr);
+                }
+            }
+        });
     }
 }
