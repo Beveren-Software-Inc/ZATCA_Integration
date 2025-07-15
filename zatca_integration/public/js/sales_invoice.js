@@ -384,14 +384,16 @@ function fetch_available_qty(frm, cdt, cdn) {
     }
 }
 
-function create_missing_cn_reference(frm){
-     if (frm.doc.is_return === 1) {
-            let selected_invoices = [];
-            (frm.doc.custom_credit_details || []).forEach(row => {
-                if (row.sales_invoice) {
-                    selected_invoices.push(row.sales_invoice);
-                }
-            });
-            frm.set_value('custom_cn_ref', selected_invoices.join(', '));
-        }
+function create_missing_cn_reference(frm) {
+    if (frm.doc.is_return === 1) {
+        const selected_invoices = new Set();
+
+        (frm.doc.custom_credit_details || []).forEach(row => {
+            if (row.sales_invoice) {
+                selected_invoices.add(row.sales_invoice);
+            }
+        });
+
+        frm.set_value('custom_cn_ref', Array.from(selected_invoices).join(', '));
+    }
 }
