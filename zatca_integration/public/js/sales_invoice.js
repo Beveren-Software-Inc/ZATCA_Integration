@@ -309,7 +309,7 @@ frappe.ui.form.on("Credit Details", {
         let row = frappe.get_doc(cdt, cdn);
         
         if (frm.doc.custom_credit_details) {
-            frappe.model.set_value(cdt, cdn, 'qtr', -Math.abs(row.qtr)); // Ensure qty is negative
+            frappe.model.set_value(cdt, cdn, 'qtr', -Math.abs(row.qtr));
         }
     }
 });
