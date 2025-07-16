@@ -98,27 +98,6 @@ def is_file_attached(file_url):
     return file_url and frappe.db.exists("File", {"file_url": file_url})
 
 
-def is_qr_and_xml_attached(sales_invoice_doc):
-    """Check if both QR code and XML file are already"""
-
-    # Get the QR Code field value
-    qr_code = sales_invoice_doc.get("ksa_einv_qr")
-
-    # Get the XML file if attached
-    xml_file = frappe.db.get_value(
-        "File",
-        {
-            "attached_to_doctype": sales_invoice_doc.doctype,
-            "attached_to_name": sales_invoice_doc.name,
-            "file_name": ["like", REPORTED_XML],
-        },
-        "file_url",
-    )
-
-    # Ensure both files exist before confirming attachment
-    return is_file_attached(qr_code) and is_file_attached(xml_file)
-
-
 @frappe.whitelist(allow_guest=False)
 def process_invoice_for_zatca_submission(
     invoice_number,
