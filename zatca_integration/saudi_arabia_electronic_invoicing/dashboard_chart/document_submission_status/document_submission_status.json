@@ -11,7 +11,7 @@
  "idx": 0,
  "is_public": 1,
  "is_standard": 1,
- "modified": "2025-07-14 14:42:23.413890",
+ "modified": "2025-07-17 14:26:04.453555",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Document Submission Status",
@@ -24,11 +24,31 @@
  "timespan": "Last Year",
  "type": "Bar",
  "use_report_chart": 0,
- "x_field": "submission_status",
+ "x_field": "doctype",
  "y_axis": [
   {
-   "color": "#449CF0",
-   "y_field": "count"
+   "color": "#1fde3c",
+   "y_field": "cleared"
+  },
+  {
+   "color": "#4463F0",
+   "y_field": "reported"
+  },
+  {
+   "color": "#ECAD4B",
+   "y_field": "pending"
+  },
+  {
+   "color": "#1c1c1c",
+   "y_field": "draft"
+  },
+  {
+   "color": "#CB2929",
+   "y_field": "not_cleared"
+  },
+  {
+   "color": "#eb6060",
+   "y_field": "not_reported"
   }
  ]
 }
