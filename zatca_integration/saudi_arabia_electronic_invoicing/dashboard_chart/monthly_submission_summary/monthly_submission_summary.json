@@ -1,0 +1,46 @@
+{
+ "chart_name": "Monthly Submission Summary",
+ "chart_type": "Report",
+ "creation": "2025-07-17 14:17:48.596548",
+ "currency": "",
+ "docstatus": 0,
+ "doctype": "Dashboard Chart",
+ "dynamic_filters_json": "{}",
+ "filters_json": "{}",
+ "group_by_type": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "modified": "2025-07-17 17:25:36.868013",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Monthly Submission Summary",
+ "number_of_groups": 0,
+ "owner": "Administrator",
+ "report_name": "Monthly Submission Summary",
+ "roles": [],
+ "time_interval": "Yearly",
+ "timeseries": 0,
+ "timespan": "Last Year",
+ "type": "Bar",
+ "use_report_chart": 0,
+ "x_field": "doctype",
+ "y_axis": [
+  {
+   "color": "#29CD42",
+   "y_field": "cleared"
+  },
+  {
+   "color": "#4463F0",
+   "y_field": "reported"
+  },
+  {
+   "color": "#171616",
+   "y_field": "draft"
+  },
+  {
+   "color": "#CB2929",
+   "y_field": "failed"
+  }
+ ]
+}
