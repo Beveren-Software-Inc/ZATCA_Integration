@@ -9,7 +9,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
 import json
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import build_certificate_data, create_public_key
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import build_certificate_data, create_public_key, calculation_expiry_date
 import base64
 from textwrap import wrap
 class ProductionCSID(Document):
@@ -167,8 +167,3 @@ def handle_error(response):
         )
     
 
-def calculation_expiry_date(created_on):
-    """Returns expiry date 1 year after created_on using Frappe utils"""
-    created_dt = get_datetime(created_on)
-    expiry_dt = add_months(created_dt, 12)
-    return expiry_dt.strftime("%Y-%m-%d %H:%M:%S")
