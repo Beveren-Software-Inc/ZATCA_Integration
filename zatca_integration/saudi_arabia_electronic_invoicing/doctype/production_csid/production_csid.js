@@ -4,7 +4,6 @@
 frappe.ui.form.on("Production CSID", {
     refresh: frm => {
         if (!frm.is_new()) {
-            // Always show Renew button
             frm.trigger("re_generate_production_csid");
 
             // Only show Generate button if is_active != 1
@@ -73,7 +72,6 @@ frappe.ui.form.on("Production CSID", {
                         }
                     }
                 });
-
         });
     }
 });

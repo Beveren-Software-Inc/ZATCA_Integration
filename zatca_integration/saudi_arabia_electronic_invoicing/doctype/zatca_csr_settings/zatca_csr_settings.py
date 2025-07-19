@@ -5,11 +5,7 @@ import frappe
 import requests
 from frappe.model.document import Document
 import uuid
-from typing import Optional
-from zatca_integration.saudi_arabia_electronic_invoicing.background_task import (
-    send_multiple_signed_compliance_invoices_to_zatca, prod_csid_auto_renew
-)
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_or_create_scheduled_job
+
 class ZatcaCSRSettings(Document):
 	def before_save(self):
 		if not self.csrserialnumber:
@@ -74,6 +70,3 @@ class ZatcaCSRSettings(Document):
 			self.save()
 		else:
 			frappe.throw(f"Error in generating CSR: {response.text}")
-	# def on_update(self):
-	# 	on_update_create_schedulers(self)
-

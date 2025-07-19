@@ -1,5 +1,16 @@
 import frappe
 import base64
+import asn1
+import qrcode
+import base64
+import uuid
+import textwrap
+from typing import Optional
+import numpy as np
+from frappe import _
+from frappe.utils import get_datetime, add_months
+from PIL import Image
+from frappe.utils import get_site_path
 from frappe import _
 from cryptography import x509
 from cryptography.hazmat._oid import NameOID
@@ -8,19 +19,7 @@ from cryptography.hazmat.bindings._rust import ObjectIdentifier
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from datetime import datetime, timedelta
-import textwrap
-from frappe.utils import get_datetime, add_months
 
-
-import asn1
-import qrcode
-import base64
-from PIL import Image
-from frappe import _
-import numpy as np
-from frappe.utils import get_site_path
-import uuid
-from typing import Optional
 
 @frappe.whitelist()
 def generate_private_keys(doc_name):
@@ -120,23 +119,6 @@ def build_csr_extensions(csr_values, environment):
         (alt_name, False)
     ]
 
-# def save_and_return_csr(doc, private_key_pem, csr):
-#     """Save CSR to document and return base64 encoded result"""
-#     csr_pem = csr.public_bytes(serialization.Encoding.PEM)
-#     base64csr = base64.b64encode(csr_pem).decode("utf-8")
-#     doc.private_key = private_key_pem.decode("utf-8")
-#     doc.private_key_pem_format = str(private_key_pem)
-#     doc.csr = base64csr.strip()
-#     doc.csr_pem_format = csr_pem.decode("utf-8")
-#     doc.csr_generated = 1
-#     doc.save(ignore_permissions=True)
-#     frappe.msgprint(
-#             _("CSR and Private Key were generated successfully and saved to the document.<br><br>"
-#               "<b>Next Step:</b> Create and generate CSID"),
-#             title="CSR Generation Complete",
-#             indicator="green"
-#         )
-#     return base64csr
 
 def save_and_return_csr(doc, private_key_pem, csr):
     """Save CSR to document and return base64 encoded result"""
@@ -185,7 +167,6 @@ def format_private_key_pem(private_key_pem: bytes) -> str:
         # Re-wrap to 64-char lines
         wrapped = "\n".join(textwrap.wrap(raw, 64))
 
-        # Re-add header/footer
         return f"-----BEGIN EC PRIVATE KEY-----\n{wrapped}\n-----END EC PRIVATE KEY-----\n"
 
     return pem_str
@@ -264,8 +245,6 @@ def create_public_key(certificate):
         ).decode()
        
         return public_key_pem
-        # Ensure data is committed to the database
-        # frappe.db.commit()
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error occurred while creating public key: " + str(e)))
@@ -451,6 +430,7 @@ def get_address(sales_invoice_doc):
     )
 
     return company_address, customer_address
+
 
 def get_zatca_tax_category_details(invoice_doc):
     """
@@ -672,4 +652,3 @@ def get_certificate_and_public_key(binary_security_token, created_on):
         }
     except Exception as e:
         frappe.throw(_("Error extracting certificate and public key: {0}").format(str(e)))
-
