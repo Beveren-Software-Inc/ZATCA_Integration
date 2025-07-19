@@ -80,18 +80,22 @@ fixtures = [
         "Company-custom_b2c_cron_format",
         "Company-custom_sales_information_submission_frequency",
         "Company-custom_b2c_auto_sales_submission_enabled",
-        "Company-custom_submission_frequency_settings"
+        "Company-custom_submission_frequency_settings",
+        
 ]]]},
     # Property Setters
-    {"doctype": "Property Setter", "filters": [["doc_type", "in", [
-        "Address",
-        "Company",
-        "Customer",
-        "Sales Invoice",
-        "Purchase Taxes and Charges Template",
-        "Sales Taxes and Charges Template"
-    ]]]}
+    # {"doctype": "Property Setter", "filters": [["doc_type", "in", [
+    #     "Address",
+    #     "Company",
+    #     "Customer",
+    #     "Sales Invoice",
+    #     "Purchase Taxes and Charges Template",
+    #     "Sales Taxes and Charges Template"
+    # ]]]},
+    {"doctype": "Custom HTML Block", "filters": [["name", "in", [
+        "Line Separator"]]]},
 ]
+
 
 # Home Pages
 # ----------

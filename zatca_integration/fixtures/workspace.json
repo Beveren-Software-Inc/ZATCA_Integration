@@ -2,15 +2,15 @@
  {
   "charts": [
    {
-    "chart_name": "Monthly Submission Summary",
-    "label": "Monthly Submission Summary",
+    "chart_name": "Document Submission Status",
+    "label": "Zatca Submission Status",
     "parent": "ZATCA Integrations",
     "parentfield": "charts",
     "parenttype": "Workspace"
    },
    {
-    "chart_name": "Document Submission Status",
-    "label": "Zatca Submission Status",
+    "chart_name": "Monthly Submission Summary",
+    "label": "Monthly Submission Summary",
     "parent": "ZATCA Integrations",
     "parentfield": "charts",
     "parenttype": "Workspace"
@@ -35,7 +35,7 @@
   "is_hidden": 0,
   "label": "ZATCA Integrations",
   "links": [],
-  "modified": "2025-07-17 14:37:20.503994",
+  "modified": "2025-07-17 17:26:17.576694",
   "module": null,
   "name": "ZATCA Integrations",
   "number_cards": [
