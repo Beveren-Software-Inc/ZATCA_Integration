@@ -178,12 +178,14 @@
   {
    "fieldname": "certificate",
    "fieldtype": "Long Text",
-   "label": "Certificate"
+   "label": "Certificate",
+   "read_only": 1
   },
   {
    "fieldname": "public_key",
    "fieldtype": "Small Text",
-   "label": "Public Key"
+   "label": "Public Key",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
@@ -194,7 +196,7 @@
    "link_fieldname": "compliance_csid"
   }
  ],
- "modified": "2025-06-24 10:23:17.035784",
+ "modified": "2025-07-19 13:31:09.321553",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Compliance CSID",
