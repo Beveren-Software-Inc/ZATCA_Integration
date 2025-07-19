@@ -43,6 +43,7 @@ def generate_private_keys(doc_name):
 
         return None
 
+
 @frappe.whitelist(allow_guest=False)
 def generate_csr(doc_name):
     """Main function to generate CSR"""
@@ -55,6 +56,7 @@ def generate_csr(doc_name):
     except Exception as e:
         handle_csr_error(doc_name, e)
         frappe.throw(_("CSR generation failed. Please check error logs."))
+
 
 def get_private_key(doc):
     """Generate and load private key"""
@@ -115,23 +117,75 @@ def build_csr_extensions(csr_values, environment):
         (alt_name, False)
     ]
 
+# def save_and_return_csr(doc, private_key_pem, csr):
+#     """Save CSR to document and return base64 encoded result"""
+#     csr_pem = csr.public_bytes(serialization.Encoding.PEM)
+#     base64csr = base64.b64encode(csr_pem).decode("utf-8")
+#     doc.private_key = private_key_pem.decode("utf-8")
+#     doc.private_key_pem_format = str(private_key_pem)
+#     doc.csr = base64csr.strip()
+#     doc.csr_pem_format = csr_pem.decode("utf-8")
+#     doc.csr_generated = 1
+#     doc.save(ignore_permissions=True)
+#     frappe.msgprint(
+#             _("CSR and Private Key were generated successfully and saved to the document.<br><br>"
+#               "<b>Next Step:</b> Create and generate CSID"),
+#             title="CSR Generation Complete",
+#             indicator="green"
+#         )
+#     return base64csr
+
 def save_and_return_csr(doc, private_key_pem, csr):
     """Save CSR to document and return base64 encoded result"""
     csr_pem = csr.public_bytes(serialization.Encoding.PEM)
     base64csr = base64.b64encode(csr_pem).decode("utf-8")
-    doc.private_key = private_key_pem.decode("utf-8")
-    doc.private_key_pem_format = str(private_key_pem)
+
+    # Convert to string and remove newlines
+    pem_str = private_key_pem.decode("utf-8").replace("\n", "")
+
+    # Extract base64 portion only (without headers)
+    import re
+    base64_key = re.search(
+        r"-----BEGIN EC PRIVATE KEY-----(.*?)-----END EC PRIVATE KEY-----",
+        pem_str,
+    ).group(1).strip()
+
+    doc.private_key = base64_key
+    doc.private_key_pem_format = format_private_key_pem(private_key_pem)
     doc.csr = base64csr.strip()
     doc.csr_pem_format = csr_pem.decode("utf-8")
     doc.csr_generated = 1
     doc.save(ignore_permissions=True)
+
     frappe.msgprint(
-            _("CSR and Private Key were generated successfully and saved to the document.<br><br>"
-              "<b>Next Step:</b> Create and generate CSID"),
-            title="CSR Generation Complete",
-            indicator="green"
-        )
+        _(
+            "CSR and Private Key were generated successfully and saved to the document.<br><br>"
+            "<b>Next Step:</b> Create and generate CSID"
+        ),
+        title="CSR Generation Complete",
+        indicator="green",
+    )
+
     return base64csr
+
+import textwrap
+def format_private_key_pem(private_key_pem: bytes) -> str:
+    """Ensure the EC private key is in proper PEM format with line breaks."""
+    pem_str = private_key_pem.decode("utf-8").strip()
+
+    if "BEGIN EC PRIVATE KEY" in pem_str:
+        # Remove header/footer and line breaks
+        raw = pem_str.replace("-----BEGIN EC PRIVATE KEY-----", "")
+        raw = raw.replace("-----END EC PRIVATE KEY-----", "")
+        raw = raw.replace("\n", "").strip()
+
+        # Re-wrap to 64-char lines
+        wrapped = "\n".join(textwrap.wrap(raw, 64))
+
+        # Re-add header/footer
+        return f"-----BEGIN EC PRIVATE KEY-----\n{wrapped}\n-----END EC PRIVATE KEY-----\n"
+
+    return pem_str
 
 def handle_csr_error(doc_name, error):
     """Log CSR generation errors"""
@@ -312,7 +366,7 @@ def get_pem_details(invoice):
     compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
     csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
 
-    private_key = csr_settings.private_key # Send this uncleaned
+    private_key = csr_settings.private_key_pem_format
     public_key = clean_pem_key(production_csid.public_key, "PUBLIC KEY")
     certificate = (production_csid.certificate or "").strip().replace("\n", "")
 
