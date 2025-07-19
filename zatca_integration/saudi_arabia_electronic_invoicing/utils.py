@@ -7,7 +7,10 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.bindings._rust import ObjectIdentifier
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
-from datetime import datetime, date, timedelta, time
+from datetime import datetime, timedelta
+import textwrap
+from frappe.utils import get_datetime, add_months
+
 
 import asn1
 import qrcode
@@ -168,7 +171,7 @@ def save_and_return_csr(doc, private_key_pem, csr):
 
     return base64csr
 
-import textwrap
+
 def format_private_key_pem(private_key_pem: bytes) -> str:
     """Ensure the EC private key is in proper PEM format with line breaks."""
     pem_str = private_key_pem.decode("utf-8").strip()
@@ -232,8 +235,10 @@ def parse_csr_config(csr_config_string):
         csr_config[key.strip()] = value.strip()
     return csr_config
 
+
 def build_certificate_data(binary_security_token):
     return base64.b64decode(binary_security_token).decode('utf-8')
+
 
 def create_public_key(certificate):
     '''Create a public key from the certificate data provided in the compliance csid'''
@@ -375,7 +380,8 @@ def get_pem_details(invoice):
         "public_key": public_key,
         "certificate": certificate
     }
-    
+
+
 def clean_pem_key(pem_key: str, keyword: str) -> str:
     """Remove PEM headers and newlines from a key."""
     if not pem_key:
@@ -644,3 +650,26 @@ def update_cron_format(frequency):
     if frequency in cron_map:
         return cron_map[frequency]
   
+def calculation_expiry_date(created_on):
+    """Returns expiry date 1 year after created_on using Frappe utils"""
+    created_dt = get_datetime(created_on)
+    expiry_dt = add_months(created_dt, 12)
+    return expiry_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+@frappe.whitelist()
+def get_certificate_and_public_key(binary_security_token, created_on):
+    """
+    Extracts the certificate and public key from the binary security token.
+    """
+    try:
+        certificate_data = build_certificate_data(binary_security_token)
+        public_key = create_public_key(certificate_data)
+        expiry_date = calculation_expiry_date(created_on)
+        return {
+            "certificate": certificate_data,
+            "public_key": public_key,
+            "expiry_date": expiry_date
+        }
+    except Exception as e:
+        frappe.throw(_("Error extracting certificate and public key: {0}").format(str(e)))
+
