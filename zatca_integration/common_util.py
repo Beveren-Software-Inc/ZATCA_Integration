@@ -147,8 +147,8 @@ def get_seller_information(csr_settings):
 
     return {
         "organizationName": csr_settings.csrorganizationname,
-        # "vatNumber": csr_settings.csrorganizationidentifier,
-        "vatNumber": "399999999900003",
+        "vatNumber": csr_settings.csrorganizationidentifier,
+        # "vatNumber": "399999999900003",
         "streetName": csr_settings.street_name,
         "buildingNumber": csr_settings.building_number,
         "citySubdivisionName": csr_settings.city_subdivision_name,

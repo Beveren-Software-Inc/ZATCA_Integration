@@ -64,7 +64,6 @@ def send_multiple_signed_compliance_invoices_to_zatca():
 
     return results
 
-
 # Notify user on the expiry of the production csid
 def notify_expiring_csids():
     today = now_datetime()
@@ -179,7 +178,6 @@ def on_update_create_schedulers(doc):
                 cron_format
             )
         elif enabled_before and not enabled_now:
-            # Previously enabled but now disabled — delete job
             delete_scheduled_job(job_name)
             
     doc.custom_sales_information_submission_frequency = before_time

@@ -1,6 +1,6 @@
 
 import json
-from datetime import datetime, date, timedelta, time
+from datetime import datetime, date, timedelta
 
 from dateutil.parser import parse
 import uuid
@@ -16,7 +16,7 @@ from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
     get_zatca_config, get_previous_invoice_counter, get_previous_invoice_hash, time_formatter)
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import process_invoice_for_zatca_submission, xml_base64_decode
 import io
-from frappe import ValidationError, _
+from frappe import _
 
 def generate_einvoice(doc, submit_now=True):
     
@@ -182,11 +182,9 @@ def _handle_zatca_response(doc, response, invoice_data, payload, zatca_status):
         _handle_success_response(doc, response_json, invoice_data, payload, zatca_status_field)
     elif response.status_code == 303:
         _handle_error_response(doc, 'FAILED', json.dumps(response_json.get('message', '')))
-        # frappe.throw("Error submitting invoice, Clearance is Deactivated")
     elif response.status_code == 400:
         _handle_error_response(doc, zatca_status_field, 
                              json.dumps(response_json.get('validationResults', '')))
-        # frappe.throw("Error submitting invoice, Bad Request")
     elif response.status_code == 401:
         _handle_error_response(doc, 'FAILED', json.dumps(response_json))
         frappe.throw("Error submitting invoice, Invalid Credentials")
@@ -296,10 +294,7 @@ def _prepare_invoice_data(doc, config):
         invoice_date = doc.posting_date.strftime("%Y-%m-%d")
     elif isinstance(doc.posting_date, str):
         invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
-    # else:
-    #     frappe.thr
-    # invoice_date = datetime.strptime(doc.posting_date, "%Y-%m-%d").strftime("%Y-%m-%d")
-  
+    
     invoice_time = time_formatter(doc.posting_time)
   
     # Handle delivery date
@@ -370,7 +365,7 @@ def display_error_ui(validation_results, doc):
         if isinstance(validation_results, str):
             results = json.loads(validation_results)
         else:
-            results = validation_results  # already a dict
+            results = validation_results
 
         error_messages = results.get("errorMessages", [])
         warning_messages = results.get("warningMessages", [])
@@ -413,9 +408,6 @@ def display_error_ui(validation_results, doc):
         doc.custom_has_warnings = 1
         return frappe.msgprint(title="ZATCA Warning", msg=html_output, indicator="orange")
 
-        
-
-
     
 def get_payment_means_code(payment_means):
     if payment_means == "Cash":
@@ -427,7 +419,7 @@ def get_payment_means_code(payment_means):
     elif payment_means == "Bank Card":
         payment_means_code = "48"
     else:
-        payment_means_code = "10" # Default to Cash
+        payment_means_code = "10"
     return payment_means_code
 
 

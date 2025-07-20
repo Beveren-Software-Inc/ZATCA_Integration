@@ -35,7 +35,6 @@ from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.initial_
     structuring_signedxml,
     get_tlv_for_value,
     update_qr_toxml,
-   
 )
 
 REPORTED_XML = "%Reported xml file%"
@@ -75,7 +74,6 @@ def get_reporting_status(result):
     """defining the reporting status"""
     try:
         reporting_status = result.text.strip()  # Strip any leading/trailing whitespace
-        print("reportingStatus: " + reporting_status)
         return reporting_status
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.throw(_(("error in reporting statu" f"error: {str(e)}")))
