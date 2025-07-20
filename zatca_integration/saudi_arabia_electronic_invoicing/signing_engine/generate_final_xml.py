@@ -353,12 +353,10 @@ def get_time_string(posting_time):
 
 def custom_round(value):
     """Rounding CCording to our need"""
-    # Convert the value to a Decimal for accurate handling
     decimal_value = Decimal(str(value))
 
     # Check if the number has less than 3 decimal places
     if decimal_value.as_tuple().exponent >= -2:
-        # If there are less than 3 decimal places, return the original value as float
         return float(decimal_value)
 
     # Extract the third decimal digit accurately

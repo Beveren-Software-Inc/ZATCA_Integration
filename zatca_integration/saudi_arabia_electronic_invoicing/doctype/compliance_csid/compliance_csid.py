@@ -9,12 +9,11 @@ import base64
 import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
-from zatca_integration.common_util import generate_clearance_request, generate_reporting_request, generate_invoice_payload_from_xml, generate_invoice_hash
+from zatca_integration.common_util import generate_invoice_payload_from_xml, generate_invoice_hash
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import build_certificate_data, create_public_key
 import struct
 import qrcode
 from datetime import datetime, timedelta
-
 
 class ComplianceCSID(Document):
 
@@ -142,7 +141,6 @@ class ComplianceCSID(Document):
 
 	def invoke_complaince_check(self, invoice_type, csr_settings, seller, buyer):
 		"""Invoke compliance check for the given invoice type."""
-		# first_invoice_hash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
 		'''Dynamically generate first invoice hash to ensure unique hash for each run.'''
 		first_invoice_hash = generate_invoice_hash()
 
@@ -196,7 +194,6 @@ class ComplianceCSID(Document):
 		try:
 			
 			response = requests.post(zatca_environment.compliance_invoice_api, headers=headers, auth=HTTPBasicAuth(self.binary_security_token, self.secret), data=json.dumps(invoice_request))
-			# frappe.throw(str(response.status_code) + " " + str(response.text))
 			response_code = response.status_code
 			response_text = response.text
 			response_headers = dict(response.headers)
@@ -245,7 +242,6 @@ def generate_debit_note_xml(invoiceType, invoiceNumber, seller, buyer, originali
 	
 	# Global Unique Identifier
 	uniqueInvoiceIdentifier = str(uuid.uuid4())
-	# Counter Value, once used cannot be used even for same invoice
 	invoiceCounterValue  = int(time.time())
 
 	# Invoice Date and Time
@@ -444,4 +440,3 @@ def generate_qr_code(data, filename):
 		img = qr.make_image(fill_color="black", back_color="white")
 		img.save(filename)
 		return filename
-

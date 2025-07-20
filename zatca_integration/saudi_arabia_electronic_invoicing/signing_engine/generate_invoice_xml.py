@@ -24,7 +24,7 @@ def get_issue_time(invoice_number):
     """
     doc = frappe.get_doc("Sales Invoice", invoice_number)
     time = get_time(doc.posting_time)
-    issue_time = time.strftime("%H:%M:%S")  # time in format of  hour,mints,secnds
+    issue_time = time.strftime("%H:%M:%S")
     return issue_time
 
 
@@ -381,12 +381,12 @@ def get_pih_for_company(pih_data, company_name):
         frappe.throw(
             _(f"Error while retrieving PIH of company '{company_name}' for production.")
         )
-        return None  # Ensures consistent return
+        return None  
     except (KeyError, AttributeError, ValueError) as e:
         frappe.throw(
             _(f"Error in getting PIH of company '{company_name}' for production: {e}")
         )
-        return None  # Ensures consistent return
+        return None
 
 
 def additional_reference(invoice, sales_invoice_doc):
@@ -417,7 +417,6 @@ def additional_reference(invoice, sales_invoice_doc):
         previous_invoice_hash = get_previous_invoice_hash(config['production_csid'].name)
         
         pih = previous_invoice_hash
-        # frappe.throw(str(pih))
         cbc_embeddeddocumentbinaryobject.text = pih
 
         # Create the second AdditionalDocumentReference element for QR

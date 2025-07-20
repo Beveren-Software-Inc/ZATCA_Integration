@@ -55,10 +55,6 @@
    "width": "Half"
   },
   {
-   "chart": "Reported vs Not Reported",
-   "width": "Half"
-  },
-  {
    "chart": "Document Submission Time Analysis",
    "width": "Half"
   }
@@ -70,7 +66,7 @@
  "idx": 0,
  "is_default": 0,
  "is_standard": 1,
- "modified": "2025-07-14 17:27:51.819424",
+ "modified": "2025-07-20 14:52:52.614845",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca",
