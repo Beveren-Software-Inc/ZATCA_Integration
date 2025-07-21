@@ -52,9 +52,11 @@ def generate_einvoice(doc, submit_now=True):
     # Check if the active Zacta Phase is Phase 2
     if not company.custom_zatca_phase == "ZATCA Phase 2":
         return
-    
+    invoice_xml = decode_invoice(payload.get('invoice'))
+    _save_invoice_xml(doc, invoice_xml)
+
     if customer_type == "Individual" and not submit_now and not doc.custom_invoice_xml:
-        invoice_xml = decode_invoice(payload.get('invoice'))
+        
         _save_invoice_xml(doc, invoice_xml)
         _save_qr_code(doc, invoice_xml)
         doc.custom_zatca_submit_status="PENDING"

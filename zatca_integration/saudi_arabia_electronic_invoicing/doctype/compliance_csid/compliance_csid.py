@@ -14,7 +14,7 @@ from zatca_integration.saudi_arabia_electronic_invoicing.utils import build_cert
 import struct
 import qrcode
 from datetime import datetime, timedelta
-from zatca_integration.saudi_arabia_electronic_invoicing.data.test_data import create_return_invoice, create_test_sales_invoice
+from zatca_integration.saudi_arabia_electronic_invoicing.data.test_data import create_return_invoice, create_test_sales_invoice, create_standard_return_invoice, create_standard_test_sales_invoice
 
 class ComplianceCSID(Document):
 
@@ -82,9 +82,9 @@ class ComplianceCSID(Document):
 
 		if csr_settings.csrinvoicetype == "1100":
 		#Uncomment after testing
-			# self.invoke_complaince_check("standard", csr_settings, seller, buyer)
+			self.invoke_complaince_check(invoice, "standard", csr_settings, seller, buyer)
 			
-			self.invoke_complaince_check(invoice, "simplified", csr_settings, seller, buyer)
+			# self.invoke_complaince_check(invoice, "simplified", csr_settings, seller, buyer)
 			
 			if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note and self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
 				self.save(); frappe.db.commit()
@@ -148,8 +148,8 @@ class ComplianceCSID(Document):
 		# Issue Invoice
 		tax_invoice = generate_tax_invoice_xml(invoice, invoice_type, "INV-00001", seller, buyer, first_invoice_hash)
 		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, tax_invoice["xml"])
-		# if invoice_type == "standard":
-		# 	self.standard_invoice = tax_invoice_status
+		if invoice_type == "standard":
+			self.standard_invoice = tax_invoice_status
 		if invoice_type == "simplified":
 			self.simplified_invoice = tax_invoice_status
 
@@ -240,7 +240,7 @@ class ComplianceCSID(Document):
 		return decoded_compliance_certificate.decode('utf-8')
 	
 def generate_debit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
-	invoice_name = create_test_sales_invoice("test2")
+	
 	# Global Unique Identifier
 	uniqueInvoiceIdentifier = str(uuid.uuid4())
 	invoiceCounterValue  = int(time.time())
@@ -250,6 +250,10 @@ def generate_debit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, bu
 	invoice_time = datetime.strptime(frappe.utils.now(), "%Y-%m-%d %H:%M:%S.%f").strftime("%H:%M:%S")
 
 	# if invoiceType == "standard":
+	if invoiceType == "standard":
+		invoice_name = create_standard_test_sales_invoice("test2")
+	elif invoiceType == "simplified":
+		invoice_name = create_test_sales_invoice("test2")
 	# 	template_file = "zatca_integration/templates/zatca/compliance/Standard_Debit_Note.xml"
 	# elif invoiceType == "simplified":
 	# 	template_file = "zatca_integration/templates/zatca/compliance/Simplified_Debit_Note.xml"
@@ -279,7 +283,7 @@ def generate_debit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, bu
 	return standard_debit_note
 
 def generate_credit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
-	invoice_name = create_return_invoice("test2")
+	# invoice_name = create_return_invoice("test2")
 	# Global Unique Identifier
 	uniqueInvoiceIdentifier = str(uuid.uuid4())
 	# Counter Value, once used cannot be used even for same invoice
@@ -289,6 +293,10 @@ def generate_credit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, b
 	invoice_date = datetime.strptime(frappe.utils.today(), "%Y-%m-%d").strftime("%Y-%m-%d")
 	invoice_time = datetime.strptime(frappe.utils.now(), "%Y-%m-%d %H:%M:%S.%f").strftime("%H:%M:%S")
 
+	if invoiceType == "standard":
+		invoice_name = create_standard_return_invoice("test2")
+	elif invoiceType == "simplified":
+		invoice_name = create_return_invoice("test2")
 	# if invoiceType == "standard":
 	# 	template_file = "zatca_integration/templates/zatca/compliance/Standard_Credit_Note.xml"
 	# elif invoiceType == "simplified":
@@ -332,7 +340,10 @@ def generate_tax_invoice_xml(invoice_name, invoiceType, invoiceNumber, seller, b
 
 		# Invoice Delivery Date
 		invoiceDeliveryDate = (frappe.utils.getdate(frappe.utils.today()) + timedelta(days=10)).strftime("%Y-%m-%d")
-
+		if invoiceType == "standard":
+			invoice_name = create_standard_test_sales_invoice("test2")
+		elif invoiceType == "simplified":
+			invoice_name = create_test_sales_invoice("test2")
 		# if invoiceType == "standard":
 		# 		template_file = "zatca_integration/templates/zatca/compliance/Standard_Invoice.xml"
 		# elif invoiceType == "simplified":
