@@ -24,5 +24,17 @@ frappe.ui.form.on('Zatca CSR Settings', {
                 });
             }
         }
+        make_fields_read_only(frm);
     }
 });
+
+
+function make_fields_read_only(frm) {
+    if (frm.doc.csr_generated) {
+        frm.fields.forEach(function(field) {
+            frm.set_df_property(field.df.fieldname, 'read_only', 1);
+        });
+
+        frm.disable_save();
+    }
+}
