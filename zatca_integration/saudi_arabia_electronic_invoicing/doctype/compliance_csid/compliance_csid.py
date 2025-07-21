@@ -486,10 +486,9 @@ def delete_zatca_test_invoices_and_related_docs():
 		customer_name = inv.customer
 		try:
 			invoice = frappe.get_doc("Sales Invoice", invoice_name)
-
 			frappe.msgprint(f"Processing test invoice: {invoice_name}")
 
-			# Cancel and delete return invoice (credit note) if exists
+			# Cancel and delete return invoice if exists
 			return_invoice_name = frappe.get_value("Sales Invoice", {
 				"return_against": invoice_name
 			}, "name")
@@ -500,11 +499,11 @@ def delete_zatca_test_invoices_and_related_docs():
 					return_invoice.cancel()
 				frappe.delete_doc("Sales Invoice", return_invoice_name, force=1)
 
-			# Store related info before deleting the invoice
+			# Store related items and warehouses before deleting the invoice
 			item_codes = [row.item_code for row in invoice.items]
 			warehouses = list(set([row.warehouse for row in invoice.items if row.warehouse]))
 
-			# Cancel and delete the main invoice
+			# Cancel and delete the invoice
 			if invoice.docstatus == 1:
 				invoice.cancel()
 			frappe.delete_doc("Sales Invoice", invoice_name, force=1)
@@ -519,13 +518,15 @@ def delete_zatca_test_invoices_and_related_docs():
 				if frappe.db.exists("Warehouse", wh):
 					frappe.delete_doc("Warehouse", wh, force=1)
 
-			# Delete address linked to customer
-			addresses = frappe.get_all("Address",
-				filters={"links.link_doctype": "Customer", "links.link_name": customer_name},
-				pluck="name"
+			# Delete address linked via Dynamic Link
+			address_names = frappe.get_all(
+				"Dynamic Link",
+				filters={"link_doctype": "Customer", "link_name": customer_name, "parenttype": "Address"},
+				pluck="parent"
 			)
-			for addr in addresses:
-				frappe.delete_doc("Address", addr, force=1)
+			# for addr in address_names:
+			# 	if frappe.db.exists("Address", addr):
+			# 		frappe.delete_doc("Address", addr, force=1)
 
 			# Delete customer
 			if frappe.db.exists("Customer", customer_name):

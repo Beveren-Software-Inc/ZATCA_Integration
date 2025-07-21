@@ -37,9 +37,9 @@ def create_test_sales_invoice(csr_data):
 		"amount": 6000,
 		"net_rate": 375,
 		"net_amount": 6000,
-		"income_account": get_income_accounts("Test Item 1", company),
-		"expense_account": get_expense_accounts("Test Item 1", company),
-		"warehouse": "Cab1-Down",
+		"income_account": get_income_account(company),
+		"expense_account": get_expense_account(company),
+		"warehouse": create_zatca_test_warehouse(company)
 	}
 	
 	create_item_if_missing(item)
@@ -122,8 +122,8 @@ def create_test_sales_invoice(csr_data):
 				"amount": 6000,
 				"net_rate": 375,
 				"net_amount": 6000,
-				"income_account": get_income_accounts(item["item_code"], company),
-				"expense_account": get_expense_accounts(item["item_code"], company),
+				"income_account": get_income_account(company),
+				"expense_account": get_expense_account(company),
 				"warehouse": create_zatca_test_warehouse(company),
 				
 			}
@@ -252,45 +252,60 @@ def create_customer_address(customer_name):
 	frappe.db.set_value("Customer", customer_name, "customer_primary_address", address.name)
 
 
-def get_income_accounts(item_code, company):
+def get_income_account(company):
 	try:
-		item_doc = frappe.get_doc("Item", item_code)
-		item_defaults = item_doc.get("item_defaults")
+		# Step 1: Check if company has a default income account
+		company_doc = frappe.get_doc("Company", company)
+		if company_doc.default_income_account:
+			return company_doc.default_income_account
 
-		if item_defaults:
-			for default in item_defaults:
-				if default.get("company") == company:
-					# If company matches, return the income_account for that entry
-					this_company=frappe.get_doc("Company", company)
-					income_account = this_company.default_income_account
-					return income_account
-				else:
-					company_doc=frappe.get_doc('Company', company)
-					income_account=company_doc.default_income_account
-					return income_account
-		else:
-			company_doc=frappe.get_doc('Company', company)
-			income_account=company_doc.default_income_account
-			return income_account
+		# Step 2: Fallback to first Income Account found (non-group)
+		account = frappe.get_value("Account",
+			filters={
+				"company": company,
+				"account_type": "Income Account",
+				"is_group": 0
+			},
+			fieldname="name"
+		)
 
-		# If no matching income account is found for the specified company
-		return None  # Or raise a specific exception if needed
+		if account:
+			return account
+
+		# No account found
+		frappe.throw(f"No income account found for company '{company}'")
 
 	except Exception as e:
-		frappe.throw(f"Error fetching income account for item {item_code} and company {company}: {e}")
+		frappe.throw(f"Error fetching income account for company '{company}': {e}")
 
 
-def get_expense_accounts(item_code, company):
+
+def get_expense_account(company):
 	try:
-		item_doc = frappe.get_doc("Item", item_code)
-		item_defaults = item_doc.item_defaults
+		# Step 1: Check if company has a default expense account
+		company_doc = frappe.get_doc("Company", company)
+		if company_doc.default_expense_account:
+			return company_doc.default_expense_account
 
-		this_company=frappe.get_doc("Company", company)
-		expense_account = this_company.default_expense_account
-		return expense_account
+		# Step 2: Fallback to first Expense Account found (non-group)
+		account = frappe.get_value("Account",
+			filters={
+				"company": company,
+				"account_type": "Expense Account",
+				"is_group": 0
+			},
+			fieldname="name"
+		)
+
+		if account:
+			return account
+
+		# No expense account found
+		frappe.throw(f"No expense account found for company '{company}'")
 
 	except Exception as e:
-		frappe.throw(f"Error fetching expense account for item {item_code}: {e}")
+		frappe.throw(f"Error fetching expense account for company '{company}': {e}")
+
 
 
 @frappe.whitelist()
@@ -368,7 +383,7 @@ def create_standard_test_sales_invoice(csr_data):
 		"net_amount": 6000,
 		"income_account": "6100001 - Trade Sales - STCL",
 		"expense_account": "7200008 - Goods Purchases - STCL",
-		"warehouse": "Cab1-Down",
+		"warehouse": create_zatca_test_warehouse(company)
 	}
 	
 	create_item_if_missing(item)
@@ -450,9 +465,9 @@ def create_standard_test_sales_invoice(csr_data):
 				"amount": 6000,
 				"net_rate": 375,
 				"net_amount": 6000,
-				"income_account": get_income_accounts(item["item_code"], company),
-				"expense_account": get_expense_accounts(item["item_code"], company),
-				"warehouse": "Cab1-Down",
+				"income_account": get_income_account(company),
+				"expense_account": get_expense_account(company),
+				"warehouse": create_zatca_test_warehouse(company)
 				
 			}
 		],
