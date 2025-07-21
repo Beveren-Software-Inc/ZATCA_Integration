@@ -84,7 +84,7 @@ class ComplianceCSID(Document):
 		#Uncomment after testing
 			self.invoke_complaince_check(invoice, "standard", csr_settings, seller, buyer)
 			
-			# self.invoke_complaince_check(invoice, "simplified", csr_settings, seller, buyer)
+			self.invoke_complaince_check(invoice, "simplified", csr_settings, seller, buyer)
 			
 			if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note and self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
 				self.save(); frappe.db.commit()
@@ -220,7 +220,7 @@ class ComplianceCSID(Document):
 		# 	return True, invoice_request["invoiceHash"]
 		# else:
 		# 	return False, None
-		if response.status_code == 200 or response.status_code == 202:
+		if response.status_code == 200:
 			return True, invoice_request["invoiceHash"]
 		else:
 			return False, None

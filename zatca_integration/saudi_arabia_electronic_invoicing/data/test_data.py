@@ -154,7 +154,7 @@ def create_test_sales_invoice(csr):
 	invoice.set_new_name = lambda **kwargs: "TEST-INV-001"
 
 	invoice.insert(ignore_permissions=True)
-	frappe.db.commit()
+	# frappe.db.commit()
 	invoice.submit()
 	return invoice.name
 	# frappe.msgprint("Sales Invoice ACC-SINV-2025-00212 created and submitted successfully.")
