@@ -105,8 +105,8 @@ def create_test_sales_invoice(csr_data):
 		# "letter_head": "SpaceTop - M",
 		# "status": "Unpaid",
 		"customer_group": "All Customer Groups",
-		"tc_name":"NET 60",
-		"payment_terms_template": "Bank Advice",
+		# "tc_name":"NET 60",
+		# "payment_terms_template": "Bank Advice",
 
 		"items": [
 			{
