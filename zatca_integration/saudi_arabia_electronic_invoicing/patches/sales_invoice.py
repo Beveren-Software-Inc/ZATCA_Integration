@@ -10,6 +10,7 @@ def execute():
         "Sales Invoice-custom_shipping_address"
         "Sales Invoice-custom_days_count",
         "Sales Invoice-custom_get_all_items",
+        "Sales Invoice-custom_cn_ref"
         
     ]
 
