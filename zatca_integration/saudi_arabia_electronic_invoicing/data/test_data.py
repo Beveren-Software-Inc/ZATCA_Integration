@@ -12,9 +12,16 @@ from frappe.utils import nowdate, add_to_date
 
 @frappe.whitelist()
 def create_test_sales_invoice(csr):
-	
-	if frappe.db.exists("Sales Invoice", "TEST-SINV-2025-00281"):
-		frappe.throw("Sales Invoice ACC-SINV-2025-00212 already exists.")
+	company = frappe.get_all("Company", fields=["name"], limit=1)
+	if not company:
+		frappe.throw("No company found. Please create a company first.")
+	company = company[0].name
+ 
+	invoice_name = "TEST-SINV-2025-000281"
+	if frappe.db.exists("Sales Invoice", invoice_name):
+		return invoice_name
+
+		# frappe.throw("Sales Invoice ACC-SINV-2025-00212 already exists.")
 		
 	item = {
 		"item_code": "Test Item 1",
@@ -47,6 +54,7 @@ def create_test_sales_invoice(csr):
 			"customer_group": "All Customer Groups",
 			"territory": "Saudi Arabia",
 			"custom_country": "Saudi Arabia",
+			"customer_type": "Individual",
 			# "payment_terms":payment_template,
 			"customer_name_short": "S-CHEM",
 			"customer_name_in_arabic":"العميل رقم 1",
@@ -113,8 +121,8 @@ def create_test_sales_invoice(csr):
 				"amount": 6000,
 				"net_rate": 375,
 				"net_amount": 6000,
-				"income_account": "6100001 - Trade Sales - STCL",
-				"expense_account": "7200008 - Goods Purchases - STCL",
+				"income_account": get_income_accounts(item["item_code"], company),
+				"expense_account": get_expense_accounts(item["item_code"], company),
 				"warehouse": "Cab1-Down",
 				
 			}
@@ -142,13 +150,14 @@ def create_test_sales_invoice(csr):
 	})
 	
 	invoice.autoname = None
-	invoice.name = "TEST-SINV-2025-000281"
+	invoice.name = invoice_name
 	invoice.set_new_name = lambda **kwargs: "TEST-INV-001"
 
 	invoice.insert(ignore_permissions=True)
 	frappe.db.commit()
 	invoice.submit()
-	frappe.msgprint("Sales Invoice ACC-SINV-2025-00212 created and submitted successfully.")
+	return invoice.name
+	# frappe.msgprint("Sales Invoice ACC-SINV-2025-00212 created and submitted successfully.")
 
 def get_csr_data(csr):
 	csr_data = frappe.get_doc("Zatca CSR Settings", csr)
@@ -183,7 +192,6 @@ def create_customer_address(customer_name):
 	if existing_addresses:
 		return existing_addresses[0]["name"]
 
-
 	address = frappe.get_doc({
 		"doctype": "Address",
 		"address_title": customer_name,
@@ -202,3 +210,91 @@ def create_customer_address(customer_name):
 	})
 	address.insert(ignore_permissions=True)
 	frappe.db.set_value("Customer", customer_name, "customer_primary_address", address.name)
+
+
+def get_income_accounts(item_code, company):
+	try:
+		item_doc = frappe.get_doc("Item", item_code)
+		item_defaults = item_doc.get("item_defaults")
+
+		if item_defaults:
+			for default in item_defaults:
+				if default.get("company") == company:
+					# If company matches, return the income_account for that entry
+					this_company=frappe.get_doc("Company", company)
+					income_account = this_company.default_income_account
+					return income_account
+				else:
+					company_doc=frappe.get_doc('Company', company)
+					income_account=company_doc.default_income_account
+					return income_account
+		else:
+			company_doc=frappe.get_doc('Company', company)
+			income_account=company_doc.default_income_account
+			return income_account
+
+		# If no matching income account is found for the specified company
+		return None  # Or raise a specific exception if needed
+
+	except Exception as e:
+		frappe.throw(f"Error fetching income account for item {item_code} and company {company}: {e}")
+
+
+def get_expense_accounts(item_code, company):
+	try:
+		item_doc = frappe.get_doc("Item", item_code)
+		item_defaults = item_doc.item_defaults
+
+		this_company=frappe.get_doc("Company", company)
+		expense_account = this_company.default_expense_account
+		return expense_account
+
+	except Exception as e:
+		frappe.throw(f"Error fetching expense account for item {item_code}: {e}")
+
+
+@frappe.whitelist()
+def create_return_invoice(csr):
+	original_invoice_name = "TEST-SINV-2025-000281"
+
+	if not frappe.db.exists("Sales Invoice", original_invoice_name):
+		frappe.throw(f"Original Sales Invoice {original_invoice_name} does not exist.")
+
+	original_invoice = frappe.get_doc("Sales Invoice", original_invoice_name)
+
+	return_invoice = frappe.copy_doc(original_invoice)
+	return_invoice.name = None  # Let Frappe assign a new name
+	return_invoice.is_return = 1
+	return_invoice.return_against = original_invoice.name
+	return_invoice.posting_date = nowdate()
+	return_invoice.posting_time = now()
+
+	# Reverse item quantities and amounts
+	for item in return_invoice.items:
+		item.qty = -item.qty
+		item.amount = -item.amount
+		item.net_amount = -item.net_amount
+
+	# Reverse taxes
+	for tax in return_invoice.taxes:
+		tax.tax_amount = -tax.tax_amount
+		tax.base_tax_amount = -tax.base_tax_amount
+
+	# Recalculate totals
+	return_invoice.total = -original_invoice.total
+	return_invoice.net_total = -original_invoice.net_total
+	return_invoice.grand_total = -original_invoice.grand_total
+	return_invoice.base_total = -original_invoice.base_total
+	return_invoice.base_net_total = -original_invoice.base_net_total
+	return_invoice.base_grand_total = -original_invoice.base_grand_total
+	return_invoice.outstanding_amount = 0  # Return invoices usually don’t have outstanding
+
+	return_invoice.autoname = None
+	return_invoice.name = "TEST-SINV-2025-000282"
+	return_invoice.set_new_name = lambda **kwargs: "TEST-INV-001"
+	return_invoice.insert(ignore_permissions=True)
+	return_invoice.submit()
+	
+	frappe.msgprint(f"Return Invoice {return_invoice.name} created and submitted successfully.")
+
+	return return_invoice.name

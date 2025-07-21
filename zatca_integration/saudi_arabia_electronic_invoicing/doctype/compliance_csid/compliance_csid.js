@@ -6,10 +6,10 @@ frappe.ui.form.on("Compliance CSID", {
                 frm.trigger("genereate_zatca_compliance_csid");
 
             }
-            if (!are_all_flags_true(frm) && frm.doc.binary_security_token) {
+            // if (!are_all_flags_true(frm) && frm.doc.binary_security_token) {
                 frm.trigger("validate_zatca_compliance_csid");
                 
-            }
+            // }
         }
         make_fields_read_only(frm);
         create_test_zatca_compliance_csid(frm);
@@ -44,6 +44,7 @@ frappe.ui.form.on("Compliance CSID", {
             frappe.call({
                 method: "validate_zatca_compliance_csid",
                 doc: frm.doc,
+                invoice: "TEST-SINV-2025-000281",
                 callback: function(r) {
                     frappe.hide_progress();
                     if (!r.exc) {
@@ -87,7 +88,7 @@ function create_test_zatca_compliance_csid(frm) {
     frm.add_custom_button(__('Generate Test Data'), function () {
         frappe.show_progress(__('Generating Compliance CSID...'));
         frappe.call({
-            method: "zatca_integration.saudi_arabia_electronic_invoicing.data.test_data.create_test_sales_invoice",
+            method: "zatca_integration.saudi_arabia_electronic_invoicing.data.test_data.create_return_invoice",
             args: {
                 csr: frm.doc.csr_settings
             },
