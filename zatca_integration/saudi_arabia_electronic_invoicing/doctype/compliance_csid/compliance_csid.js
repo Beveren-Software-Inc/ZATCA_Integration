@@ -6,7 +6,7 @@ frappe.ui.form.on("Compliance CSID", {
                 frm.trigger("genereate_zatca_compliance_csid");
 
             }
-            if (!are_all_flags_true(frm)) {
+            if (!are_all_flags_true(frm) && frm.doc.binary_security_token) {
                 frm.trigger("validate_zatca_compliance_csid");
                 
             }
