@@ -2,11 +2,16 @@
 frappe.ui.form.on("Compliance CSID", {
     refresh: frm => {
         if (!frm.is_new()) {
-            if (!are_all_flags_true(frm)) {
+            if (!frm.doc.binary_security_token) {
                 frm.trigger("genereate_zatca_compliance_csid");
+
+            }
+            if (!are_all_flags_true(frm)) {
                 frm.trigger("validate_zatca_compliance_csid");
+                
             }
         }
+        make_fields_read_only(frm);
     },
 
     genereate_zatca_compliance_csid: frm => {
@@ -66,3 +71,12 @@ function are_all_flags_true(frm) {
            frm.doc.simplified_credit_note;
 }
 
+function make_fields_read_only(frm) {
+    if (frm.doc.binary_security_token) {
+        frm.fields.forEach(function(field) {
+            frm.set_df_property(field.df.fieldname, 'read_only', 1);
+        });
+
+        frm.disable_save();
+    }
+}
