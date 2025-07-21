@@ -600,7 +600,7 @@ def customer_data(invoice, sales_invoice_doc):
                 )
                 cbc_citysubdivisionname_1.text = address.city
 
-            if address.county:
+            if hasattr(address, "county") and address.county:
                 cbc_cityname_1 = ET.SubElement(cac_postaladdress_1, "cbc:CityName")
                 cbc_cityname_1.text = address.county
 
