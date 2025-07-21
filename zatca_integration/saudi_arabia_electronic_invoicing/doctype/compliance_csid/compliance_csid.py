@@ -37,6 +37,7 @@ class ComplianceCSID(Document):
 		data = {
 			"csr": csr_settings.csr
 		}
+  
 		try:
 			response = requests.post(zatca_environment.compliance_csid_api, headers=headers, json=data)
 			response.raise_for_status()
@@ -82,9 +83,9 @@ class ComplianceCSID(Document):
 
 		if csr_settings.csrinvoicetype == "1100":
 		#Uncomment after testing
-			self.invoke_complaince_check(invoice, "standard", csr_settings, seller, buyer)
+			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
 			
-			self.invoke_complaince_check(invoice, "simplified", csr_settings, seller, buyer)
+			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
 			
 			if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note and self.simplified_invoice and self.simplified_credit_note and self.simplified_debit_note):
 				self.save(); frappe.db.commit()
@@ -109,12 +110,12 @@ class ComplianceCSID(Document):
 				frappe.db.commit()
 				frappe.throw(f"Failed to Validate Compliance CSID for: {', '.join(failed)}. Review CSID TRANSACTIONS for more details.")
 		elif csr_settings.csrinvoicetype == "1000":
-			self.invoke_complaince_check(invoice, "standard", csr_settings, seller, buyer)
+			self.invoke_complaince_check("standard", csr_settings, seller, buyer)
 			if not (self.standard_invoice and self.standard_credit_note and self.standard_debit_note):
 				self.save(); frappe.db.commit()
 				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
 		elif csr_settings.csrinvoicetype == "0100":
-			self.invoke_complaince_check(invoice, "simplified", csr_settings, seller, buyer)
+			self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
 			if not (self.simplified_invoice):
 				frappe.db.commit()
 				frappe.throw("Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details")
@@ -122,6 +123,8 @@ class ComplianceCSID(Document):
 			frappe.throw("Invalid Invoice Type in ZATCA CSR Settings : " + csr_settings.csrinvoicetype)
 		
 		self.save()
+		delete_zatca_test_invoices_and_related_docs()
+		
 
 	def set_invoice_status(self, invoice_type, status, note_type):
 		"""Set the status of the invoice or note."""
@@ -140,13 +143,13 @@ class ComplianceCSID(Document):
 			elif note_type == "debit_note":
 				self.simplified_debit_note = status
 
-	def invoke_complaince_check(self,invoice, invoice_type, csr_settings, seller, buyer):
+	def invoke_complaince_check(self, invoice_type, csr_settings, seller, buyer):
 		"""Invoke compliance check for the given invoice type."""
 		'''Dynamically generate first invoice hash to ensure unique hash for each run.'''
 		first_invoice_hash = generate_invoice_hash()
 
 		# Issue Invoice
-		tax_invoice = generate_tax_invoice_xml(invoice, invoice_type, "INV-00001", seller, buyer, first_invoice_hash)
+		tax_invoice = generate_tax_invoice_xml(csr_settings, invoice_type, "INV-00001", seller, buyer, first_invoice_hash)
 		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, tax_invoice["xml"])
 		if invoice_type == "standard":
 			self.standard_invoice = tax_invoice_status
@@ -154,7 +157,7 @@ class ComplianceCSID(Document):
 			self.simplified_invoice = tax_invoice_status
 
 		# Issue Credit Note
-		credit_note = generate_credit_note_xml(invoice, invoice_type, "INV-00002", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
+		credit_note = generate_credit_note_xml(invoice_type, "INV-00002", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
 		credit_note_status, credit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, credit_note["xml"])
 		if invoice_type == "standard":
 			self.standard_credit_note = credit_note_status
@@ -163,11 +166,11 @@ class ComplianceCSID(Document):
 			self.simplified_credit_note = credit_note_status
 		
 		# Issue Invoice
-		tax_invoice = generate_tax_invoice_xml(invoice, invoice_type, "INV-00003", seller, buyer, credit_note_hash)
+		tax_invoice = generate_tax_invoice_xml(csr_settings, invoice_type, "INV-00003", seller, buyer, credit_note_hash)
 		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, tax_invoice["xml"])
 		
 		# Issue Debit Note
-		debit_note = generate_debit_note_xml(invoice, invoice_type, "INV-00004", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
+		debit_note = generate_debit_note_xml(csr_settings, invoice_type, "INV-00004", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
 		debit_note_status, debit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, debit_note["xml"])
 		
 		if invoice_type == "standard":
@@ -239,7 +242,7 @@ class ComplianceCSID(Document):
 		decoded_compliance_certificate = base64.b64decode(compliance_certificate.encode('utf-8'))
 		return decoded_compliance_certificate.decode('utf-8')
 	
-def generate_debit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
+def generate_debit_note_xml(csr_settings, invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
 	
 	# Global Unique Identifier
 	uniqueInvoiceIdentifier = str(uuid.uuid4())
@@ -251,9 +254,9 @@ def generate_debit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, bu
 
 	# if invoiceType == "standard":
 	if invoiceType == "standard":
-		invoice_name = create_standard_test_sales_invoice("test2")
+		invoice_name = create_standard_test_sales_invoice(csr_settings)
 	elif invoiceType == "simplified":
-		invoice_name = create_test_sales_invoice("test2")
+		invoice_name = create_test_sales_invoice(csr_settings)
 	# 	template_file = "zatca_integration/templates/zatca/compliance/Standard_Debit_Note.xml"
 	# elif invoiceType == "simplified":
 	# 	template_file = "zatca_integration/templates/zatca/compliance/Simplified_Debit_Note.xml"
@@ -282,7 +285,7 @@ def generate_debit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, bu
 	}
 	return standard_debit_note
 
-def generate_credit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
+def generate_credit_note_xml(invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
 	# invoice_name = create_return_invoice("test2")
 	# Global Unique Identifier
 	uniqueInvoiceIdentifier = str(uuid.uuid4())
@@ -294,9 +297,9 @@ def generate_credit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, b
 	invoice_time = datetime.strptime(frappe.utils.now(), "%Y-%m-%d %H:%M:%S.%f").strftime("%H:%M:%S")
 
 	if invoiceType == "standard":
-		invoice_name = create_standard_return_invoice("test2")
+		invoice_name = create_standard_return_invoice()
 	elif invoiceType == "simplified":
-		invoice_name = create_return_invoice("test2")
+		invoice_name = create_return_invoice()
 	# if invoiceType == "standard":
 	# 	template_file = "zatca_integration/templates/zatca/compliance/Standard_Credit_Note.xml"
 	# elif invoiceType == "simplified":
@@ -316,6 +319,7 @@ def generate_credit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, b
 	# 	"buyer": buyer,
 	# 	"invoiceDeliveryDate": originalinvoiceDeliveryDate,
 	# })
+ 
 	standard_credit_note = {
 		"invoiceNumber": invoiceNumber,
 		"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
@@ -327,8 +331,8 @@ def generate_credit_note_xml(invoice_name, invoiceType, invoiceNumber, seller, b
 
 
 	
-def generate_tax_invoice_xml(invoice_name, invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
-		invoice_name = create_test_sales_invoice("test2")
+def generate_tax_invoice_xml(csr_settings, invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
+		invoice_name = create_test_sales_invoice(csr_settings)
 		# Global Unique Identifier
 		uniqueInvoiceIdentifier = str(uuid.uuid4())
 		# Counter Value, once used cannot be used even for same invoice
@@ -341,15 +345,14 @@ def generate_tax_invoice_xml(invoice_name, invoiceType, invoiceNumber, seller, b
 		# Invoice Delivery Date
 		invoiceDeliveryDate = (frappe.utils.getdate(frappe.utils.today()) + timedelta(days=10)).strftime("%Y-%m-%d")
 		if invoiceType == "standard":
-			invoice_name = create_standard_test_sales_invoice("test2")
+			invoice_name = create_standard_test_sales_invoice(csr_settings)
 		elif invoiceType == "simplified":
-			invoice_name = create_test_sales_invoice("test2")
+			invoice_name = create_test_sales_invoice(csr_settings)
 		# if invoiceType == "standard":
 		# 		template_file = "zatca_integration/templates/zatca/compliance/Standard_Invoice.xml"
 		# elif invoiceType == "simplified":
 				# template_file= get_signed_invoice_xml("SIN00004781c4f")
 		
-  
   # This will now be the XML content
 		# else:
 		# 		frappe.throw("Invalid Invoice Type, type: " + invoiceType)
@@ -467,3 +470,67 @@ def generate_qr_code(data, filename):
 		img = qr.make_image(fill_color="black", back_color="white")
 		img.save(filename)
 		return filename
+
+
+@frappe.whitelist()
+def delete_zatca_test_invoices_and_related_docs():
+	# Get all Sales Invoices marked as test
+	test_invoices = frappe.get_all(
+		"Sales Invoice",
+		filters={"custom_is_zatca_test": 1},
+		fields=["name", "customer"]
+	)
+
+	for inv in test_invoices:
+		invoice_name = inv.name
+		customer_name = inv.customer
+		try:
+			invoice = frappe.get_doc("Sales Invoice", invoice_name)
+
+			frappe.msgprint(f"Processing test invoice: {invoice_name}")
+
+			# Cancel and delete return invoice (credit note) if exists
+			return_invoice_name = frappe.get_value("Sales Invoice", {
+				"return_against": invoice_name
+			}, "name")
+
+			if return_invoice_name:
+				return_invoice = frappe.get_doc("Sales Invoice", return_invoice_name)
+				if return_invoice.docstatus == 1:
+					return_invoice.cancel()
+				frappe.delete_doc("Sales Invoice", return_invoice_name, force=1)
+
+			# Store related info before deleting the invoice
+			item_codes = [row.item_code for row in invoice.items]
+			warehouses = list(set([row.warehouse for row in invoice.items if row.warehouse]))
+
+			# Cancel and delete the main invoice
+			if invoice.docstatus == 1:
+				invoice.cancel()
+			frappe.delete_doc("Sales Invoice", invoice_name, force=1)
+
+			# Delete test items
+			for item_code in item_codes:
+				if frappe.db.exists("Item", item_code):
+					frappe.delete_doc("Item", item_code, force=1)
+
+			# Delete warehouses
+			for wh in warehouses:
+				if frappe.db.exists("Warehouse", wh):
+					frappe.delete_doc("Warehouse", wh, force=1)
+
+			# Delete address linked to customer
+			addresses = frappe.get_all("Address",
+				filters={"links.link_doctype": "Customer", "links.link_name": customer_name},
+				pluck="name"
+			)
+			for addr in addresses:
+				frappe.delete_doc("Address", addr, force=1)
+
+			# Delete customer
+			if frappe.db.exists("Customer", customer_name):
+				frappe.delete_doc("Customer", customer_name, force=1)
+
+		except Exception as e:
+			frappe.log_error(frappe.get_traceback(), f"Failed to delete test invoice {invoice_name}")
+			frappe.msgprint(f"Error deleting {invoice_name}: {e}")

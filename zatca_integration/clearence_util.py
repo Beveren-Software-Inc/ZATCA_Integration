@@ -63,7 +63,8 @@ def generate_einvoice(doc, submit_now=True):
         return
 
     validate_invoice_dates(doc, company, customer_type)
-    
+    if doc.custom_is_zatca_test:
+        return
     try:
         if customer_type == "Company":
             zatca_status_field = "clearanceStatus"

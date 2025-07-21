@@ -11,11 +11,13 @@ from frappe.utils import nowdate, add_to_date
 
 
 @frappe.whitelist()
-def create_test_sales_invoice(csr):
-	company = frappe.get_all("Company", fields=["name"], limit=1)
+def create_test_sales_invoice(csr_data):
+	
+	print("++++++++++++++++++",csr_data.csrorganizationidentifier)
+	company = get_company(csr_data.csrorganizationidentifier)
 	if not company:
 		frappe.throw("No company found. Please create a company first.")
-	company = company[0].name
+	company = company.name
  
 	invoice_name = "TEST-SINV-2025-200"
 	if frappe.db.exists("Sales Invoice", invoice_name):
@@ -35,13 +37,13 @@ def create_test_sales_invoice(csr):
 		"amount": 6000,
 		"net_rate": 375,
 		"net_amount": 6000,
-		"income_account": "6100001 - Trade Sales - STCL",
-		"expense_account": "7200008 - Goods Purchases - STCL",
+		"income_account": get_income_accounts("Test Item 1", company),
+		"expense_account": get_expense_accounts("Test Item 1", company),
 		"warehouse": "Cab1-Down",
 	}
 	
 	create_item_if_missing(item)
-	csr_data = get_csr_data(csr)
+	
 	
 	today = nowdate()
 	tomorrow = add_to_date(today, days=1)
@@ -67,10 +69,9 @@ def create_test_sales_invoice(csr):
 	invoice = frappe.get_doc({
 		"doctype": "Sales Invoice",
 		"name": "TEST-SINV-2025-00212",
-		"customer": customer ,
+		"customer": customer,
 		"customer_name": customer_name,
-		"custom_customer_short_name": "S-CHEM",
-		"tax_id": "300450349600003",
+		# "custom_customer_short_name": "S-CHEM",
 		"company": "Space Top Co. Ltd",
 		"company_tax_id": csr_data.csrorganizationidentifier,
 		"custom_delivery_date": tomorrow,
@@ -89,7 +90,7 @@ def create_test_sales_invoice(csr):
 		"base_net_total": 6000,
 		"total": 6000,
 		"net_total": 6000,
-		"taxes_and_charges": "KSA VAT 15% - STCL",
+		"taxes_and_charges": get_tax_template_with_15_percent(company),
 		"base_total_taxes_and_charges": 900,
 		"total_taxes_and_charges": 900,
 		"base_grand_total": 6900,
@@ -103,7 +104,7 @@ def create_test_sales_invoice(csr):
 		# "against_income_account": "6100001 - Trade Sales - STCL",
 		"amount_eligible_for_commission": 6000,
 		# "letter_head": "SpaceTop - M",
-		"status": "Unpaid",
+		# "status": "Unpaid",
 		"customer_group": "All Customer Groups",
 		"tc_name":"NET 60",
 		"payment_terms_template": "Bank Advice",
@@ -123,21 +124,12 @@ def create_test_sales_invoice(csr):
 				"net_amount": 6000,
 				"income_account": get_income_accounts(item["item_code"], company),
 				"expense_account": get_expense_accounts(item["item_code"], company),
-				"warehouse": "Cab1-Down",
+				"warehouse": create_zatca_test_warehouse(company),
 				
 			}
 		],
 
-		"taxes": [
-			{
-				"charge_type": "On Net Total",
-				"account_head": "300001 - VAT on Sales - 15% - STCL",
-				"description": "VAT Taxable",
-				"rate": 15,
-				"tax_amount": 900,
-				"base_tax_amount": 900,
-			}
-		],
+		"taxes": get_15_percent_tax_row(get_tax_template_with_15_percent(company)),
 
 		"payment_schedule": [
 			{
@@ -146,7 +138,8 @@ def create_test_sales_invoice(csr):
 				"payment_amount": 6900,
 				"base_payment_amount": 6900
 			}
-		]
+		],
+	"custom_is_zatca_test":1,
 	})
 	
 	invoice.autoname = None
@@ -159,10 +152,56 @@ def create_test_sales_invoice(csr):
 	return invoice.name
 	# frappe.msgprint("Sales Invoice ACC-SINV-2025-00212 created and submitted successfully.")
 
+def get_15_percent_tax_row(tax_template):
+	template = frappe.get_doc("Sales Taxes and Charges Template", tax_template)
 
-def get_csr_data(csr):
-	csr_data = frappe.get_doc("Zatca CSR Settings", csr)
-	return csr_data
+	for tax in template.taxes:
+		if tax.rate == 15 and tax.charge_type == "On Net Total":
+			return [{
+				"charge_type": "On Net Total",
+				"account_head": tax.account_head,
+				"description": tax.description or "VAT Taxable",
+				"rate": tax.rate,
+				"tax_amount": 0,  # auto-calculated on save
+				"base_tax_amount": 0
+			}]
+
+	frappe.throw(f"No 15% On Net Total tax found in template: {tax_template}")
+
+def get_tax_template_with_15_percent(company):
+	tax_templates = frappe.get_all(
+		"Sales Taxes and Charges Template",
+		filters={"company": company},
+		fields=["name"]
+	)
+
+	for template in tax_templates:
+		taxes = frappe.get_all(
+			"Sales Taxes and Charges",
+			filters={"parent": template.name},
+			fields=["rate"]
+		)
+		for tax in taxes:
+			if float(tax.rate) == 15.0:
+				return template.name
+
+	frappe.throw("No Taxes and Charges Template found with 15% rate.")
+ 
+def get_company(vat_no):
+	company = frappe.get_all(
+		"Company",
+		filters={"tax_id": vat_no},
+		fields=["name"]
+	)
+	if not company:
+		frappe.throw(f"No company found with VAT number {vat_no}.")
+  
+	company_doc = frappe.get_doc("Company", company[0].name)
+	return company_doc
+
+# def get_csr_data(csr):
+# 	csr_data = frappe.get_doc("Zatca CSR Settings", csr)
+# 	return csr_data
 
 
 def create_item_if_missing(item_data):
@@ -255,7 +294,7 @@ def get_expense_accounts(item_code, company):
 
 
 @frappe.whitelist()
-def create_return_invoice(csr):
+def create_return_invoice():
 	original_invoice_name = "TEST-SINV-2025-200"
 
 	if not frappe.db.exists("Sales Invoice", original_invoice_name):
@@ -269,6 +308,7 @@ def create_return_invoice(csr):
 	return_invoice.return_against = original_invoice.name
 	return_invoice.posting_date = nowdate()
 	return_invoice.posting_time = now()
+	return_invoice.custom_is_zatca_test = 1
 
 	# Reverse item quantities and amounts
 	for item in return_invoice.items:
@@ -301,13 +341,12 @@ def create_return_invoice(csr):
 	return return_invoice.name
 
 
-
 @frappe.whitelist()
-def create_standard_test_sales_invoice(csr):
-	company = frappe.get_all("Company", fields=["name"], limit=1)
+def create_standard_test_sales_invoice(csr_data):
+	company = get_company(csr_data.csrorganizationidentifier)
 	if not company:
 		frappe.throw("No company found. Please create a company first.")
-	company = company[0].name
+	company = company.name
  
 	invoice_name = "TEST-SINV-2025-100"
 	if frappe.db.exists("Sales Invoice", invoice_name):
@@ -333,7 +372,7 @@ def create_standard_test_sales_invoice(csr):
 	}
 	
 	create_item_if_missing(item)
-	csr_data = get_csr_data(csr)
+	# csr_data = get_csr_data(csr_settings)
 	
 	today = nowdate()
 	tomorrow = add_to_date(today, days=1)
@@ -381,7 +420,7 @@ def create_standard_test_sales_invoice(csr):
 		"base_net_total": 6000,
 		"total": 6000,
 		"net_total": 6000,
-		"taxes_and_charges": "KSA VAT 15% - STCL",
+		"taxes_and_charges": get_tax_template_with_15_percent(company),
 		"base_total_taxes_and_charges": 900,
 		"total_taxes_and_charges": 900,
 		"base_grand_total": 6900,
@@ -392,13 +431,11 @@ def create_standard_test_sales_invoice(csr):
 		"apply_discount_on": "Grand Total",
 		"po_date": "2025-03-09",
 		"party_account_currency": "SAR",
-		# "against_income_account": "6100001 - Trade Sales - STCL",
 		"amount_eligible_for_commission": 6000,
-		# "letter_head": "SpaceTop - M",
-		"status": "Unpaid",
-		"customer_group": "All Customer Groups",
-		"tc_name":"NET 60",
-		"payment_terms_template": "Bank Advice",
+		# "status": "Unpaid",
+		# "customer_group": "All Customer Groups",
+		# "tc_name":"NET 60",
+		# "payment_terms_template": "Bank Advice",
 
 		"items": [
 			{
@@ -438,7 +475,8 @@ def create_standard_test_sales_invoice(csr):
 				"payment_amount": 6900,
 				"base_payment_amount": 6900
 			}
-		]
+		],
+		"custom_is_zatca_test": 1,
 	})
 	
 	invoice.autoname = None
@@ -451,7 +489,7 @@ def create_standard_test_sales_invoice(csr):
 	return invoice.name
 
 @frappe.whitelist()
-def create_standard_return_invoice(csr):
+def create_standard_return_invoice():
 	original_invoice_name = "TEST-SINV-2025-100"
 
 	if not frappe.db.exists("Sales Invoice", original_invoice_name):
@@ -460,11 +498,12 @@ def create_standard_return_invoice(csr):
 	original_invoice = frappe.get_doc("Sales Invoice", original_invoice_name)
 
 	return_invoice = frappe.copy_doc(original_invoice)
-	return_invoice.name = None  # Let Frappe assign a new name
+	return_invoice.name = None
 	return_invoice.is_return = 1
 	return_invoice.return_against = original_invoice.name
 	return_invoice.posting_date = nowdate()
 	return_invoice.posting_time = now()
+	return_invoice.custom_is_zatca_test = 1
 
 	# Reverse item quantities and amounts
 	for item in return_invoice.items:
@@ -495,3 +534,21 @@ def create_standard_return_invoice(csr):
 	frappe.msgprint(f"Return Invoice {return_invoice.name} created and submitted successfully.")
 
 	return return_invoice.name
+
+def create_zatca_test_warehouse(company):
+	warehouse_name = "Zatca Test Warehouse"
+	company_abbr = frappe.get_value("Company", company, "abbr")
+	full_name = f"{warehouse_name} - {company_abbr}"
+
+	if frappe.db.exists("Warehouse", full_name):
+		return full_name
+
+	warehouse = frappe.get_doc({
+		"doctype": "Warehouse",
+		"warehouse_name": warehouse_name,
+		"company": company,
+		"is_group": 0,
+		"disabled": 0
+	}).insert(ignore_permissions=True)
+
+	return warehouse.name
