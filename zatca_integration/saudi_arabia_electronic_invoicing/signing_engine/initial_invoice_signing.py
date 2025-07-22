@@ -81,14 +81,17 @@ def getinvoicehash(canonicalized_xml):
         ) from e
 
 
+
 # def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
 #     if is_zatca_test:
 #         pem_details = get_pem_compliance_details(compliance_csid)
 #     else:
 #         pem_details = get_pem_details(sales_invoice_doc)
 #     private_key_pem = pem_details.get("private_key")
+    
 #     if isinstance(private_key_pem, str):
 #         private_key_pem = private_key_pem.encode('utf-8')
+#     frappe.throw(str(private_key_pem))
 #     private_key = serialization.load_pem_private_key(
 #         private_key_pem,
 #         password=None,
@@ -99,46 +102,142 @@ def getinvoicehash(canonicalized_xml):
 #     signature = private_key.sign(hash_bytes, ec.ECDSA(hashes.SHA256()))
 #     encoded_signature = base64.b64encode(signature).decode()
 #     return encoded_signature
-
 def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     if is_zatca_test:
         pem_details = get_pem_compliance_details(compliance_csid)
     else:
         pem_details = get_pem_details(sales_invoice_doc)
-
+    
     private_key_pem = pem_details.get("private_key")
-    if isinstance(private_key_pem, str):
-        private_key_pem = private_key_pem.encode('utf-8')
-
+    
+    if not private_key_pem:
+        frappe.throw("Private key is empty or None")
+    
+    # Convert to string first, then clean
+    if isinstance(private_key_pem, bytes):
+        key_string = private_key_pem.decode('utf-8')
+    else:
+        key_string = str(private_key_pem)
+    
+    # Clean the key string
+    key_string = key_string.strip()
+    key_string = key_string.replace('\r\n', '\n').replace('\r', '\n')
+    
+    # Validate PEM format
+    if not key_string.startswith('-----BEGIN'):
+        frappe.throw(f"Invalid PEM format: Key doesn't start with -----BEGIN. Starts with: {key_string[:50]}")
+    
+    if not key_string.endswith('-----'):
+        # Try to fix missing newline at end
+        if key_string.endswith('-----END EC PRIVATE KEY-----'):
+            key_string += '\n'
+        else:
+            frappe.throw(f"Invalid PEM format: Key doesn't end with -----. Ends with: {key_string[-50:]}")
+    
+    # Validate base64 content between headers
     try:
-        # Try to load as-is
+        lines = key_string.split('\n')
+        base64_content = []
+        in_key_section = False
+        
+        for line in lines:
+            line = line.strip()
+            if line.startswith('-----BEGIN'):
+                in_key_section = True
+                continue
+            elif line.startswith('-----END'):
+                in_key_section = False
+                continue
+            elif in_key_section and line:
+                # Validate this line is valid base64
+                import base64
+                try:
+                    base64.b64decode(line, validate=True)
+                    base64_content.append(line)
+                except Exception as b64_error:
+                    frappe.throw(f"Invalid base64 content in key line: {line}. Error: {str(b64_error)}")
+        
+        # Reconstruct clean key
+        clean_key = "-----BEGIN EC PRIVATE KEY-----\n" + "\n".join(base64_content) + "\n-----END EC PRIVATE KEY-----\n"
+        
+    except Exception as validation_error:
+        frappe.logger().error(f"Key validation failed: {str(validation_error)}")
+        clean_key = key_string  # Fall back to original cleaned key
+    
+    # Debug: Log the actual key for inspection
+    frappe.logger().error(f"Key content length: {len(clean_key)}")
+    frappe.logger().error(f"Key preview: {clean_key[:100]}...{clean_key[-50:]}")
+    
+    # Convert back to bytes
+    private_key_pem = clean_key.encode('utf-8')
+    try:
         private_key = serialization.load_pem_private_key(
             private_key_pem,
             password=None,
             backend=default_backend()
         )
-    except ValueError:
-        # Possibly an EC key in old format. Try to convert manually.
-        ec_key = serialization.load_pem_private_key(
-            private_key_pem,
-            password=None,
-            backend=default_backend()
-        )
-        private_key_pem = ec_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-        private_key = serialization.load_pem_private_key(
-            private_key_pem,
-            password=None,
-            backend=default_backend()
-        )
+    except ValueError as ve:
+        if "Could not deserialize key data" in str(ve):
+            # Try alternative approaches
+            frappe.logger().error("Primary key loading failed, trying alternatives...")
+            
+            # Alternative 1: Try with empty byte password
+            try:
+                private_key = serialization.load_pem_private_key(
+                    private_key_pem,
+                    password=b'',
+                    backend=default_backend()
+                )
+                frappe.logger().error("Success with empty byte password")
+            except Exception:
+                # Alternative 2: Try loading as DER if it might be wrongly formatted
+                try:
+                    # Extract base64 content and try as DER
+                    import re
+                    base64_only = re.sub(r'-----[^-]+-----', '', clean_key).replace('\n', '').replace(' ', '')
+                    der_data = base64.b64decode(base64_only)
+                    private_key = serialization.load_der_private_key(
+                        der_data,
+                        password=None,
+                        backend=default_backend()
+                    )
+                    frappe.logger().error("Success with DER loading")
+                except Exception:
+                    # Final fallback: detailed error message
+                    frappe.throw(f"""
+Failed to load private key after trying multiple methods.
 
-    hash_bytes = bytes.fromhex(hash1)
-    signature = private_key.sign(hash_bytes, ec.ECDSA(hashes.SHA256()))
-    encoded_signature = base64.b64encode(signature).decode()
-    return encoded_signature
+Original error: {str(ve)}
+
+Possible causes:
+1. Key uses unsupported EC curve (try secp256k1 or secp256r1)
+2. Key is corrupted or truncated
+3. Key is password-protected (not supported)
+4. Key format is not standard PEM
+
+Key details:
+- Length: {len(clean_key)} characters
+- Starts with: {clean_key[:50]}
+- Ends with: {clean_key[-50:]}
+
+Please verify your private key is in correct format:
+-----BEGIN EC PRIVATE KEY-----
+[base64 encoded key data]
+-----END EC PRIVATE KEY-----
+                    """)
+        else:
+            raise ve
+    except Exception as e:
+        frappe.throw(f"Unexpected error loading private key: {str(e)}\nKey preview: {clean_key[:100]}")
+    
+    # Generate signature
+    try:
+        hash_bytes = bytes.fromhex(hash1)
+        signature = private_key.sign(hash_bytes, ec.ECDSA(hashes.SHA256()))
+        encoded_signature = base64.b64encode(signature).decode()
+        return encoded_signature
+    except Exception as sign_error:
+        frappe.throw(f"Error generating signature: {str(sign_error)}")
 
 
 def extract_certificate_details(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
