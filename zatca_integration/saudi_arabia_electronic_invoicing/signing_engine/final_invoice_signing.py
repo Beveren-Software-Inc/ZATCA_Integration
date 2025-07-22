@@ -100,7 +100,9 @@ def is_file_attached(file_url):
 def process_invoice_for_zatca_submission(
     invoice_number,
     compliance_type="0",
-    any_item_has_tax_template=False
+    any_item_has_tax_template=False,
+    is_zatca_test=0,
+    compliance_csid=None
 ):
     """zatca call which includes the function calling and validation reguarding the api and
     based on this the zATCA output and message is getting"""
@@ -163,11 +165,11 @@ def process_invoice_for_zatca_submission(
         
         hash1, encoded_hash = getinvoicehash(canonicalized_xml)
         
-        encoded_signature = digital_signature(hash1, sales_invoice_doc)
-        issuer_name, serial_number = extract_certificate_details(sales_invoice_doc)
+        encoded_signature = digital_signature(hash1, sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
+        issuer_name, serial_number = extract_certificate_details(sales_invoice_doc,is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
         
-        encoded_certificate_hash = certificate_hash(sales_invoice_doc)
-        namespaces, signing_time = signxml_modify(sales_invoice_doc)
+        encoded_certificate_hash = certificate_hash(sales_invoice_doc,is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
+        namespaces, signing_time = signxml_modify(sales_invoice_doc,is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
         signed_properties_base64 = generate_signed_properties_hash(
             signing_time, issuer_name, serial_number, encoded_certificate_hash
         )

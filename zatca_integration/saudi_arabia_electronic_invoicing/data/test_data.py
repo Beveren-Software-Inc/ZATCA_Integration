@@ -11,10 +11,11 @@ from frappe.utils import nowdate, add_to_date
 
 
 @frappe.whitelist()
-def create_test_sales_invoice(csr_data):
+def create_test_sales_invoice(csr_data, compliance_name):
 	
 	print("++++++++++++++++++",csr_data.csrorganizationidentifier)
 	company = get_company(csr_data.csrorganizationidentifier)
+ 
 	if not company:
 		frappe.throw("No company found. Please create a company first.")
 	company = company.name
@@ -110,6 +111,7 @@ def create_test_sales_invoice(csr_data):
 		"customer_group": "All Customer Groups",
 		"cost_center":get_cost_center(company),
 		"po_no":"12345",
+		"custom_compliance":compliance_name,
 		# "tc_name":"NET 60",
 		# "payment_terms_template": "Bank Advice",
 
@@ -313,7 +315,7 @@ def get_expense_account(company):
 
 
 @frappe.whitelist()
-def create_return_invoice():
+def create_return_invoice(compliance_name):
 	original_invoice_name = "TEST-SINV-2025-200"
 
 	if not frappe.db.exists("Sales Invoice", original_invoice_name):
@@ -328,6 +330,7 @@ def create_return_invoice():
 	return_invoice.posting_date = nowdate()
 	return_invoice.posting_time = now()
 	return_invoice.custom_is_zatca_test = 1
+	return_invoice.custom_compliance=compliance_name
 
 	# Reverse item quantities and amounts
 	for item in return_invoice.items:
@@ -362,7 +365,8 @@ def create_return_invoice():
 
 
 @frappe.whitelist()
-def create_standard_test_sales_invoice(csr_data):
+def create_standard_test_sales_invoice(csr_data, compliance_name):
+	
 	company = get_company(csr_data.csrorganizationidentifier)
 	if not company:
 		frappe.throw("No company found. Please create a company first.")
@@ -397,7 +401,6 @@ def create_standard_test_sales_invoice(csr_data):
 	today = nowdate()
 	tomorrow = add_to_date(today, days=1)
 	customer_name = "TEST-1 Customer"        
-	
 	if not frappe.db.exists("Customer", customer_name):
 		customer = frappe.get_doc({
 			"doctype": "Customer",
@@ -456,6 +459,7 @@ def create_standard_test_sales_invoice(csr_data):
 		"amount_eligible_for_commission": 6000,
 		"cost_center":get_cost_center(company),
 			"po_no":"123456",
+		"custom_compliance":str(compliance_name),
 		# "status": "Unpaid",
 		# "customer_group": "All Customer Groups",
 		# "tc_name":"NET 60",
@@ -492,18 +496,18 @@ def create_standard_test_sales_invoice(csr_data):
 		],
 		"custom_is_zatca_test": 1,
 	})
-	
 	invoice.autoname = None
 	invoice.name = invoice_name
 	invoice.set_new_name = lambda **kwargs: "TEST-INV-001"
 
 	invoice.insert(ignore_permissions=True)
+	# frappe.throw(str(invoice.custom_compliance_csid))
 	# frappe.db.commit()
 	invoice.submit()
 	return invoice.name
 
 @frappe.whitelist()
-def create_standard_return_invoice():
+def create_standard_return_invoice(compliance_name):
 	original_invoice_name = "TEST-SINV-2025-100"
 
 	if not frappe.db.exists("Sales Invoice", original_invoice_name):
@@ -518,6 +522,7 @@ def create_standard_return_invoice():
 	return_invoice.posting_date = nowdate()
 	return_invoice.posting_time = now()
 	return_invoice.custom_is_zatca_test = 1
+	return_invoice.custom_compliance=compliance_name
 
 	# Reverse item quantities and amounts
 	for item in return_invoice.items:
@@ -545,7 +550,6 @@ def create_standard_return_invoice():
 	return_invoice.set_new_name = lambda **kwargs: "TEST-INV-001"
 	return_invoice.insert(ignore_permissions=True)
 	return_invoice.submit()
-	
 	frappe.msgprint(f"Return Invoice {return_invoice.name} created and submitted successfully.")
 
 	return return_invoice.name

@@ -359,6 +359,20 @@ def get_pem_details(invoice):
         "public_key": public_key,
         "certificate": certificate
     }
+    
+def get_pem_compliance_details(csr):
+    compliance_csid = frappe.get_doc("Compliance CSID", csr)
+    csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+
+    private_key = csr_settings.private_key_pem_format
+    public_key = clean_pem_key(compliance_csid.public_key, "PUBLIC KEY")
+    certificate = (compliance_csid.certificate or "").strip().replace("\n", "")
+
+    return {
+        "private_key": private_key,
+        "public_key": public_key,
+        "certificate": certificate
+    }
 
 
 def clean_pem_key(pem_key: str, keyword: str) -> str:

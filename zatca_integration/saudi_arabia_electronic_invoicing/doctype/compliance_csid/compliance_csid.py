@@ -147,9 +147,11 @@ class ComplianceCSID(Document):
 		"""Invoke compliance check for the given invoice type."""
 		'''Dynamically generate first invoice hash to ensure unique hash for each run.'''
 		first_invoice_hash = generate_invoice_hash()
-
+		compliance_name = str(self.name)
+  
 		# Issue Invoice
-		tax_invoice = generate_tax_invoice_xml(csr_settings, invoice_type, "INV-00001", seller, buyer, first_invoice_hash)
+		tax_invoice = generate_tax_invoice_xml(compliance_name, csr_settings, invoice_type, "INV-00001", seller, buyer, first_invoice_hash)
+		
 		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, tax_invoice["xml"])
 		if invoice_type == "standard":
 			self.standard_invoice = tax_invoice_status
@@ -157,7 +159,7 @@ class ComplianceCSID(Document):
 			self.simplified_invoice = tax_invoice_status
 
 		# Issue Credit Note
-		credit_note = generate_credit_note_xml(invoice_type, "INV-00002", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
+		credit_note = generate_credit_note_xml(compliance_name, invoice_type, "INV-00002", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
 		credit_note_status, credit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, credit_note["xml"])
 		if invoice_type == "standard":
 			self.standard_credit_note = credit_note_status
@@ -166,11 +168,12 @@ class ComplianceCSID(Document):
 			self.simplified_credit_note = credit_note_status
 		
 		# Issue Invoice
-		tax_invoice = generate_tax_invoice_xml(csr_settings, invoice_type, "INV-00003", seller, buyer, credit_note_hash)
+		tax_invoice = generate_tax_invoice_xml(compliance_name, csr_settings, invoice_type, "INV-00003", seller, buyer, credit_note_hash)
 		tax_invoice_status, tax_invoice_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, tax_invoice["xml"])
 		
 		# Issue Debit Note
-		debit_note = generate_debit_note_xml(csr_settings, invoice_type, "INV-00004", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
+		debit_note = generate_debit_note_xml(compliance_name, csr_settings, invoice_type, "INV-00004", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
+		# frappe.throw(str("mania"))
 		debit_note_status, debit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, debit_note["xml"])
 		
 		if invoice_type == "standard":
@@ -242,8 +245,8 @@ class ComplianceCSID(Document):
 		decoded_compliance_certificate = base64.b64decode(compliance_certificate.encode('utf-8'))
 		return decoded_compliance_certificate.decode('utf-8')
 	
-def generate_debit_note_xml(csr_settings, invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
-	
+def generate_debit_note_xml(compliance_name, csr_settings, invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
+	# frappe.throw(str(compliance_name))
 	# Global Unique Identifier
 	uniqueInvoiceIdentifier = str(uuid.uuid4())
 	invoiceCounterValue  = int(time.time())
@@ -254,9 +257,9 @@ def generate_debit_note_xml(csr_settings, invoiceType, invoiceNumber, seller, bu
 
 	# if invoiceType == "standard":
 	if invoiceType == "standard":
-		invoice_name = create_standard_test_sales_invoice(csr_settings)
+		invoice_name = create_standard_test_sales_invoice(csr_settings, compliance_name)
 	elif invoiceType == "simplified":
-		invoice_name = create_test_sales_invoice(csr_settings)
+		invoice_name = create_test_sales_invoice(csr_settings, compliance_name)
 	# 	template_file = "zatca_integration/templates/zatca/compliance/Standard_Debit_Note.xml"
 	# elif invoiceType == "simplified":
 	# 	template_file = "zatca_integration/templates/zatca/compliance/Simplified_Debit_Note.xml"
@@ -285,7 +288,7 @@ def generate_debit_note_xml(csr_settings, invoiceType, invoiceNumber, seller, bu
 	}
 	return standard_debit_note
 
-def generate_credit_note_xml(invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
+def generate_credit_note_xml(compliance_name, invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
 	# invoice_name = create_return_invoice("test2")
 	# Global Unique Identifier
 	uniqueInvoiceIdentifier = str(uuid.uuid4())
@@ -297,9 +300,9 @@ def generate_credit_note_xml(invoiceType, invoiceNumber, seller, buyer, original
 	invoice_time = datetime.strptime(frappe.utils.now(), "%Y-%m-%d %H:%M:%S.%f").strftime("%H:%M:%S")
 
 	if invoiceType == "standard":
-		invoice_name = create_standard_return_invoice()
+		invoice_name = create_standard_return_invoice(compliance_name)
 	elif invoiceType == "simplified":
-		invoice_name = create_return_invoice()
+		invoice_name = create_return_invoice(compliance_name)
 	# if invoiceType == "standard":
 	# 	template_file = "zatca_integration/templates/zatca/compliance/Standard_Credit_Note.xml"
 	# elif invoiceType == "simplified":
@@ -331,8 +334,8 @@ def generate_credit_note_xml(invoiceType, invoiceNumber, seller, buyer, original
 
 
 	
-def generate_tax_invoice_xml(csr_settings, invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
-		invoice_name = create_test_sales_invoice(csr_settings)
+def generate_tax_invoice_xml(compliance_name, csr_settings, invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
+		# invoice_name = create_test_sales_invoice(csr_settings)
 		# Global Unique Identifier
 		uniqueInvoiceIdentifier = str(uuid.uuid4())
 		# Counter Value, once used cannot be used even for same invoice
@@ -345,9 +348,9 @@ def generate_tax_invoice_xml(csr_settings, invoiceType, invoiceNumber, seller, b
 		# Invoice Delivery Date
 		invoiceDeliveryDate = (frappe.utils.getdate(frappe.utils.today()) + timedelta(days=10)).strftime("%Y-%m-%d")
 		if invoiceType == "standard":
-			invoice_name = create_standard_test_sales_invoice(csr_settings)
+			invoice_name = create_standard_test_sales_invoice(csr_settings, compliance_name)
 		elif invoiceType == "simplified":
-			invoice_name = create_test_sales_invoice(csr_settings)
+			invoice_name = create_test_sales_invoice(csr_settings, compliance_name)
 		# if invoiceType == "standard":
 		# 		template_file = "zatca_integration/templates/zatca/compliance/Standard_Invoice.xml"
 		# elif invoiceType == "simplified":
