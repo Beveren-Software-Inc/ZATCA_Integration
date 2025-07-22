@@ -173,7 +173,6 @@ class ComplianceCSID(Document):
 		
 		# Issue Debit Note
 		debit_note = generate_debit_note_xml(compliance_name, csr_settings, invoice_type, "INV-00004", seller, buyer, tax_invoice["invoiceNumber"], tax_invoice["invoiceDeliveryDate"], tax_invoice_hash)
-		# frappe.throw(str("mania"))
 		debit_note_status, debit_note_hash = self.invoke_compliance_invoice_api(invoice_type, csr_settings, debit_note["xml"])
 		
 		if invoice_type == "standard":
@@ -246,7 +245,6 @@ class ComplianceCSID(Document):
 		return decoded_compliance_certificate.decode('utf-8')
 	
 def generate_debit_note_xml(compliance_name, csr_settings, invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
-	# frappe.throw(str(compliance_name))
 	# Global Unique Identifier
 	uniqueInvoiceIdentifier = str(uuid.uuid4())
 	invoiceCounterValue  = int(time.time())
