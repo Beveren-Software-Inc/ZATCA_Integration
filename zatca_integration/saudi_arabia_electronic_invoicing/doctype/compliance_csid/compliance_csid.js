@@ -12,7 +12,7 @@ frappe.ui.form.on("Compliance CSID", {
             // }
         }
         make_fields_read_only(frm);
-        create_test_zatca_compliance_csid(frm);
+        // create_test_zatca_compliance_csid(frm);
     },
 
     genereate_zatca_compliance_csid: frm => {
@@ -84,27 +84,28 @@ function make_fields_read_only(frm) {
     }
 }
 
-function create_test_zatca_compliance_csid(frm) {
-    frm.add_custom_button(__('Generate Test Data'), function () {
-        frappe.show_progress(__('Generating Compliance CSID...'));
-        frappe.call({
-            method: "zatca_integration.saudi_arabia_electronic_invoicing.data.test_data.create_return_invoice",
-            args: {
-                csr: frm.doc.csr_settings
-            },
-            callback: function (r) {
-                frappe.hide_progress();
-                if (!r.exc) {
-                    frappe.show_alert({ message: __('Compliance CSID Generated Successfully!'), indicator: 'green' });
-                    frm.reload_doc();
-                } else {
-                    frappe.show_alert({ message: __('Failed to Generate Compliance CSID'), indicator: 'red' });
-                }
-            },
-            error: function (r) {
-                frappe.hide_progress();
-                frappe.show_alert({ message: __('Failed to Generate Compliance CSID'), indicator: 'red' });
-            }
-        });
-    });
-}
+// function create_test_zatca_compliance_csid(frm) {
+//     frm.add_custom_button(__('Generate Test Data'), function () {
+//         frappe.show_progress(__('Generating Compliance CSID...'));
+//         frappe.call({
+//             method: "zatca_integration.saudi_arabia_electronic_invoicing.data.test_data.create_return_invoice",
+//             args: {
+//                 csr: frm.doc.csr_settings
+//             },
+//             callback: function (r) {
+//                 frappe.hide_progress();
+//                 if (!r.exc) {
+//                     frappe.show_alert({ message: __('Compliance CSID Generated Successfully!'), indicator: 'green' });
+//                     frm.reload_doc();
+//                 } else {
+//                     frappe.show_alert({ message: __('Failed to Generate Compliance CSID'), indicator: 'red' });
+//                 }
+//             },
+//             error: function (r) {
+//                 frappe.hide_progress();
+//                 frappe.show_alert({ message: __('Failed to Generate Compliance CSID'), indicator: 'red' });
+//             }
+//         });
+//     });
+// }
+
