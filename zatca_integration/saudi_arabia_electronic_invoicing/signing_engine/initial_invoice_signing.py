@@ -90,7 +90,6 @@ def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid
     
     if isinstance(private_key_pem, str):
         private_key_pem = private_key_pem.encode('utf-8')
-    frappe.throw(str(private_key_pem))
     private_key = serialization.load_pem_private_key(
         private_key_pem,
         password=None,
@@ -454,7 +453,6 @@ def extract_public_key_data(sales_invoice_doc, is_zatca_test=0, compliance_csid=
     # pem_details = get_pem_details(sales_invoice_doc)
     
     key_data = pem_details.get("public_key")
-    # frappe.throw(str(key_data))
     return key_data
 
 
