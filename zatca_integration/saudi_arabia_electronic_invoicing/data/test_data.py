@@ -15,7 +15,6 @@ def create_test_sales_invoice(csr_data, compliance_name):
 	
 	print("++++++++++++++++++",csr_data.csrorganizationidentifier)
 	company = get_company(csr_data.csrorganizationidentifier)
-	# frappe.throw(str(company))
 	if not company:
 		frappe.throw("No company found. Please create a company first.")
 	company = company.name
@@ -360,7 +359,6 @@ def create_return_invoice(compliance_name):
 	return_invoice.submit()
 	
 	frappe.msgprint(f"Return Invoice {return_invoice.name} created and submitted successfully.")
-
 	return return_invoice.name
 
 
