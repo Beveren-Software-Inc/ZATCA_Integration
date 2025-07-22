@@ -81,51 +81,65 @@ def getinvoicehash(canonicalized_xml):
         ) from e
 
 
-def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
-    if is_zatca_test:
-        pem_details = get_pem_compliance_details(compliance_csid)
-    else:
-        pem_details = get_pem_details(sales_invoice_doc)
-    private_key_pem = pem_details.get("private_key")
-    if isinstance(private_key_pem, str):
-        private_key_pem = private_key_pem.encode('utf-8')
-    private_key = serialization.load_pem_private_key(
-        private_key_pem,
-        password=None,
-        backend=default_backend()
-    )
-
-    hash_bytes = bytes.fromhex(hash1)
-    signature = private_key.sign(hash_bytes, ec.ECDSA(hashes.SHA256()))
-    encoded_signature = base64.b64encode(signature).decode()
-    return encoded_signature
-
-# def assert_certificate_matches_private_key(cert_base64, private_key_pem):
-#     # Load certificate
-#     certificate = x509.load_der_x509_certificate(base64.b64decode(cert_base64), default_backend())
-#     cert_public_key = certificate.public_key().public_bytes(
-#         serialization.Encoding.PEM,
-#         serialization.PublicFormat.SubjectPublicKeyInfo
-#     )
-
-#     # Load private key
+# def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
+#     if is_zatca_test:
+#         pem_details = get_pem_compliance_details(compliance_csid)
+#     else:
+#         pem_details = get_pem_details(sales_invoice_doc)
+#     private_key_pem = pem_details.get("private_key")
 #     if isinstance(private_key_pem, str):
 #         private_key_pem = private_key_pem.encode('utf-8')
-
 #     private_key = serialization.load_pem_private_key(
 #         private_key_pem,
 #         password=None,
 #         backend=default_backend()
 #     )
 
-#     # Extract public key from private key
-#     derived_public_key = private_key.public_key().public_bytes(
-#         serialization.Encoding.PEM,
-#         serialization.PublicFormat.SubjectPublicKeyInfo
-#     )
+#     hash_bytes = bytes.fromhex(hash1)
+#     signature = private_key.sign(hash_bytes, ec.ECDSA(hashes.SHA256()))
+#     encoded_signature = base64.b64encode(signature).decode()
+#     return encoded_signature
 
-#     assert cert_public_key == derived_public_key, "❌ Certificate and Private Key DO NOT MATCH"
-#     print("✅ Certificate and Private Key MATCH")
+def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
+    if is_zatca_test:
+        pem_details = get_pem_compliance_details(compliance_csid)
+    else:
+        pem_details = get_pem_details(sales_invoice_doc)
+
+    private_key_pem = pem_details.get("private_key")
+    if isinstance(private_key_pem, str):
+        private_key_pem = private_key_pem.encode('utf-8')
+
+    try:
+        # Try to load as-is
+        private_key = serialization.load_pem_private_key(
+            private_key_pem,
+            password=None,
+            backend=default_backend()
+        )
+    except ValueError:
+        # Possibly an EC key in old format. Try to convert manually.
+        ec_key = serialization.load_pem_private_key(
+            private_key_pem,
+            password=None,
+            backend=default_backend()
+        )
+        private_key_pem = ec_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        private_key = serialization.load_pem_private_key(
+            private_key_pem,
+            password=None,
+            backend=default_backend()
+        )
+
+    hash_bytes = bytes.fromhex(hash1)
+    signature = private_key.sign(hash_bytes, ec.ECDSA(hashes.SHA256()))
+    encoded_signature = base64.b64encode(signature).decode()
+    return encoded_signature
+
 
 def extract_certificate_details(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     if is_zatca_test:
