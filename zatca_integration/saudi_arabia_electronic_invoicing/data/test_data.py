@@ -106,6 +106,7 @@ def create_test_sales_invoice(csr_data):
 		# "status": "Unpaid",
 		"customer_group": "All Customer Groups",
 		"cost_center":get_cost_center(company),
+		"po_no":"12345",
 		# "tc_name":"NET 60",
 		# "payment_terms_template": "Bank Advice",
 
@@ -449,6 +450,7 @@ def create_standard_test_sales_invoice(csr_data):
 		"party_account_currency": "SAR",
 		"amount_eligible_for_commission": 6000,
 		"cost_center":get_cost_center(company),
+			"po_no":"123456",
 		# "status": "Unpaid",
 		# "customer_group": "All Customer Groups",
 		# "tc_name":"NET 60",
