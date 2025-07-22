@@ -13,7 +13,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 import asn1
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_pem_details
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_pem_details, get_pem_compliance_details
 
 
 def encode_customoid(custom_string):
@@ -81,7 +81,11 @@ def getinvoicehash(canonicalized_xml):
         ) from e
 
 
-def digital_signature(hash1, sales_invoice_doc):
+def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
+    if is_zatca_test:
+        pem_details = get_pem_compliance_details(compliance_csid)
+    else:
+        pem_details = get_pem_details(sales_invoice_doc)
     pem_details = get_pem_details(sales_invoice_doc)
     private_key_pem = pem_details.get("private_key")
     if isinstance(private_key_pem, str):
@@ -98,8 +102,11 @@ def digital_signature(hash1, sales_invoice_doc):
     return encoded_signature
 
 
-def extract_certificate_details(sales_invoice_doc):
-    perm_details = get_pem_details(sales_invoice_doc)
+def extract_certificate_details(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
+    if is_zatca_test:
+        perm_details = get_pem_compliance_details(compliance_csid)
+    else:
+        perm_details = get_pem_details(sales_invoice_doc)
     certificate_data_str = perm_details.get("certificate")
     """extracting the certificate details from the certificate data"""
     # try:
@@ -121,10 +128,14 @@ def extract_certificate_details(sales_invoice_doc):
     return issuer_name, serial_number
 
 
-def certificate_hash(sales_invoice_doc):
+def certificate_hash(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """Find the certificate hash and returning the value"""
     try:
-        perm_details = get_pem_details(sales_invoice_doc)
+        if is_zatca_test:
+            perm_details = get_pem_compliance_details(compliance_csid)
+        else:
+            perm_details = get_pem_details(sales_invoice_doc)
+        # perm_details = get_pem_details(sales_invoice_doc)
         certificate_data_str = perm_details.get("certificate")
         certificate_data = certificate_data_str.strip()
 
@@ -157,11 +168,11 @@ def xml_base64_decode(signed_xmlfile_name):
         return None
 
 
-def signxml_modify(sales_invoice_doc):
+def signxml_modify(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """modify the signed xml by adding the values like signing time,serial number etc"""
     
-    encoded_certificate_hash = certificate_hash(sales_invoice_doc)
-    issuer_name, serial_number = extract_certificate_details(sales_invoice_doc)
+    encoded_certificate_hash = certificate_hash(sales_invoice_doc,is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
+    issuer_name, serial_number = extract_certificate_details(sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
     original_invoice_xml = etree.parse(
         frappe.local.site + "/private/files/zatca_invoice_final.xml"
     )
@@ -281,10 +292,13 @@ def populate_the_ubl_extensions_output(
         return
 
 
-def extract_public_key_data(sales_invoice_doc):
+def extract_public_key_data(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """extract public key"""
-    
-    pem_details = get_pem_details(sales_invoice_doc)
+    if is_zatca_test:
+        pem_details = get_pem_compliance_details(compliance_csid)
+    else:
+        pem_details = get_pem_details(sales_invoice_doc)
+    # pem_details = get_pem_details(sales_invoice_doc)
     key_data = pem_details.get("public_key")
     return key_data
 

@@ -19,7 +19,6 @@ import io
 from frappe import _
 
 def generate_einvoice(doc, submit_now=True):
-    
     company = frappe.get_doc("Company", doc.company)
     
     if not company.custom_enable_zatca_e_invoicing:
@@ -33,7 +32,10 @@ def generate_einvoice(doc, submit_now=True):
     compliance_type = get_compliance_type(doc, customer_type)
     
     backend_start_time = time_module.time()
-    signed_xmlfile_name, uuid1, encoded_hash = process_invoice_for_zatca_submission(doc.name, compliance_type=compliance_type,any_item_has_tax_template=False)
+    if doc.custom_is_zatca_test:
+            signed_xmlfile_name, uuid1, encoded_hash = process_invoice_for_zatca_submission(doc.name, compliance_type=compliance_type,any_item_has_tax_template=False, is_zatca_test=1, compliance_csid=doc.custom_compliance)
+    else:
+        signed_xmlfile_name, uuid1, encoded_hash = process_invoice_for_zatca_submission(doc.name, compliance_type=compliance_type,any_item_has_tax_template=False)
     backend_end_time = time_module.time()
     backend_time_taken = backend_end_time - backend_start_time
     
