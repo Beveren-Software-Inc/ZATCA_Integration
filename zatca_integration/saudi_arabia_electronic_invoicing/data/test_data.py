@@ -105,6 +105,7 @@ def create_test_sales_invoice(csr_data):
 		# "letter_head": "SpaceTop - M",
 		# "status": "Unpaid",
 		"customer_group": "All Customer Groups",
+		"cost_center":get_cost_center(company),
 		# "tc_name":"NET 60",
 		# "payment_terms_template": "Bank Advice",
 
@@ -329,6 +330,7 @@ def create_return_invoice():
 		item.qty = -item.qty
 		item.amount = -item.amount
 		item.net_amount = -item.net_amount
+		item.custom_return_reason = "Expired"
 
 	# Reverse taxes
 	for tax in return_invoice.taxes:
@@ -446,6 +448,7 @@ def create_standard_test_sales_invoice(csr_data):
 		"po_date": "2025-03-09",
 		"party_account_currency": "SAR",
 		"amount_eligible_for_commission": 6000,
+		"cost_center":get_cost_center(company),
 		# "status": "Unpaid",
 		# "customer_group": "All Customer Groups",
 		# "tc_name":"NET 60",
@@ -523,6 +526,7 @@ def create_standard_return_invoice():
 		item.qty = -item.qty
 		item.amount = -item.amount
 		item.net_amount = -item.net_amount
+		item.custom_return_reason = "Expired"
 
 	# Reverse taxes
 	for tax in return_invoice.taxes:
@@ -565,3 +569,19 @@ def create_zatca_test_warehouse(company):
 	}).insert(ignore_permissions=True)
 
 	return warehouse.name
+
+def get_cost_center(company):
+	try:
+		# Fetch first non-group cost center for the company
+		cost_center = frappe.get_value("Cost Center", {
+			"company": company,
+			"is_group": 0
+		}, "name")
+
+		if cost_center:
+			return cost_center
+
+		frappe.throw(f"No cost center found for company '{company}'.")
+
+	except Exception as e:
+		frappe.throw(f"Error fetching cost center for company '{company}': {e}")
