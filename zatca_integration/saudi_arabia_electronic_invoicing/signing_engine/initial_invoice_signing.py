@@ -86,7 +86,6 @@ def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid
         pem_details = get_pem_compliance_details(compliance_csid)
     else:
         pem_details = get_pem_details(sales_invoice_doc)
-    pem_details = get_pem_details(sales_invoice_doc)
     private_key_pem = pem_details.get("private_key")
     if isinstance(private_key_pem, str):
         private_key_pem = private_key_pem.encode('utf-8')
@@ -101,6 +100,32 @@ def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid
     encoded_signature = base64.b64encode(signature).decode()
     return encoded_signature
 
+# def assert_certificate_matches_private_key(cert_base64, private_key_pem):
+#     # Load certificate
+#     certificate = x509.load_der_x509_certificate(base64.b64decode(cert_base64), default_backend())
+#     cert_public_key = certificate.public_key().public_bytes(
+#         serialization.Encoding.PEM,
+#         serialization.PublicFormat.SubjectPublicKeyInfo
+#     )
+
+#     # Load private key
+#     if isinstance(private_key_pem, str):
+#         private_key_pem = private_key_pem.encode('utf-8')
+
+#     private_key = serialization.load_pem_private_key(
+#         private_key_pem,
+#         password=None,
+#         backend=default_backend()
+#     )
+
+#     # Extract public key from private key
+#     derived_public_key = private_key.public_key().public_bytes(
+#         serialization.Encoding.PEM,
+#         serialization.PublicFormat.SubjectPublicKeyInfo
+#     )
+
+#     assert cert_public_key == derived_public_key, "❌ Certificate and Private Key DO NOT MATCH"
+#     print("✅ Certificate and Private Key MATCH")
 
 def extract_certificate_details(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     if is_zatca_test:
@@ -132,6 +157,7 @@ def certificate_hash(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """Find the certificate hash and returning the value"""
     try:
         if is_zatca_test:
+
             perm_details = get_pem_compliance_details(compliance_csid)
         else:
             perm_details = get_pem_details(sales_invoice_doc)
@@ -253,6 +279,9 @@ def populate_the_ubl_extensions_output(
     namespaces,
     signed_properties_base64,
     encoded_hash,
+    sales_invoice_doc,
+    is_zatca_test=0,
+    compliance_csid=None
    
 ):
     """populate the ubl extension output by giving the signature values and digest values"""
@@ -261,8 +290,13 @@ def populate_the_ubl_extensions_output(
             frappe.local.site + "/private/files/zatca_signed_with_cert_info.xml"
         )
         root3 = updated_invoice_xml.getroot()
-        
-        certificate_data_str="MIID3jCCA4SgAwIBAgITEQAAOAPF90Ajs/xcXwABAAA4AzAKBggqhkjOPQQDAjBiMRUwEwYKCZImiZPyLGQBGRYFbG9jYWwxEzARBgoJkiaJk/IsZAEZFgNnb3YxFzAVBgoJkiaJk/IsZAEZFgdleHRnYXp0MRswGQYDVQQDExJQUlpFSU5WT0lDRVNDQTQtQ0EwHhcNMjQwMTExMDkxOTMwWhcNMjkwMTA5MDkxOTMwWjB1MQswCQYDVQQGEwJTQTEmMCQGA1UEChMdTWF4aW11bSBTcGVlZCBUZWNoIFN1cHBseSBMVEQxFjAUBgNVBAsTDVJpeWFkaCBCcmFuY2gxJjAkBgNVBAMTHVRTVC04ODY0MzExNDUtMzk5OTk5OTk5OTAwMDAzMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEoWCKa0Sa9FIErTOv0uAkC1VIKXxU9nPpx2vlf4yhMejy8c02XJblDq7tPydo8mq0ahOMmNo8gwni7Xt1KT9UeKOCAgcwggIDMIGtBgNVHREEgaUwgaKkgZ8wgZwxOzA5BgNVBAQMMjEtVFNUfDItVFNUfDMtZWQyMmYxZDgtZTZhMi0xMTE4LTliNTgtZDlhOGYxMWU0NDVmMR8wHQYKCZImiZPyLGQBAQwPMzk5OTk5OTk5OTAwMDAzMQ0wCwYDVQQMDAQxMTAwMREwDwYDVQQaDAhSUlJEMjkyOTEaMBgGA1UEDwwRU3VwcGx5IGFjdGl2aXRpZXMwHQYDVR0OBBYEFEX+YvmmtnYoDf9BGbKo7ocTKYK1MB8GA1UdIwQYMBaAFJvKqqLtmqwskIFzVvpP2PxT+9NnMHsGCCsGAQUFBwEBBG8wbTBrBggrBgEFBQcwAoZfaHR0cDovL2FpYTQuemF0Y2EuZ292LnNhL0NlcnRFbnJvbGwvUFJaRUludm9pY2VTQ0E0LmV4dGdhenQuZ292LmxvY2FsX1BSWkVJTlZPSUNFU0NBNC1DQSgxKS5jcnQwDgYDVR0PAQH/BAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIGGqB2E0PsShu2dJIfO+xnTwFVmh/qlZYXZhD4CAWQCARIwHQYDVR0lBBYwFAYIKwYBBQUHAwMGCCsGAQUFBwMCMCcGCSsGAQQBgjcVCgQaMBgwCgYIKwYBBQUHAwMwCgYIKwYBBQUHAwIwCgYIKoZIzj0EAwIDSAAwRQIhALE/ichmnWXCUKUbca3yci8oqwaLvFdHVjQrveI9uqAbAiA9hC4M8jgMBADPSzmd2uiPJA6gKR3LE03U75eqbC/rXA=="
+        if is_zatca_test:
+
+            perm_details = get_pem_compliance_details(compliance_csid)
+        else:
+            perm_details = get_pem_details(sales_invoice_doc)
+        certificate_data_str=perm_details.get("certificate")
+      
         content = certificate_data_str.strip()
 
        
@@ -299,7 +333,9 @@ def extract_public_key_data(sales_invoice_doc, is_zatca_test=0, compliance_csid=
     else:
         pem_details = get_pem_details(sales_invoice_doc)
     # pem_details = get_pem_details(sales_invoice_doc)
+    
     key_data = pem_details.get("public_key")
+    # frappe.throw(str(key_data))
     return key_data
 
 
@@ -325,11 +361,11 @@ def get_tlv_for_value(tag_num, tag_value):
         return None
 
 
-def tag8_publickey(sales_invoice_doc):
+def tag8_publickey(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """tag 8 of qr from public key"""
     try:
         # create_public_key(company_abbr, source_doc)
-        base64_encoded = extract_public_key_data(sales_invoice_doc)
+        base64_encoded = extract_public_key_data(sales_invoice_doc,is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
         byte_data = base64.b64decode(base64_encoded)
         hex_data = binascii.hexlify(byte_data).decode("utf-8")
         chunks = [hex_data[i : i + 2] for i in range(0, len(hex_data), 2)]
@@ -341,11 +377,18 @@ def tag8_publickey(sales_invoice_doc):
         return None
 
 
-def tag9_signature_ecdsa():
+def tag9_signature_ecdsa(sales_invoice_doc,is_zatca_test=0,compliance_csid=None):
     """tag 9 of signature"""
     try:
         
-        certificate_content ="MIID3jCCA4SgAwIBAgITEQAAOAPF90Ajs/xcXwABAAA4AzAKBggqhkjOPQQDAjBiMRUwEwYKCZImiZPyLGQBGRYFbG9jYWwxEzARBgoJkiaJk/IsZAEZFgNnb3YxFzAVBgoJkiaJk/IsZAEZFgdleHRnYXp0MRswGQYDVQQDExJQUlpFSU5WT0lDRVNDQTQtQ0EwHhcNMjQwMTExMDkxOTMwWhcNMjkwMTA5MDkxOTMwWjB1MQswCQYDVQQGEwJTQTEmMCQGA1UEChMdTWF4aW11bSBTcGVlZCBUZWNoIFN1cHBseSBMVEQxFjAUBgNVBAsTDVJpeWFkaCBCcmFuY2gxJjAkBgNVBAMTHVRTVC04ODY0MzExNDUtMzk5OTk5OTk5OTAwMDAzMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEoWCKa0Sa9FIErTOv0uAkC1VIKXxU9nPpx2vlf4yhMejy8c02XJblDq7tPydo8mq0ahOMmNo8gwni7Xt1KT9UeKOCAgcwggIDMIGtBgNVHREEgaUwgaKkgZ8wgZwxOzA5BgNVBAQMMjEtVFNUfDItVFNUfDMtZWQyMmYxZDgtZTZhMi0xMTE4LTliNTgtZDlhOGYxMWU0NDVmMR8wHQYKCZImiZPyLGQBAQwPMzk5OTk5OTk5OTAwMDAzMQ0wCwYDVQQMDAQxMTAwMREwDwYDVQQaDAhSUlJEMjkyOTEaMBgGA1UEDwwRU3VwcGx5IGFjdGl2aXRpZXMwHQYDVR0OBBYEFEX+YvmmtnYoDf9BGbKo7ocTKYK1MB8GA1UdIwQYMBaAFJvKqqLtmqwskIFzVvpP2PxT+9NnMHsGCCsGAQUFBwEBBG8wbTBrBggrBgEFBQcwAoZfaHR0cDovL2FpYTQuemF0Y2EuZ292LnNhL0NlcnRFbnJvbGwvUFJaRUludm9pY2VTQ0E0LmV4dGdhenQuZ292LmxvY2FsX1BSWkVJTlZPSUNFU0NBNC1DQSgxKS5jcnQwDgYDVR0PAQH/BAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIGGqB2E0PsShu2dJIfO+xnTwFVmh/qlZYXZhD4CAWQCARIwHQYDVR0lBBYwFAYIKwYBBQUHAwMGCCsGAQUFBwMCMCcGCSsGAQQBgjcVCgQaMBgwCgYIKwYBBQUHAwMwCgYIKwYBBQUHAwIwCgYIKoZIzj0EAwIDSAAwRQIhALE/ichmnWXCUKUbca3yci8oqwaLvFdHVjQrveI9uqAbAiA9hC4M8jgMBADPSzmd2uiPJA6gKR3LE03U75eqbC/rXA=="
+        if is_zatca_test:
+
+            perm_details = get_pem_compliance_details(compliance_csid)
+        else:
+            perm_details = get_pem_details(sales_invoice_doc)
+        certificate_content=perm_details.get("certificate")
+        
+        # certificate_content ="MIID3jCCA4SgAwIBAgITEQAAOAPF90Ajs/xcXwABAAA4AzAKBggqhkjOPQQDAjBiMRUwEwYKCZImiZPyLGQBGRYFbG9jYWwxEzARBgoJkiaJk/IsZAEZFgNnb3YxFzAVBgoJkiaJk/IsZAEZFgdleHRnYXp0MRswGQYDVQQDExJQUlpFSU5WT0lDRVNDQTQtQ0EwHhcNMjQwMTExMDkxOTMwWhcNMjkwMTA5MDkxOTMwWjB1MQswCQYDVQQGEwJTQTEmMCQGA1UEChMdTWF4aW11bSBTcGVlZCBUZWNoIFN1cHBseSBMVEQxFjAUBgNVBAsTDVJpeWFkaCBCcmFuY2gxJjAkBgNVBAMTHVRTVC04ODY0MzExNDUtMzk5OTk5OTk5OTAwMDAzMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEoWCKa0Sa9FIErTOv0uAkC1VIKXxU9nPpx2vlf4yhMejy8c02XJblDq7tPydo8mq0ahOMmNo8gwni7Xt1KT9UeKOCAgcwggIDMIGtBgNVHREEgaUwgaKkgZ8wgZwxOzA5BgNVBAQMMjEtVFNUfDItVFNUfDMtZWQyMmYxZDgtZTZhMi0xMTE4LTliNTgtZDlhOGYxMWU0NDVmMR8wHQYKCZImiZPyLGQBAQwPMzk5OTk5OTk5OTAwMDAzMQ0wCwYDVQQMDAQxMTAwMREwDwYDVQQaDAhSUlJEMjkyOTEaMBgGA1UEDwwRU3VwcGx5IGFjdGl2aXRpZXMwHQYDVR0OBBYEFEX+YvmmtnYoDf9BGbKo7ocTKYK1MB8GA1UdIwQYMBaAFJvKqqLtmqwskIFzVvpP2PxT+9NnMHsGCCsGAQUFBwEBBG8wbTBrBggrBgEFBQcwAoZfaHR0cDovL2FpYTQuemF0Y2EuZ292LnNhL0NlcnRFbnJvbGwvUFJaRUludm9pY2VTQ0E0LmV4dGdhenQuZ292LmxvY2FsX1BSWkVJTlZPSUNFU0NBNC1DQSgxKS5jcnQwDgYDVR0PAQH/BAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIGGqB2E0PsShu2dJIfO+xnTwFVmh/qlZYXZhD4CAWQCARIwHQYDVR0lBBYwFAYIKwYBBQUHAwMGCCsGAQUFBwMCMCcGCSsGAQQBgjcVCgQaMBgwCgYIKwYBBQUHAwMwCgYIKwYBBQUHAwIwCgYIKoZIzj0EAwIDSAAwRQIhALE/ichmnWXCUKUbca3yci8oqwaLvFdHVjQrveI9uqAbAiA9hC4M8jgMBADPSzmd2uiPJA6gKR3LE03U75eqbC/rXA=="
         formatted_certificate = "-----BEGIN CERTIFICATE-----\n"
         formatted_certificate += "\n".join(
             certificate_content[i : i + 64]
@@ -366,7 +409,7 @@ def tag9_signature_ecdsa():
         return None
 
 
-def generate_tlv_xml(sales_invoice_doc):
+def generate_tlv_xml(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """generate xml by adding the tlv data"""
     with open(
         frappe.local.site + "/private/files/final_signed_invoice.xml", "rb"
@@ -432,8 +475,8 @@ def generate_tlv_xml(sales_invoice_doc):
         else:
             result_dict[tag] = xpath
     result_dict[3] = issue_date_time
-    result_dict[8] = tag8_publickey(sales_invoice_doc)
-    result_dict[9] = tag9_signature_ecdsa()
+    result_dict[8] = tag8_publickey(sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
+    result_dict[9] = tag9_signature_ecdsa(sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
     result_dict[1] = result_dict[1].encode(
         "utf-8"
     )  # Handling Arabic company name in QR Code

@@ -173,14 +173,18 @@ def process_invoice_for_zatca_submission(
         signed_properties_base64 = generate_signed_properties_hash(
             signing_time, issuer_name, serial_number, encoded_certificate_hash
         )
+        
         populate_the_ubl_extensions_output(
             encoded_signature,
             namespaces,
             signed_properties_base64,
             encoded_hash,
+             sales_invoice_doc,
+    is_zatca_test=is_zatca_test,
+    compliance_csid=compliance_csid
            
         )
-        tlv_data = generate_tlv_xml(sales_invoice_doc)
+        tlv_data = generate_tlv_xml(sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
 
         tagsbufsarray = []
         for tag_num, tag_value in tlv_data.items():

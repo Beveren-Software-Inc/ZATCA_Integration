@@ -6,10 +6,10 @@ frappe.ui.form.on("Compliance CSID", {
                 frm.trigger("genereate_zatca_compliance_csid");
 
             }
-            if (!are_all_flags_true(frm) && frm.doc.binary_security_token) {
+            // if (!are_all_flags_true(frm) && frm.doc.binary_security_token) {
                 frm.trigger("validate_zatca_compliance_csid");
                 
-            }
+            // }
         }
         make_fields_read_only(frm);
         // create_test_zatca_compliance_csid(frm);
@@ -108,3 +108,4 @@ function make_fields_read_only(frm) {
 //         });
 //     });
 // }
+
