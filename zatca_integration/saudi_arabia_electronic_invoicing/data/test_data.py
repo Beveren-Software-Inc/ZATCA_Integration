@@ -64,6 +64,9 @@ def create_test_sales_invoice(csr_data):
 			"custom_vat_number": "300450349600003",
 		}).insert(ignore_permissions=True)        
 		create_customer_address(customer.name)
+	else:
+	# Retrieve the existing customer document
+		customer = frappe.get_doc("Customer", customer_name)
 	
 	invoice = frappe.get_doc({
 		"doctype": "Sales Invoice",
@@ -411,7 +414,9 @@ def create_standard_test_sales_invoice(csr_data):
 			"custom_vat_number": "300450349600003",
 		}).insert(ignore_permissions=True)        
 		create_customer_address(customer.name)
-	
+	else:
+	# Retrieve the existing customer document
+		customer = frappe.get_doc("Customer", customer_name)
 	invoice = frappe.get_doc({
 		"doctype": "Sales Invoice",
 		"name": "TEST-SINV-2025-00212",
