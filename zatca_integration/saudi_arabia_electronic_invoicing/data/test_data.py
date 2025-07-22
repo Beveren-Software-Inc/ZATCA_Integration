@@ -480,16 +480,7 @@ def create_standard_test_sales_invoice(csr_data):
 			}
 		],
 
-		"taxes": [
-			{
-				"charge_type": "On Net Total",
-				"account_head": "300001 - VAT on Sales - 15% - STCL",
-				"description": "VAT Taxable",
-				"rate": 15,
-				"tax_amount": 900,
-				"base_tax_amount": 900,
-			}
-		],
+		"taxes": get_15_percent_tax_row(get_tax_template_with_15_percent(company)),
 
 		"payment_schedule": [
 			{
