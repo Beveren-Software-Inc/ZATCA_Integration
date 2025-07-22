@@ -28,7 +28,6 @@ frappe.ui.form.on('Zatca CSR Settings', {
     }
 });
 
-
 function make_fields_read_only(frm) {
     if (frm.doc.csr_generated) {
         frm.fields.forEach(function(field) {
