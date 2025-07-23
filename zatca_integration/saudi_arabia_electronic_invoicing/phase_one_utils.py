@@ -24,7 +24,7 @@ def create_qr_code(doc, method=None):
         return
     
     # Check if the active Zacta Phase is Phase 1
-    if not company.custom_zatca_phase == "ZATCA Phase 1" or company.custom_production_csid is not None:
+    if not company.custom_zatca_phase == "ZATCA Phase 1" and company.custom_production_csid is not None:
         return 
 
 	# if QR Code field not present, create it. Invoices without QR are invalid as per law.
@@ -123,24 +123,25 @@ def create_qr_code(doc, method=None):
         name = frappe.generate_hash(doc.name, 5)
 
         # making file
-        filename = f"QRCode-{name}.png".replace(os.path.sep, "__")
-        _file = frappe.get_doc(
-            {
-                "doctype": "File",
-                "file_name": filename,
-                "is_private": 0,
-                "content": qr_image.getvalue(),
-                "attached_to_doctype": doc.get("doctype"),
-                "attached_to_name": doc.get("name"),
-                "attached_to_field": "ksa_einv_qr",
-            }
-        )
+        if company.custom_production_csid is None:
+            filename = f"QRCodeT-{name}.png".replace(os.path.sep, "__")
+            _file = frappe.get_doc(
+                {
+                    "doctype": "File",
+                    "file_name": filename,
+                    "is_private": 0,
+                    "content": qr_image.getvalue(),
+                    "attached_to_doctype": doc.get("doctype"),
+                    "attached_to_name": doc.get("name"),
+                    "attached_to_field": "ksa_einv_qr",
+                }
+            )
 
-        _file.save()
+            _file.save()
 
-        # assigning to document
-        doc.db_set("ksa_einv_qr", _file.file_url)
-        doc.notify_update()
+            # assigning to document
+            doc.db_set("ksa_einv_qr", _file.file_url)
+            doc.notify_update()
         
 
 def delete_qr_code_file(doc, method=None):
