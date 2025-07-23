@@ -13,7 +13,6 @@ from frappe.utils import nowdate, add_to_date
 @frappe.whitelist()
 def create_test_sales_invoice(csr_data, compliance_name):
 	
-	print("++++++++++++++++++",csr_data.csrorganizationidentifier)
 	company = get_company(csr_data.csrorganizationidentifier)
 	if not company:
 		frappe.throw("No company found. Please create a company first.")
@@ -22,8 +21,6 @@ def create_test_sales_invoice(csr_data, compliance_name):
 	invoice_name = "TEST-SINV-2025-200"
 	if frappe.db.exists("Sales Invoice", invoice_name):
 		return invoice_name
-
-		# frappe.throw("Sales Invoice ACC-SINV-2025-00212 already exists.")
 		
 	item = {
 		"item_code": "Test Item 1",
@@ -42,7 +39,6 @@ def create_test_sales_invoice(csr_data, compliance_name):
 	}
 	
 	create_item_if_missing(item)
-	
 	
 	today = nowdate()
 	tomorrow = add_to_date(today, days=1)
