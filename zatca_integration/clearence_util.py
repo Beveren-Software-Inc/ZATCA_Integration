@@ -57,9 +57,8 @@ def generate_einvoice(doc, submit_now=True):
     invoice_xml = decode_invoice(payload.get('invoice'))
     _save_invoice_xml(doc, invoice_xml)
 
-    if customer_type == "Individual" and not submit_now and not doc.custom_invoice_xml:
-        
-        _save_invoice_xml(doc, invoice_xml)
+    if customer_type == "Individual" and not submit_now:
+        # _save_invoice_xml(doc, invoice_xml)
         _save_qr_code(doc, invoice_xml)
         doc.custom_zatca_submit_status="PENDING"
         return
@@ -67,6 +66,7 @@ def generate_einvoice(doc, submit_now=True):
     validate_invoice_dates(doc, company, customer_type)
     if doc.custom_is_zatca_test:
         return
+    
     try:
         if customer_type == "Company":
             zatca_status_field = "clearanceStatus"
@@ -588,7 +588,11 @@ def get_auto_sales_submission(company):
     if not company:
         return False
     auto_sales_submission = frappe.db.get_value("Company", company, "custom_b2c_auto_sales_submission_enabled")
-    return auto_sales_submission
+    auto_sales_frequency = frappe.db.get_value("Company", company, "custom_sales_information_submission_frequency")
+    
+    if auto_sales_submission and auto_sales_frequency is not None:
+        return True
+    return False
 
 def generate_einvoice_on_submit(doc, method=None):
     """Generate einvoice on submit"""
@@ -603,3 +607,5 @@ def bg_generate_einvoice(doc):
     submit_now = get_auto_sales_submission(doc.company)
     if submit_now:
         generate_einvoice(doc, submit_now=True)
+        
+        

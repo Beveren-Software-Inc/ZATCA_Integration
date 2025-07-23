@@ -24,7 +24,7 @@ def create_qr_code(doc, method=None):
         return
     
     # Check if the active Zacta Phase is Phase 1
-    if not company.custom_zatca_phase == "ZATCA Phase 1":
+    if not company.custom_zatca_phase == "ZATCA Phase 1" or company.custom_production_csid is not None:
         return 
 
 	# if QR Code field not present, create it. Invoices without QR are invalid as per law.
