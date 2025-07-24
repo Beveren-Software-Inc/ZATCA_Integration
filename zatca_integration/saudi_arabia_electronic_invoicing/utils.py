@@ -396,21 +396,6 @@ def get_address(sales_invoice_doc):
     """
 
     # -------- COMPANY ADDRESS --------
-    company_address_list = frappe.get_all(
-        "Address",
-        filters={"is_your_company_address": 1},
-        fields=[
-            "address_line1",
-            "address_line2",
-           
-            "city",
-            "pincode",
-            "state",
-            "country",
-        ],
-        limit=1,
-    )
-    
     production_csid = get_prod_csid(sales_invoice_doc)
     compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
     csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
@@ -424,12 +409,6 @@ def get_address(sales_invoice_doc):
     "country": str("Saudi Arabia")
 }
 
-
-    if not company_address_list:
-        frappe.throw(_("ZATCA requires a proper company address. Please add one."))
-
-    # company_address = company_address_list[0]
-    # frappe.throw(str(company_address))
     # -------- CUSTOMER ADDRESS --------
     customer_links = frappe.get_all(
         "Dynamic Link",
