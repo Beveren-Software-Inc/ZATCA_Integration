@@ -26,7 +26,7 @@ TEST_CUSTOMER_DATA = {
 }
 
 INVOICE_BASE_DATA = {
-    "custom_delivery_date": None,  # Set dynamically
+    "custom_delivery_date": None,
     "custom_payment_means": "Bank Payment",
     "posting_time": "11:25:04",
     "is_pos": 0,
