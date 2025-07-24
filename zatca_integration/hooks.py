@@ -83,6 +83,7 @@ fixtures = [
         "Company-custom_submission_frequency_settings",
         
 ]]]},
+
     # Property Setters
     # {"doctype": "Property Setter", "filters": [["doc_type", "in", [
     #     "Address",
@@ -92,6 +93,7 @@ fixtures = [
     #     "Purchase Taxes and Charges Template",
     #     "Sales Taxes and Charges Template"
     # ]]]},
+    
     {"doctype": "Custom HTML Block", "filters": [["name", "in", [
         "Line Separator"]]]},
 ]
