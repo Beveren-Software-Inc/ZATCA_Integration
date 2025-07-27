@@ -1,8 +1,6 @@
 # Copyright (c) 2025, Shakir PM and contributors
 # For license information, please see license.txt
 
-# import frappe
-
 
 import frappe
 from frappe.utils import now_datetime, add_days

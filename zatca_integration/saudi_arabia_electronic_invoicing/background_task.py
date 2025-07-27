@@ -1,5 +1,7 @@
 import frappe
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_or_create_scheduled_job, delete_scheduled_job, update_cron_format
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
+    get_or_create_scheduled_job, delete_scheduled_job, update_cron_format, delete_zatca_test_invoices_and_related_docs
+)
 from zatca_integration.clearence_util import bg_generate_einvoice
 
 from frappe.utils import now_datetime, add_to_date, add_days, get_datetime
@@ -38,7 +40,7 @@ def send_multiple_signed_compliance_invoices_to_zatca():
 
     for company in companies:
         is_zatca_compliance_ready(company.name)
-        
+        delete_zatca_test_invoices_and_related_docs()
         # Only include invoices posted in the last 24 hours
         cutoff_time = add_to_date(now_datetime(), hours=-24)
 
@@ -49,6 +51,7 @@ def send_multiple_signed_compliance_invoices_to_zatca():
                 "custom_zatca_submit_status": ["not in", ["REPORTED", "CLEARED"]],
                 "docstatus": 1,
                 "posting_date": [">=", cutoff_time.date()],
+                "custom_is_zatca_test":0,
             },
             fields=["name"]
         )
