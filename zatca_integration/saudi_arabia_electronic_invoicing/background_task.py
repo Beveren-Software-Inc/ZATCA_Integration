@@ -85,6 +85,7 @@ def notify_expiring_csids():
         if expiry_date <= expiry_threshold:
             send_csid_expiry_email(csid.name, expiry_date)
 
+
 def send_csid_expiry_email(csid_name, expiry_date):
     subject = "ZATCA CSID Expiring Soon"
     message = f"""
@@ -186,4 +187,3 @@ def on_update_create_schedulers(doc):
     doc.custom_sales_information_submission_frequency = before_time
     doc.custom_sales_info_cron_format = cron_format
             
-    

@@ -355,22 +355,17 @@ def custom_round(value):
     """Rounding CCording to our need"""
     decimal_value = Decimal(str(value))
 
-    # Check if the number has less than 3 decimal places
     if decimal_value.as_tuple().exponent >= -2:
         return float(decimal_value)
 
-    # Extract the third decimal digit accurately
     third_digit = int((decimal_value * 1000) % 10)
 
-    # Check if the third digit is strictly greater than 5
     if third_digit > 5:
-        # Increment the rounded result by 0.01 to ensure rounding up
         return float(decimal_value.quantize(Decimal("0.01")))
     elif third_digit == 5:
-        # If the third digit is exactly 5, ensure we round down as desired
+
         return float(decimal_value.quantize(Decimal("0.01"), rounding=ROUND_DOWN))
     else:
-        # Otherwise, round normally to 2 decimal places using ROUND_DOWN
         return float(decimal_value.quantize(Decimal("0.01"), rounding=ROUND_DOWN))
    
 

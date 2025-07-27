@@ -817,8 +817,8 @@ def add_document_level_discount_with_tax_template(invoice, sales_invoice_doc):
                 if item_tax_template_doc.taxes
                 else 15
             )
-            break  # Assuming that all items will have the same tax category and percentage
-
+            break  
+        
         tax_details = get_zatca_tax_category_details(sales_invoice_doc)
         cbc_id.text = tax_details["code"]
 

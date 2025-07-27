@@ -101,149 +101,6 @@ def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid
     encoded_signature = base64.b64encode(signature).decode()
     return encoded_signature
 
-# def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
-#     if is_zatca_test:
-#         pem_details = get_pem_compliance_details(compliance_csid)
-#     else:
-#         pem_details = get_pem_details(sales_invoice_doc)
-    
-#     private_key_pem = pem_details.get("private_key")
-    
-#     if not private_key_pem:
-#         frappe.throw("Private key is empty or None")
-#     private_key_pem = '''
-#     -----BEGIN EC PRIVATE KEY-----
-# MHQCAQEEIAdvaqmrZsKrWTyjagTVBuCW0+t7OGmW9NAA8IKFxn8RoAcGBSuBBAAK
-# oUQDQgAETiHZFxvgGmZSm50v3IdYpYO31gXQURsLF4BhEWH4YoBWo9BbstAbV4pv
-# 904tK4TIA/0fDVyj5JbBEoAKGPhaIQ==
-# -----END EC PRIVATE KEY-----
-# '''
-#     # Convert to string first, then clean
-#     if isinstance(private_key_pem, bytes):
-#         key_string = private_key_pem.decode('utf-8')
-#     else:
-#         key_string = str(private_key_pem)
-    
-#     # Clean the key string
-#     key_string = key_string.strip()
-#     key_string = key_string.replace('\r\n', '\n').replace('\r', '\n')
-    
-#     # Validate PEM format
-#     if not key_string.startswith('-----BEGIN'):
-#         frappe.throw(f"Invalid PEM format: Key doesn't start with -----BEGIN. Starts with: {key_string[:50]}")
-    
-#     if not key_string.endswith('-----'):
-#         # Try to fix missing newline at end
-#         if key_string.endswith('-----END EC PRIVATE KEY-----'):
-#             key_string += '\n'
-#         else:
-#             frappe.throw(f"Invalid PEM format: Key doesn't end with -----. Ends with: {key_string[-50:]}")
-	
-#     # Validate base64 content between headers
-#     try:
-#         lines = key_string.split('\n')
-#         base64_content = []
-#         in_key_section = False
-        
-#         for line in lines:
-#             line = line.strip()
-#             if line.startswith('-----BEGIN'):
-#                 in_key_section = True
-#                 continue
-#             elif line.startswith('-----END'):
-#                 in_key_section = False
-#                 continue
-#             elif in_key_section and line:
-#                 # Validate this line is valid base64
-#                 import base64
-#                 try:
-#                     base64.b64decode(line, validate=True)
-#                     base64_content.append(line)
-#                 except Exception as b64_error:
-#                     frappe.throw(f"Invalid base64 content in key line: {line}. Error: {str(b64_error)}")
-        
-#         # Reconstruct clean key
-#         clean_key = "-----BEGIN EC PRIVATE KEY-----\n" + "\n".join(base64_content) + "\n-----END EC PRIVATE KEY-----\n"
-        
-#     except Exception as validation_error:
-#         frappe.logger().error(f"Key validation failed: {str(validation_error)}")
-#         clean_key = key_string  # Fall back to original cleaned key
-    
-#     # Debug: Log the actual key for inspection
-#     frappe.logger().error(f"Key content length: {len(clean_key)}")
-#     frappe.logger().error(f"Key preview: {clean_key[:100]}...{clean_key[-50:]}")
-    
-#     # Convert back to bytes
-#     private_key_pem = clean_key.encode('utf-8')
-#     try:
-#         private_key = serialization.load_pem_private_key(
-#             private_key_pem,
-#             password=None,
-#             backend=default_backend()
-#         )
-#     except ValueError as ve:
-#         if "Could not deserialize key data" in str(ve):
-#             # Try alternative approaches
-#             frappe.logger().error("Primary key loading failed, trying alternatives...")
-            
-#             # Alternative 1: Try with empty byte password
-#             try:
-#                 private_key = serialization.load_pem_private_key(
-#                     private_key_pem,
-#                     password=b'',
-#                     backend=default_backend()
-#                 )
-#                 frappe.logger().error("Success with empty byte password")
-#             except Exception:
-#                 # Alternative 2: Try loading as DER if it might be wrongly formatted
-#                 try:
-#                     # Extract base64 content and try as DER
-#                     import re
-#                     base64_only = re.sub(r'-----[^-]+-----', '', clean_key).replace('\n', '').replace(' ', '')
-#                     der_data = base64.b64decode(base64_only)
-#                     private_key = serialization.load_der_private_key(
-#                         der_data,
-#                         password=None,
-#                         backend=default_backend()
-#                     )
-#                     frappe.logger().error("Success with DER loading")
-#                 except Exception:
-#                     # Final fallback: detailed error message
-#                     frappe.throw(f"""
-# Failed to load private key after trying multiple methods.
-
-# Original error: {str(ve)}
-
-# Possible causes:
-# 1. Key uses unsupported EC curve (try secp256k1 or secp256r1)
-# 2. Key is corrupted or truncated
-# 3. Key is password-protected (not supported)
-# 4. Key format is not standard PEM
-
-# Key details:
-# - Length: {len(clean_key)} characters
-# - Starts with: {clean_key[:50]}
-# - Ends with: {clean_key[-50:]}
-
-# Please verify your private key is in correct format:
-# -----BEGIN EC PRIVATE KEY-----
-# [base64 encoded key data]
-# -----END EC PRIVATE KEY-----
-#                     """)
-#         else:
-#             raise ve
-#     except Exception as e:
-#         frappe.throw(f"Unexpected error loading private key: {str(e)}\nKey preview: {clean_key[:100]}")
-    
-#     # Generate signature
-#     try:
-#         hash_bytes = bytes.fromhex(hash1)
-#         signature = private_key.sign(hash_bytes, ec.ECDSA(hashes.SHA256()))
-#         encoded_signature = base64.b64encode(signature).decode()
-#         return encoded_signature
-#     except Exception as sign_error:
-#         frappe.throw(f"Error generating signature: {str(sign_error)}")
-
 
 def extract_certificate_details(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     if is_zatca_test:
@@ -481,7 +338,6 @@ def get_tlv_for_value(tag_num, tag_value):
 def tag8_publickey(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """tag 8 of qr from public key"""
     try:
-        # create_public_key(company_abbr, source_doc)
         base64_encoded = extract_public_key_data(sales_invoice_doc,is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
         byte_data = base64.b64decode(base64_encoded)
         hex_data = binascii.hexlify(byte_data).decode("utf-8")
@@ -505,7 +361,6 @@ def tag9_signature_ecdsa(sales_invoice_doc,is_zatca_test=0,compliance_csid=None)
             perm_details = get_pem_details(sales_invoice_doc)
         certificate_content=perm_details.get("certificate")
         
-        # certificate_content ="MIID3jCCA4SgAwIBAgITEQAAOAPF90Ajs/xcXwABAAA4AzAKBggqhkjOPQQDAjBiMRUwEwYKCZImiZPyLGQBGRYFbG9jYWwxEzARBgoJkiaJk/IsZAEZFgNnb3YxFzAVBgoJkiaJk/IsZAEZFgdleHRnYXp0MRswGQYDVQQDExJQUlpFSU5WT0lDRVNDQTQtQ0EwHhcNMjQwMTExMDkxOTMwWhcNMjkwMTA5MDkxOTMwWjB1MQswCQYDVQQGEwJTQTEmMCQGA1UEChMdTWF4aW11bSBTcGVlZCBUZWNoIFN1cHBseSBMVEQxFjAUBgNVBAsTDVJpeWFkaCBCcmFuY2gxJjAkBgNVBAMTHVRTVC04ODY0MzExNDUtMzk5OTk5OTk5OTAwMDAzMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEoWCKa0Sa9FIErTOv0uAkC1VIKXxU9nPpx2vlf4yhMejy8c02XJblDq7tPydo8mq0ahOMmNo8gwni7Xt1KT9UeKOCAgcwggIDMIGtBgNVHREEgaUwgaKkgZ8wgZwxOzA5BgNVBAQMMjEtVFNUfDItVFNUfDMtZWQyMmYxZDgtZTZhMi0xMTE4LTliNTgtZDlhOGYxMWU0NDVmMR8wHQYKCZImiZPyLGQBAQwPMzk5OTk5OTk5OTAwMDAzMQ0wCwYDVQQMDAQxMTAwMREwDwYDVQQaDAhSUlJEMjkyOTEaMBgGA1UEDwwRU3VwcGx5IGFjdGl2aXRpZXMwHQYDVR0OBBYEFEX+YvmmtnYoDf9BGbKo7ocTKYK1MB8GA1UdIwQYMBaAFJvKqqLtmqwskIFzVvpP2PxT+9NnMHsGCCsGAQUFBwEBBG8wbTBrBggrBgEFBQcwAoZfaHR0cDovL2FpYTQuemF0Y2EuZ292LnNhL0NlcnRFbnJvbGwvUFJaRUludm9pY2VTQ0E0LmV4dGdhenQuZ292LmxvY2FsX1BSWkVJTlZPSUNFU0NBNC1DQSgxKS5jcnQwDgYDVR0PAQH/BAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIGGqB2E0PsShu2dJIfO+xnTwFVmh/qlZYXZhD4CAWQCARIwHQYDVR0lBBYwFAYIKwYBBQUHAwMGCCsGAQUFBwMCMCcGCSsGAQQBgjcVCgQaMBgwCgYIKwYBBQUHAwMwCgYIKwYBBQUHAwIwCgYIKoZIzj0EAwIDSAAwRQIhALE/ichmnWXCUKUbca3yci8oqwaLvFdHVjQrveI9uqAbAiA9hC4M8jgMBADPSzmd2uiPJA6gKR3LE03U75eqbC/rXA=="
         formatted_certificate = "-----BEGIN CERTIFICATE-----\n"
         formatted_certificate += "\n".join(
             certificate_content[i : i + 64]
@@ -689,4 +544,3 @@ def structuring_signedxml():
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_(" error in structuring signed xml: " + str(e)))
         return None
-
