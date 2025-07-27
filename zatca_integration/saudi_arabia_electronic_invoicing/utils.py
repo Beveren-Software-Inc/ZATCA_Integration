@@ -689,11 +689,9 @@ def delete_zatca_test_invoices_and_related_docs():
 					return_invoice.cancel()
 				frappe.delete_doc("Sales Invoice", return_invoice_name, force=1)
 
-			# Store related items and warehouses before deleting the invoice
 			item_codes = [row.item_code for row in invoice.items]
 			warehouses = list(set([row.warehouse for row in invoice.items if row.warehouse]))
 
-			# Cancel and delete the invoice
 			if invoice.docstatus == 1:
 				invoice.cancel()
 			frappe.delete_doc("Sales Invoice", invoice_name, force=1)
