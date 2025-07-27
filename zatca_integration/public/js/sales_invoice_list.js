@@ -23,6 +23,7 @@ frappe.listview_settings['Sales Invoice'] = {
                 "REPORTED": "cyan",
                 "NOT_CLEARED": "orange",
                 "NOT_REPORTED": "orange",
+                "PENDING": "blue",
                 "FAILED": "red",
                 "undefined": "red" // This handles any undefined or unexpected status
             };

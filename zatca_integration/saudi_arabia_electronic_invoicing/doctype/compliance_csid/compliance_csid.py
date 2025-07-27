@@ -10,7 +10,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
 from zatca_integration.common_util import generate_invoice_payload_from_xml, generate_invoice_hash
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import build_certificate_data, create_public_key
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import build_certificate_data, create_public_key, delete_zatca_test_invoices_and_related_docs
 import struct
 import qrcode
 from datetime import datetime, timedelta
@@ -472,67 +472,3 @@ def generate_qr_code(data, filename):
 		img.save(filename)
 		return filename
 
-
-@frappe.whitelist()
-def delete_zatca_test_invoices_and_related_docs():
-	# Get all Sales Invoices marked as test
-	test_invoices = frappe.get_all(
-		"Sales Invoice",
-		filters={"custom_is_zatca_test": 1},
-		fields=["name", "customer"]
-	)
-
-	for inv in test_invoices:
-		invoice_name = inv.name
-		customer_name = inv.customer
-		try:
-			invoice = frappe.get_doc("Sales Invoice", invoice_name)
-			frappe.msgprint(f"Processing test invoice: {invoice_name}")
-
-			# Cancel and delete return invoice if exists
-			return_invoice_name = frappe.get_value("Sales Invoice", {
-				"return_against": invoice_name
-			}, "name")
-
-			if return_invoice_name:
-				return_invoice = frappe.get_doc("Sales Invoice", return_invoice_name)
-				if return_invoice.docstatus == 1:
-					return_invoice.cancel()
-				frappe.delete_doc("Sales Invoice", return_invoice_name, force=1)
-
-			# Store related items and warehouses before deleting the invoice
-			item_codes = [row.item_code for row in invoice.items]
-			warehouses = list(set([row.warehouse for row in invoice.items if row.warehouse]))
-
-			# Cancel and delete the invoice
-			if invoice.docstatus == 1:
-				invoice.cancel()
-			frappe.delete_doc("Sales Invoice", invoice_name, force=1)
-
-			# Delete test items
-			for item_code in item_codes:
-				if frappe.db.exists("Item", item_code):
-					frappe.delete_doc("Item", item_code, force=1)
-
-			# Delete warehouses
-			for wh in warehouses:
-				if frappe.db.exists("Warehouse", wh):
-					frappe.delete_doc("Warehouse", wh, force=1)
-
-			# Delete address linked via Dynamic Link
-			address_names = frappe.get_all(
-				"Dynamic Link",
-				filters={"link_doctype": "Customer", "link_name": customer_name, "parenttype": "Address"},
-				pluck="parent"
-			)
-			# for addr in address_names:
-			# 	if frappe.db.exists("Address", addr):
-			# 		frappe.delete_doc("Address", addr, force=1)
-
-			# Delete customer
-			if frappe.db.exists("Customer", customer_name):
-				frappe.delete_doc("Customer", customer_name, force=1)
-
-		except Exception as e:
-			frappe.log_error(frappe.get_traceback(), f"Failed to delete test invoice {invoice_name}")
-			frappe.msgprint(f"Error deleting {invoice_name}: {e}")

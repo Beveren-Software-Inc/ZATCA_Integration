@@ -66,7 +66,7 @@ def generate_einvoice(doc, submit_now=True):
     validate_invoice_dates(doc, company, customer_type)
     if doc.custom_is_zatca_test:
         return
-    
+    frappe.msgprint("Sales Invoice sent to ZATCA", alert=True)
     try:
         if customer_type == "Company":
             zatca_status_field = "clearanceStatus"
@@ -103,7 +103,6 @@ def _submit_reporting_request(config, payload, doc):
             ),
             json=payload
         )
-        
         end_time = time_module.time()
         return response, {'duration': end_time - start_time}
         

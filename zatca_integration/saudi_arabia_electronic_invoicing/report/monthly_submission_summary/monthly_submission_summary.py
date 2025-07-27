@@ -1,13 +1,17 @@
 # Copyright (c) 2025, Shakir PM and contributors
 # For license information, please see license.txt
 
-# import frappe
-
 
 import frappe
 from frappe.utils import now_datetime, add_days
+from frappe.utils import now_datetime, add_days, get_first_day, get_datetime, getdate
+
 
 def execute(filters=None):
+    filters = filters or {}
+    timespan = filters.get("timespan", "Last 30 Days")
+    start_date = get_start_date_from_timespan(timespan)
+
     # Define status groups
     status_groups = {
         "REPORTED": ["REPORTED"],
@@ -16,38 +20,25 @@ def execute(filters=None):
         "DRAFT": ["DRAFT", "PENDING"],
     }
 
-    # Initialize counters
-    counters = {
-        "REPORTED": 0,
-        "CLEARED": 0,
-        "FAILED": 0,
-        "DRAFT": 0,
-        "TOTAL": 0,
-    }
+    counters = {key: 0 for key in ["REPORTED", "CLEARED", "FAILED", "DRAFT", "TOTAL"]}
 
-    # Date range: last 30 days from today
-    start_date = add_days(now_datetime(), -30)
-
-    # Query Sales Invoices from the last 30 days
     results = frappe.db.sql("""
         SELECT custom_zatca_submit_status, COUNT(*) AS total
         FROM `tabSales Invoice`
         WHERE custom_zatca_submit_status IS NOT NULL
-          AND posting_date >= %s
+          AND creation >= %s
         GROUP BY custom_zatca_submit_status
     """, (start_date,), as_dict=True)
 
     for row in results:
         status = row["custom_zatca_submit_status"]
         count = row["total"]
-
         for group, valid_statuses in status_groups.items():
             if status in valid_statuses:
                 counters[group] += count
                 counters["TOTAL"] += count
                 break
 
-    # Define report columns
     columns = [
         {"fieldname": "doctype", "label": "Document Type", "fieldtype": "Data", "width": 200},
         {"fieldname": "reported", "label": "REPORTED", "fieldtype": "Int", "width": 100},
@@ -57,7 +48,6 @@ def execute(filters=None):
         {"fieldname": "total", "label": "TOTAL", "fieldtype": "Int", "width": 100},
     ]
 
-    # One row: Sales Invoice summary
     data = [{
         "doctype": "Sales Invoice",
         "reported": counters["REPORTED"],
@@ -68,3 +58,22 @@ def execute(filters=None):
     }]
 
     return columns, data
+
+def get_start_date_from_timespan(timespan):
+    now = now_datetime()
+    if timespan == "Last 7 Days":
+        return add_days(now, -7)
+    elif timespan == "Last 14 Days":
+        return add_days(now, -14)
+    elif timespan == "Last 30 Days":
+        return add_days(now, -30)
+    elif timespan == "Last 60 Days":
+        return add_days(now, -60)
+    elif timespan == "Last 90 Days":
+        return add_days(now, -90)
+    elif timespan == "This Month":
+        return get_first_day(now)
+    elif timespan == "This Year":
+        return getdate(f"{now.year}-01-01")
+    else:
+        return add_days(now, -30)  # default fallback
