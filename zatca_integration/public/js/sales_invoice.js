@@ -154,7 +154,7 @@ frappe.ui.form.on('Sales Invoice', {
             frm.doc.custom_zatca_submit_status !== 'CLEARED'
         ){
             
-        frm.add_custom_button(__('Re-submit'), () => {
+        frm.add_custom_button(__('Report'), () => {
                 // Custom loader
                 const loader = frappe.msgprint({
                     message: `<div class="flex items-center gap-4 text-blue-700">

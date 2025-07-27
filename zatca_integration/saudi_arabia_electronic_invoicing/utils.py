@@ -660,3 +660,4 @@ def get_certificate_and_public_key(binary_security_token, created_on):
         }
     except Exception as e:
         frappe.throw(_("Error extracting certificate and public key: {0}").format(str(e)))
+
