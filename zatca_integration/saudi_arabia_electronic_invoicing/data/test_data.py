@@ -147,6 +147,7 @@ def create_and_submit_invoice(invoice_data, invoice_name):
 @frappe.whitelist()
 def create_test_sales_invoice(csr_data, compliance_name):
     """Create test sales invoice (Individual customer)"""
+    # we dicsucced this should be from csr config, not from company
     company = get_company(csr_data.csrorganizationidentifier)
     if not company:
         frappe.throw("No company found. Please create a company first.")
@@ -176,6 +177,7 @@ def create_test_sales_invoice(csr_data, compliance_name):
 @frappe.whitelist()
 def create_standard_test_sales_invoice(csr_data, compliance_name):
     """Create standard test sales invoice (Company customer)"""
+    # we dicsucced this should be from csr config, not from company
     company = get_company(csr_data.csrorganizationidentifier)
     if not company:
         frappe.throw("No company found. Please create a company first.")
