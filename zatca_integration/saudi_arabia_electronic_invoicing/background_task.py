@@ -6,6 +6,7 @@ from zatca_integration.clearence_util import bg_generate_einvoice
 
 from frappe.utils import now_datetime, add_to_date, add_days, get_datetime
 
+# Review this file
 def is_zatca_compliance_ready(company_name):
     """
     Validate if a company is ZATCA-ready and return the compliance CSID doc.
@@ -113,7 +114,8 @@ def get_emails_for_roles(roles):
                 emails.add(user_email)
     return list(emails)
 
-
+# I think we should completely remove this feature, it can cause issues if CSID's are renewed automatically from backup sites
+# Remove the auto Allow Auto Renewal Production CSID completely. 
 def prod_csid_auto_renew():
     companies = frappe.get_all("Company", filters={"custom_enable_zatca_e_invoicing": 1}, fields=["name"])
     today = now_datetime()

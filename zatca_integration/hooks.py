@@ -85,6 +85,7 @@ fixtures = [
         
 ]]]},
 
+    # Have updated Address field descriptions, may be this was for that
     # Property Setters
     # {"doctype": "Property Setter", "filters": [["doc_type", "in", [
     #     "Address",

@@ -21,7 +21,16 @@ from frappe import _
 def generate_einvoice(doc, submit_now=True):
     company = frappe.get_doc("Company", doc.company)
     
+    # Check if ZATCA e-invoicing is enabled for the company
     if not company.custom_enable_zatca_e_invoicing:
+        return
+    
+    # Check if Company is a Saudi Arabia based company
+    if company.country != "Saudi Arabia":
+        return
+
+    # Check if the active Zacta Phase is Phase 2
+    if not company.custom_zatca_phase == "ZATCA Phase 2":
         return
     
     config = get_zatca_config(company)
@@ -47,23 +56,16 @@ def generate_einvoice(doc, submit_now=True):
     
     invoice_data = _prepare_invoice_data(doc, config)
     
-    # Check if Company is a Saudi Arabia based company
-    if company.country != "Saudi Arabia":
-        return
-
-    # Check if the active Zacta Phase is Phase 2
-    if not company.custom_zatca_phase == "ZATCA Phase 2":
-        return
     invoice_xml = decode_invoice(payload.get('invoice'))
     _save_invoice_xml(doc, invoice_xml)
 
+    validate_invoice_dates(doc, company, customer_type)
     if customer_type == "Individual" and not submit_now:
         # _save_invoice_xml(doc, invoice_xml)
         _save_qr_code(doc, invoice_xml)
-        doc.custom_zatca_submit_status="PENDING"
+        doc.custom_zatca_submit_status="PENDING" # How this is automatically submitted, cant find the cron ?
         return
 
-    validate_invoice_dates(doc, company, customer_type)
     if doc.custom_is_zatca_test:
         return
     frappe.msgprint("Sales Invoice sent to ZATCA", alert=True)
@@ -87,7 +89,7 @@ def _submit_reporting_request(config, payload, doc):
     """Submit reporting request for Individual customers."""
     # Process invoice XML for individual customers
     if doc.custom_invoice_xml:
-        invoice_xml = decode_invoice(payload.get('invoice'))
+        invoice_xml = decode_invoice(payload.get('invoice')) # why saving again ? 
         _save_invoice_xml(doc, invoice_xml)
         _save_qr_code(doc, invoice_xml)
     
