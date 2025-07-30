@@ -81,6 +81,7 @@ fixtures = [
         "Company-custom_sales_information_submission_frequency",
         "Company-custom_b2c_auto_sales_submission_enabled",
         "Company-custom_submission_frequency_settings",
+        "Company-custom_enable_sales_retention"
         ""
         
 ]]]},
