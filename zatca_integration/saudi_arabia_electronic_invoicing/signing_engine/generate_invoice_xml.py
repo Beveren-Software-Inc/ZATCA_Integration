@@ -8,6 +8,7 @@ import frappe
 from frappe.utils.data import get_time
 from types import SimpleNamespace
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_config, get_previous_invoice_hash, get_previous_invoice_counter,get_address, get_zatca_tax_category_details
+from zatca_integration.common_util import get_registration_scheme_code
 
 
 CBC_ID = "cbc:ID"
@@ -457,7 +458,6 @@ def company_data(invoice, sales_invoice_doc):
         company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
         config = get_zatca_config(frappe.get_doc("Company", sales_invoice_doc.company))
         company_reg = config["compliance_csr"].registration_number.strip()
-        from zatca_integration.common_util import get_registration_scheme_code
         scheme_code = get_registration_scheme_code(config["compliance_csr"].registration_scheme)
         custom_registration_type = scheme_code or "CRN"
         custom_company_registration = company_reg
