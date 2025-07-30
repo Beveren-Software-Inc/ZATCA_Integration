@@ -186,6 +186,17 @@ fixtures = [
     
     {"doctype": "Custom HTML Block", "filters": [["name", "in", [
         "Line Separator"]]]},
+    
+    {"doctype": "Property Setter", "filters": [
+        ["name", "in", [
+            "Address-county-reqd",
+            "Address-county-label",
+            "Address-city-label",
+            "Address-address_line2-reqd",
+            "Address-address_line2-label",
+            "Address-address_line1-label",
+            
+        ]]]},
 ]
 
 
