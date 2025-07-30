@@ -480,7 +480,8 @@ def company_data(invoice, sales_invoice_doc):
             "city": company_address.get("city", ""),  
             "pincode": company_address.get("pincode", ""), 
             "state": company_address.get("state", "") or "Eastern Province", 
-            "country": company_address.get("country", "Saudi Arabia")  
+            "country": company_address.get("country", "Saudi Arabia"),
+            "registration_name":company_address.get("registration_name"),  
         }
 
         address = SimpleNamespace(**address_dict)
@@ -520,7 +521,8 @@ def company_data(invoice, sales_invoice_doc):
         cbc_registrationname = ET.SubElement(
             cac_partylegalentity, "cbc:RegistrationName"
         )
-        cbc_registrationname.text = sales_invoice_doc.company
+        # cbc_registrationname.text = sales_invoice_doc.company
+        cbc_registrationname.text = address.registration_name
 
         return invoice
     except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:

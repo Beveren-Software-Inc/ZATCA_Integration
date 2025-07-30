@@ -1,5 +1,6 @@
 import frappe
 from frappe.utils import now, nowdate, add_to_date, flt
+import re
 
 # Constants
 TEST_ITEM_DATA = {
@@ -147,10 +148,10 @@ def create_and_submit_invoice(invoice_data, invoice_name):
 @frappe.whitelist()
 def create_test_sales_invoice(csr_data, compliance_name):
     """Create test sales invoice (Individual customer)"""
-    company = get_company(csr_data.csrorganizationidentifier)
-    if not company:
-        frappe.throw("No company found. Please create a company first.")
-    company = company.name
+    company = sanitize_company_name(csr_data)
+    # frappe.throw(str(csr))
+    # company = csr_data.csrorganizationname
+  
     
     invoice_name = "TEST-SINV-2025-200"
     if frappe.db.exists("Sales Invoice", invoice_name):
@@ -173,13 +174,11 @@ def create_test_sales_invoice(csr_data, compliance_name):
     
     return create_and_submit_invoice(invoice_data, invoice_name)
 
+
 @frappe.whitelist()
 def create_standard_test_sales_invoice(csr_data, compliance_name):
     """Create standard test sales invoice (Company customer)"""
-    company = get_company(csr_data.csrorganizationidentifier)
-    if not company:
-        frappe.throw("No company found. Please create a company first.")
-    company = company.name
+    company = sanitize_company_name(csr_data)
     
     invoice_name = "TEST-SINV-2025-100"
     if frappe.db.exists("Sales Invoice", invoice_name):
@@ -306,16 +305,21 @@ def get_tax_template_with_15_percent(company):
     
     frappe.throw("No Taxes and Charges Template found with 15% rate.")
 
-def get_company(vat_no):
-    company = frappe.get_all(
-        "Company",
-        filters={"tax_id": vat_no},
-        fields=["name"]
-    )
-    if not company:
-        frappe.throw(f"No company found with VAT number {vat_no}.")
-    
-    return frappe.get_doc("Company", company[0].name)
+def sanitize_company_name(csr_data):
+    company_name = csr_data.csrorganizationname
+
+    # Clean unwanted characters
+    if company_name:
+        company_name = re.sub(r'[.,]', '', company_name).strip()
+
+    # Get list of existing company names
+    existing_companies = [c.name for c in frappe.get_all("Company", fields=["name"])]
+
+    # If company_name is missing or doesn't exist in the system, use the first available one
+    if not company_name or company_name not in existing_companies:
+        company_name = existing_companies[0]
+    return company_name
+   
 
 def create_item_if_missing(item_data):
     if not frappe.db.exists("Item", item_data["item_code"]):
