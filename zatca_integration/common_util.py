@@ -15,55 +15,55 @@ def validate_pos_invoice(doc, method):
     if doc.is_pos == 1:
         doc.custom_delivery_date = doc.posting_date
 
-def generate_clearance_request(url, clientId, clientSecret, invoice):
-    url = url + 'generateClearanceRequest'
-    headers = {
-        'clientId': clientId,
-        'clientSecret': clientSecret,
-        'Content-Type': 'application/json'
-    }
-    data = {
-        'invoice': encode_invoice(invoice)
-    }
+# def generate_clearance_request(url, clientId, clientSecret, invoice):
+#     url = url + 'generateClearanceRequest'
+#     headers = {
+#         'clientId': clientId,
+#         'clientSecret': clientSecret,
+#         'Content-Type': 'application/json'
+#     }
+#     data = {
+#         'invoice': encode_invoice(invoice)
+#     }
     
-    try:
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        response_json = response.json()
-    except requests.exceptions.RequestException as e:
-        frappe.throw(f"Error in generating clearance request: {e}")
-    except requests.exceptions.JSONDecodeError:
-        frappe.throw("Error in generating clearance request from backend")
-    return response_json
+#     try:
+#         response = requests.post(url, headers=headers, json=data)
+#         response.raise_for_status()
+#         response_json = response.json()
+#     except requests.exceptions.RequestException as e:
+#         frappe.throw(f"Error in generating clearance request: {e}")
+#     except requests.exceptions.JSONDecodeError:
+#         frappe.throw("Error in generating clearance request from backend")
+#     return response_json
 
-def generate_reporting_request(url, clientId, clientSecret, privateKey, pemCertificate, invoice):
-    url = url + 'generateReportingRequest'
-    headers = {
-        'clientId': clientId,
-        'clientSecret': clientSecret,
-        'privateKey': privateKey,
-        'pemCertificate': pemCertificate,
-        'Content-Type': 'application/json'
-    }
-    data = {
-        'invoice': encode_invoice(invoice)
-    }
-    try:
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        response_json = response.json()
-    except requests.exceptions.RequestException as e:
-        frappe.throw(f"Error in generating reporting request: {e}")
-    except requests.exceptions.JSONDecodeError:
-        frappe.throw("Error in generating reporting request from backend")
+# def generate_reporting_request(url, clientId, clientSecret, privateKey, pemCertificate, invoice):
+#     url = url + 'generateReportingRequest'
+#     headers = {
+#         'clientId': clientId,
+#         'clientSecret': clientSecret,
+#         'privateKey': privateKey,
+#         'pemCertificate': pemCertificate,
+#         'Content-Type': 'application/json'
+#     }
+#     data = {
+#         'invoice': encode_invoice(invoice)
+#     }
+#     try:
+#         response = requests.post(url, headers=headers, json=data)
+#         response.raise_for_status()
+#         response_json = response.json()
+#     except requests.exceptions.RequestException as e:
+#         frappe.throw(f"Error in generating reporting request: {e}")
+#     except requests.exceptions.JSONDecodeError:
+#         frappe.throw("Error in generating reporting request from backend")
 
-    return response_json
+#     return response_json
 
-def encode_invoice(invoice):
-    input_bytes = invoice.encode('utf-8')
-    encoded_bytes = base64.b64encode(input_bytes)
-    encoded_string = encoded_bytes.decode('utf-8')
-    return encoded_string
+# def encode_invoice(invoice):
+#     input_bytes = invoice.encode('utf-8')
+#     encoded_bytes = base64.b64encode(input_bytes)
+#     encoded_string = encoded_bytes.decode('utf-8')
+#     return encoded_string
 
 def decode_invoice(encoded_invoice):
     encoded_bytes = encoded_invoice.encode('utf-8')

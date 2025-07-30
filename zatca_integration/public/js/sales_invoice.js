@@ -31,6 +31,15 @@ frappe.ui.form.on('Sales Invoice', {
         frm.toggle_display("custom_shipping_address", enabled);
         frm.trigger('get_valid_sales_invoices');
     });
+
+    check_sales_retention_enabled(frm, (enabled) =>{
+        frm.zatca_enabled = enabled;
+        frm.toggle_display("custom_retention_account", enabled)
+        frm.toggle_display("custom_retention_percentage", enabled)
+        frm.toggle_display("custom_retention_amount", enabled)
+        frm.toggle_display("custom_base_retention_amount", enabled)
+
+    })
 },
 
     validate: frm => {
@@ -235,6 +244,29 @@ frappe.ui.form.on('Sales Invoice', {
     }
        
 });
+
+function check_sales_retention_enabled(frm, callback) {
+    if (frm.doc.company) {
+        frappe.call({
+            method: "frappe.client.get_value",
+            args: {
+                doctype: "Company",
+                filters: { name: frm.doc.company },
+                fieldname: "custom_enable_sales_retention"
+            },
+            callback: function(r) {
+                const enabled = !!r.message?.custom_enable_sales_retention ? 1 : 0;
+                frm.zatca_sales_retention_enabled = enabled;
+
+                frm.toggle_display("custom_enable_sales_retention", !!enabled);
+
+                if (callback) callback(enabled);
+            }
+        });
+    } else {
+        if (callback) callback(0);
+    }
+}
 
 function check_zatca_enabled(frm, callback) {
     if (frm.doc.company) {
