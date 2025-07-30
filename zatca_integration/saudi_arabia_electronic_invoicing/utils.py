@@ -406,7 +406,9 @@ def get_address(sales_invoice_doc):
     "city": str(csr_settings.city_name),
     "pincode": str(csr_settings.postal_zone),
     "state": str(csr_settings.city_subdivision_name),
-    "country": str("Saudi Arabia")
+    "country": str("Saudi Arabia"),
+    "registration_name":str(csr_settings.csrorganizationname),
+    "company_tax_id":str(csr_settings.csrorganizationidentifier),
 }
 
     # -------- CUSTOMER ADDRESS --------
