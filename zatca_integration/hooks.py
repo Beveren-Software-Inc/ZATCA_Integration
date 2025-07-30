@@ -78,8 +78,6 @@ fixtures = [
         #Revised company settings
         "Company-custom_enable_sales_retention",
         "Company-custom_enable_multisales_invoice_on_credit_note",
-        "Company-custom_how_many_days_before_renewal",
-        "Company-custom_allow_auto_renewal_production_csid",
         "Company-custom_column_break_6cz34",
         "Company-custom_b2c_cron_format",
         "Company-custom_sales_information_submission_frequency",
