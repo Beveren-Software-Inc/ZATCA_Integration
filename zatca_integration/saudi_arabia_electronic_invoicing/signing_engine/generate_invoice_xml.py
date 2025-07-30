@@ -481,7 +481,8 @@ def company_data(invoice, sales_invoice_doc):
             "pincode": company_address.get("pincode", ""), 
             "state": company_address.get("state", "") or "Eastern Province", 
             "country": company_address.get("country", "Saudi Arabia"),
-            "registration_name":company_address.get("registration_name"),  
+            "registration_name":company_address.get("registration_name"),
+            "company_tax_id"  :company_address.get("company_tax_id")
         }
 
         address = SimpleNamespace(**address_dict)
@@ -511,7 +512,8 @@ def company_data(invoice, sales_invoice_doc):
 
         cac_partytaxscheme = ET.SubElement(cac_party_1, "cac:PartyTaxScheme")
         cbc_companyid = ET.SubElement(cac_partytaxscheme, "cbc:CompanyID")
-        cbc_companyid.text = company_doc.tax_id
+        # cbc_companyid.text = company_doc.tax_id
+        cbc_companyid.text = address.company_tax_id
 
         cac_taxscheme = ET.SubElement(cac_partytaxscheme, "cac:TaxScheme")
         cbc_id_3 = ET.SubElement(cac_taxscheme, CBC_ID)
