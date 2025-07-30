@@ -457,8 +457,9 @@ def company_data(invoice, sales_invoice_doc):
         company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
         config = get_zatca_config(frappe.get_doc("Company", sales_invoice_doc.company))
         company_reg = config["compliance_csr"].registration_number
-       
-        custom_registration_type = "CRN"
+        from zatca_integration.common_util import get_registration_scheme_code
+        scheme_code = get_registration_scheme_code(config["compliance_csr"].registration_scheme)
+        custom_registration_type = scheme_code or "CRN"
         custom_company_registration = company_reg
         cac_accountingsupplierparty = ET.SubElement(
             invoice, "cac:AccountingSupplierParty"
