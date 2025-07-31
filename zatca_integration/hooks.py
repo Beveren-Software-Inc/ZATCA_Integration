@@ -111,7 +111,6 @@ fixtures = [
         "Sales Invoice-custom_retention_account",
         "Sales Invoice-custom_section_break_pz7hw",
         "Sales Invoice-custom_remark",
-        "Sales Invoice-custom_customer_short_name",
         "Sales Invoice-custom_column_break_pj7dp",
         "Sales Invoice-custom_zatca_phase",
         "Sales Invoice-custom_enable_zatca_e_invoicing",

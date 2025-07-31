@@ -7,17 +7,24 @@ from frappe import _
 import frappe
 from frappe.utils.data import get_time
 from types import SimpleNamespace
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_config, get_previous_invoice_hash, get_previous_invoice_counter,get_address, get_zatca_tax_category_details
-from zatca_integration.common_util import get_registration_scheme_code
-
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
+    get_zatca_config, get_previous_invoice_hash, get_previous_invoice_counter,get_address, get_zatca_tax_category_details, get_zatca_config_test)
+from zatca_integration.common_util import get_registration_scheme_code, generate_invoice_hash
+import random
 
 CBC_ID = "cbc:ID"
 DS_TRANSFORM = "ds:Transform"
 
+def generate_random_number():
+    return random.randint(1, 20)
+
 def generate_new_invoice_counter(sales_invoice_doc):
-    config = get_zatca_config(frappe.get_doc("Company", sales_invoice_doc.company))
-    previous_counter = int(get_previous_invoice_counter(config["production_csid"].name))
-    return previous_counter + 1
+    if sales_invoice_doc.custom_is_zatca_test:
+        return generate_random_number()
+    else:
+        config = get_zatca_config(frappe.get_doc("Company", sales_invoice_doc.company))
+        previous_counter = int(get_previous_invoice_counter(config["production_csid"].name))
+        return previous_counter + 1
 
 def get_issue_time(invoice_number):
     """
@@ -323,12 +330,14 @@ def doc_reference(invoice, sales_invoice_doc):
             invoice = billing_reference_for_credit_and_debit_note(
                 invoice, sales_invoice_doc
             )
+        
         cac_additionaldocumentreference = ET.SubElement(
             invoice, "cac:AdditionalDocumentReference"
         )
         cbc_id_1 = ET.SubElement(cac_additionaldocumentreference, CBC_ID)
         cbc_id_1.text = "ICV"
         cbc_uuid_1 = ET.SubElement(cac_additionaldocumentreference, "cbc:UUID")
+        
         cbc_uuid_1.text = str(generate_new_invoice_counter(sales_invoice_doc))
         return invoice
     except (ET.ParseError, AttributeError, ValueError) as e:
@@ -413,11 +422,19 @@ def additional_reference(invoice, sales_invoice_doc):
         # Directly retrieve the PIH data without JSON parsing
          
         company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
-        config = get_zatca_config(company_doc)
         
-        previous_invoice_hash = get_previous_invoice_hash(config['production_csid'].name)
+        if sales_invoice_doc.custom_is_zatca_test:
+            print("Test data")
+        else:
+            config = get_zatca_config(company_doc)
+        if sales_invoice_doc.custom_is_zatca_test:
+       
+            previous_invoice_hash = str(generate_invoice_hash())
+        else:
+            previous_invoice_hash = get_previous_invoice_hash(config['production_csid'].name)
         
         pih = previous_invoice_hash
+        
         cbc_embeddeddocumentbinaryobject.text = pih
 
         # Create the second AdditionalDocumentReference element for QR
@@ -456,7 +473,13 @@ def company_data(invoice, sales_invoice_doc):
     """
     try:
         company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
-        config = get_zatca_config(frappe.get_doc("Company", sales_invoice_doc.company))
+        if sales_invoice_doc.custom_is_zatca_test:
+            compliance_csid_doc = frappe.get_doc("Compliance CSID", sales_invoice_doc.custom_compliance)
+            config = get_zatca_config_test(frappe.get_doc("Company", sales_invoice_doc.company), compliance_csid_doc)
+            
+        else:
+            config = get_zatca_config(frappe.get_doc("Company", sales_invoice_doc.company))
+        
         company_reg = config["compliance_csr"].registration_number.strip()
         scheme_code = get_registration_scheme_code(config["compliance_csr"].registration_scheme)
         custom_registration_type = scheme_code or "CRN"
@@ -464,6 +487,7 @@ def company_data(invoice, sales_invoice_doc):
         cac_accountingsupplierparty = ET.SubElement(
             invoice, "cac:AccountingSupplierParty"
         )
+
         cac_party_1 = ET.SubElement(cac_accountingsupplierparty, "cac:Party")
         cac_partyidentification = ET.SubElement(cac_party_1, "cac:PartyIdentification")
         cbc_id_2 = ET.SubElement(cac_partyidentification, CBC_ID)
@@ -526,7 +550,7 @@ def company_data(invoice, sales_invoice_doc):
         )
         # cbc_registrationname.text = sales_invoice_doc.company
         cbc_registrationname.text = address.registration_name
-
+        
         return invoice
     except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
         frappe.throw(_(f"Error occurred in company data: {e}"))

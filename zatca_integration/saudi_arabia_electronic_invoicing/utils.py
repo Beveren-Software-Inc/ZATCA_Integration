@@ -396,10 +396,14 @@ def get_address(sales_invoice_doc):
     """
 
     # -------- COMPANY ADDRESS --------
-    production_csid = get_prod_csid(sales_invoice_doc)
-    compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
-    csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
-    
+    if sales_invoice_doc.custom_is_zatca_test:
+        compliance_csid = frappe.get_doc("Compliance CSID", sales_invoice_doc.custom_compliance)
+        csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+    else:
+        production_csid = get_prod_csid(sales_invoice_doc)
+        compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
+        csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+        
     company_address = {
     "address_line1": str(csr_settings.street_name),
     "address_line2": str(csr_settings.building_number),
@@ -538,7 +542,7 @@ def get_exemption_reason_map():
     }
     
     
-def get_zatca_config(company):
+def get_zatca_config(company, compliance_csid=None):
     """Get ZATCA configuration from company settings"""
     production_csid = frappe.get_doc("Production CSID", company.custom_production_csid)
     compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
@@ -552,6 +556,24 @@ def get_zatca_config(company):
         'zatca_environment': zatca_environment,
         'company': company
     }
+    
+#Testing agent
+def get_zatca_config_test(company, compliance_csid=None):
+    """Get ZATCA configuration from company settings"""
+    # production_csid = frappe.get_doc("Production CSID", company.custom_production_csid)
+    # compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
+    
+    compliance_csr = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+    zatca_environment = frappe.get_doc("Zatca Environment", compliance_csr.zatca_environment)
+    
+    return {
+        # 'production_csid': production_csid,
+        'compliance_csid': compliance_csid,
+        'compliance_csr': compliance_csr,
+        'zatca_environment': zatca_environment,
+        'company': company
+    }
+    
     
 def get_previous_invoice_counter(production_csid):
     latest_transaction = frappe.get_all('Zatca Transactions', 

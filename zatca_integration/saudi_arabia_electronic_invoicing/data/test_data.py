@@ -19,7 +19,7 @@ TEST_ITEM_DATA = {
 TEST_CUSTOMER_DATA = {
     "customer_name": "TEST-1 Customer",
     "customer_group": "All Customer Groups",
-    "territory": "Saudi Arabia",
+    # "territory": "Saudi Arabia",
     "custom_country": "Saudi Arabia",
     "customer_name_short": "S-CHEM",
     "customer_name_in_arabic": "العميل رقم 1",
@@ -196,7 +196,7 @@ def create_standard_test_sales_invoice(csr_data, compliance_name):
     invoice_data = create_base_invoice_data(company, csr_data, compliance_name, customer, item_data)
     invoice_data.update({
         "name": "TEST-SINV-2025-00212",
-        "custom_customer_short_name": "S-CHEM",
+        # "custom_customer_short_name": "S-CHEM",
         "tax_id": "300450349600003",
         "po_no": "123456"
     })

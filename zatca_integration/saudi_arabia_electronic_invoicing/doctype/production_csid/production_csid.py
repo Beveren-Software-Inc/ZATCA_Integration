@@ -49,9 +49,10 @@ class ProductionCSID(Document):
 
 		try:
 			response = requests.post(zatca_environment.production_csid_api, headers=headers, auth=HTTPBasicAuth(compliance_csid.binary_security_token, compliance_csid.secret), json=data)
+			
 			response.raise_for_status()
 			response_json = response.json()
-			
+			# frappe.throw(str(response_json))
 			self.is_active = True
 			self.created_time = frappe.utils.now_datetime()
 			self.expiry_date = calculation_expiry_date(self.created_time)
