@@ -1,7 +1,7 @@
 
 import json
 from datetime import datetime, date, timedelta
-
+import random
 from dateutil.parser import parse
 import uuid
 import frappe
@@ -11,9 +11,9 @@ import base64
 from requests.auth import HTTPBasicAuth
 from lxml import etree
 import qrcode
-from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information
+from zatca_integration.common_util import decode_invoice, get_seller_information, get_buyer_information, generate_invoice_hash
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
-    get_zatca_config, get_previous_invoice_counter, get_previous_invoice_hash, time_formatter)
+    get_zatca_config, get_previous_invoice_counter, get_previous_invoice_hash, time_formatter, get_zatca_config_test)
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import process_invoice_for_zatca_submission, xml_base64_decode
 import io
 from frappe import _
@@ -21,18 +21,27 @@ from frappe import _
 def generate_einvoice(doc, submit_now=True):
     company = frappe.get_doc("Company", doc.company)
     
-    if not company.custom_enable_zatca_e_invoicing:
+    compliance_csid_doc = None
+    if doc.custom_is_zatca_test:
+        compliance_csid_doc = frappe.get_doc("Compliance CSID", doc.custom_compliance)
+    if not company.custom_enable_zatca_e_invoicing and not doc.custom_is_zatca_test:
         return
     
-    config = get_zatca_config(company)
+    if doc.custom_is_zatca_test:
+       
+        config = get_zatca_config_test(company, compliance_csid_doc)
+    else:
+        config = get_zatca_config(company)
     
     # Buyer Information
     customer = frappe.get_doc("Customer", doc.customer)
     customer_type = customer.customer_type
-    compliance_type = get_compliance_type(doc, customer_type)
     
+    compliance_type = get_compliance_type(doc, customer_type)
+
     backend_start_time = time_module.time()
     if doc.custom_is_zatca_test:
+            
             signed_xmlfile_name, uuid1, encoded_hash = process_invoice_for_zatca_submission(doc.name, compliance_type=compliance_type,any_item_has_tax_template=False, is_zatca_test=1, compliance_csid=doc.custom_compliance)
     else:
         signed_xmlfile_name, uuid1, encoded_hash = process_invoice_for_zatca_submission(doc.name, compliance_type=compliance_type,any_item_has_tax_template=False)
@@ -52,7 +61,7 @@ def generate_einvoice(doc, submit_now=True):
         return
 
     # Check if the active Zacta Phase is Phase 2
-    if not company.custom_zatca_phase == "ZATCA Phase 2":
+    if company.custom_enable_zatca_e_invoicing and not company.custom_zatca_phase == "ZATCA Phase 2":
         return
     invoice_xml = decode_invoice(payload.get('invoice'))
     _save_invoice_xml(doc, invoice_xml)
@@ -62,7 +71,7 @@ def generate_einvoice(doc, submit_now=True):
         _save_qr_code(doc, invoice_xml)
         doc.custom_zatca_submit_status="PENDING"
         return
-
+    
     validate_invoice_dates(doc, company, customer_type)
     if doc.custom_is_zatca_test:
         return
@@ -270,6 +279,9 @@ def _get_cleared_invoice_xml(response_json, invoice_request, customer_type):
     else:
         frappe.throw("Customer Type is not Supported")
 
+def generate_random_number():
+    return random.randint(1, 20)
+
 def _prepare_invoice_data(doc, config):
     """Prepare invoice data for submission"""
     customer = frappe.get_doc("Customer", doc.customer)
@@ -289,9 +301,15 @@ def _prepare_invoice_data(doc, config):
     # Set counters and identifiers
     invoice_number = doc.name
     unique_invoice_identifier = str(uuid.uuid4())
-    previous_invoice_counter = int(get_previous_invoice_counter(config['production_csid'].name))
+    
+    if doc.custom_is_zatca_test:
+        previous_invoice_counter = generate_random_number()
+        previous_invoice_hash = generate_invoice_hash()
+    else:
+        previous_invoice_counter = int(get_previous_invoice_counter(config['production_csid'].name))
+        previous_invoice_hash = get_previous_invoice_hash(config['production_csid'].name)
     invoice_counter_value = previous_invoice_counter + 1
-    previous_invoice_hash = get_previous_invoice_hash(config['production_csid'].name)
+    
     
     # Set dates
     if isinstance(doc.posting_date, date):

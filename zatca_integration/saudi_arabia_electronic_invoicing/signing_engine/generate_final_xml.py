@@ -377,10 +377,11 @@ def save_formatted_zatca_xml(invoice):
 
         tree = ET.ElementTree(invoice)
         xml_file_path = frappe.local.site + "/private/files/xml_files.xml"
+        
         # Save the XML tree to a file
         with open(xml_file_path, "wb") as file:
             tree.write(file, encoding="utf-8", xml_declaration=True)
-
+        
         # Read the XML file and format it
         with open(xml_file_path, "r", encoding="utf-8") as file:
             xml_string = file.read()

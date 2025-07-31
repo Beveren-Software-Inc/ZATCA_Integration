@@ -44,6 +44,7 @@ def xml_base64_decode(signed_xmlfile_name):
     try:
         with open(signed_xmlfile_name, "r", encoding="utf-8") as file:
             xml = file.read().lstrip()
+            
             base64_encoded = base64.b64encode(xml.encode("utf-8"))
             base64_decoded = base64_encoded.decode("utf-8")
             return base64_decoded
@@ -123,13 +124,15 @@ def process_invoice_for_zatca_submission(
             invoice = invoice_typecode_compliance(invoice, compliance_type)
         
         invoice = doc_reference(invoice, sales_invoice_doc)
+        # frappe.throw("Uko")
         invoice = additional_reference(invoice, sales_invoice_doc)
+        
         invoice = company_data(invoice, sales_invoice_doc)
         invoice = customer_data(invoice, sales_invoice_doc)
+        
         invoice = delivery_and_payment_means(
             invoice, sales_invoice_doc, sales_invoice_doc.is_return
         )
-
         # if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
         #     invoice = add_nominal_discount_tax(invoice, sales_invoice_doc)
 
