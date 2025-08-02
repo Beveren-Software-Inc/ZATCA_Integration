@@ -130,13 +130,15 @@
   {
    "fieldname": "expiry_date",
    "fieldtype": "Datetime",
-   "label": "Expiry Date"
+   "label": "Expiry Date",
+   "no_copy": 1,
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-13 16:02:54.706340",
+ "modified": "2025-08-02 10:17:58.098735",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Production CSID",
