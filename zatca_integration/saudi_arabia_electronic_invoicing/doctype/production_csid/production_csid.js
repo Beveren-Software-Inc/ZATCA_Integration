@@ -4,7 +4,10 @@
 frappe.ui.form.on("Production CSID", {
     refresh: frm => {
         if (!frm.is_new()) {
-            frm.trigger("re_generate_production_csid");
+
+            if(frm.doc.binary_security_token){
+                    frm.trigger("re_generate_production_csid");
+            }
 
             // Only show Generate button if is_active != 1
             if (!frm.doc.is_active) {
