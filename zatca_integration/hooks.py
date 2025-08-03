@@ -143,21 +143,28 @@ fixtures = [
         
         #Address
         "Address-custom_arabic_address",
-        "Address-custom_national_address"
+        "Address-custom_national_address",
         
         #Customer
+        # "Customer-loan_details_tab",
+        # "Customer-is_npa",
+        "Customer-custom_e_invoice_settings",
         "Customer-custom_column_break_hulau",
         "Customer-custom_registration_number",
         "Customer-custom_column_break_6wcii",
+         "Customer-custom_vat_number",
+         "Customer-custom_vat_certificate",
+        "Customer-custom_c_r_certificate",
         "Customer-custom_registration_scheme",
         "Customer-custom_registration_information",
         "Customer-custom_vat_information",
         "Customer-custom_country",
         "Customer-customer_name_in_arabic",
         "Customer-custom_payment_method",
-        "Customer-custom_vat_number",
+       
         "Customer-custom_column_break_uvb47",
-        "Customer-custom_e_invoice_settings",
+        
+        
         
         #Purchase taxes Charges
         "Purchase Taxes and Charges Template-custom_country",
