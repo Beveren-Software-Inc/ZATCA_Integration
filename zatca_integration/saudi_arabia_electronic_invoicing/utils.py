@@ -388,34 +388,35 @@ def clean_pem_key(pem_key: str, keyword: str) -> str:
 def get_address(sales_invoice_doc):
     """
     Returns both the Company and Customer billing addresses.
-    - Company address is the first available address marked as 'is_your_company_address = 1'.
+    - Company address is fetched from ZATCA CSR Settings via Compliance CSID.
     - Customer address is the first linked address to the customer via Dynamic Link.
 
     Returns:
-        (company_address_dict, customer_address_dict)
+        (dict) company_address, (dict) customer_address
     """
-
     # -------- COMPANY ADDRESS --------
     if sales_invoice_doc.custom_is_zatca_test:
         compliance_csid = frappe.get_doc("Compliance CSID", sales_invoice_doc.custom_compliance)
-        csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
     else:
         production_csid = get_prod_csid(sales_invoice_doc)
         compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
-        csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
-        
+    
+    csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+
     company_address = {
-    "address_line1": str(csr_settings.street_name),
-    "address_line2": str(csr_settings.building_number),
-    "city": str(csr_settings.city_name),
-    "pincode": str(csr_settings.postal_zone),
-    "state": str(csr_settings.city_subdivision_name),
-    "country": str("Saudi Arabia"),
-    "registration_name":str(csr_settings.csrorganizationname),
-    "company_tax_id":str(csr_settings.csrorganizationidentifier),
+    "address_line1": str(csr_settings.street_name or ""),
+    "address_line2": str(csr_settings.building_number or ""),
+    "city": str(csr_settings.city_name or ""),
+    "pincode": str(csr_settings.postal_zone or ""),
+    "state": str(csr_settings.city_subdivision_name or ""),
+    "country": "Saudi Arabia",
+    "registration_name": str(csr_settings.csrorganizationname or ""),
+    "company_tax_id": str(csr_settings.csrorganizationidentifier or ""),
 }
 
+
     # -------- CUSTOMER ADDRESS --------
+    customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
     customer_links = frappe.get_all(
         "Dynamic Link",
         filters={
@@ -428,22 +429,89 @@ def get_address(sales_invoice_doc):
     )
 
     if not customer_links:
-        frappe.throw(_("No address found for customer: {0}").format(sales_invoice_doc.customer))
+        if customer_doc.customer_type != "Individual":
+            frappe.throw(_("No address found for customer: {0}").format(sales_invoice_doc.customer))
+        else:
+            customer_address = {}
+    else:
+        customer_address = frappe.get_value(
+            "Address",
+            customer_links[0].parent,
+            [
+                "address_line1",
+                "address_line2",
+                "city",
+                "pincode",
+                "state",
+                "country",
+            ],
+            as_dict=True,
+        )
 
-    customer_address = frappe.get_value(
-        "Address",
-        customer_links[0].parent,
-        [
-            "address_line1",
-            "address_line2",
-            "city",
-            "pincode",
-            "state",
-            "country",
-        ],
-        as_dict=True,
-    )
     return company_address, customer_address
+
+
+# def get_address(sales_invoice_doc):
+#     """
+#     Returns both the Company and Customer billing addresses.
+#     - Company address is the first available address marked as 'is_your_company_address = 1'.
+#     - Customer address is the first linked address to the customer via Dynamic Link.
+
+#     Returns:
+#         (company_address_dict, customer_address_dict)
+#     """
+#     customer_address = {}
+
+#     # -------- COMPANY ADDRESS --------
+#     if sales_invoice_doc.custom_is_zatca_test:
+#         compliance_csid = frappe.get_doc("Compliance CSID", sales_invoice_doc.custom_compliance)
+#         csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+#     else:
+#         production_csid = get_prod_csid(sales_invoice_doc)
+#         compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
+#         csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
+        
+#     company_address = {
+#     "address_line1": str(csr_settings.street_name),
+#     "address_line2": str(csr_settings.building_number),
+#     "city": str(csr_settings.city_name),
+#     "pincode": str(csr_settings.postal_zone),
+#     "state": str(csr_settings.city_subdivision_name),
+#     "country": str("Saudi Arabia"),
+#     "registration_name":str(csr_settings.csrorganizationname),
+#     "company_tax_id":str(csr_settings.csrorganizationidentifier),
+# }
+
+#     # -------- CUSTOMER ADDRESS --------
+#     customer_links = frappe.get_all(
+#         "Dynamic Link",
+#         filters={
+#             "link_doctype": "Customer",
+#             "link_name": sales_invoice_doc.customer,
+#             "parenttype": "Address",
+#         },
+#         fields=["parent"],
+#         limit=1,
+#     )
+#     custom_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+    
+#     if not customer_links and custom_doc.customer_type != "Individual":
+#         frappe.throw(_("No address found for customer: {0}").format(sales_invoice_doc.customer))
+
+#     customer_address = frappe.get_value(
+#         "Address",
+#         customer_links[0].parent,
+#         [
+#             "address_line1",
+#             "address_line2",
+#             "city",
+#             "pincode",
+#             "state",
+#             "country",
+#         ],
+#         as_dict=True,
+#     )
+#     return company_address, customer_address
 
 
 def get_zatca_tax_category_details(invoice_doc):

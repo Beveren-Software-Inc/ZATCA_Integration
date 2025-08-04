@@ -51,8 +51,11 @@ frappe.ui.form.on('Sales Invoice', {
             console.log('Retention amount deducted from grand total');
         }
         create_missing_cn_reference(frm);
+        
 
     },
+
+
      shipping_address_name: function (frm) {
         frm.set_value('custom_shipping_address', frm.doc.shipping_address_name);
     },
