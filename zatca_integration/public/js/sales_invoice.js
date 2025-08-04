@@ -11,35 +11,35 @@ frappe.ui.form.on('Sales Invoice', {
     refresh: frm => {
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
-        // check_zatca_enabled(frm, (enabled) => {
-        //     frm.zatca_enabled = enabled;
-        //     if (!enabled){
-        //         return;
-        //     }
-        //     frm.toggle_display("custom_zatca_submit_status", enabled);
-        //     frm.toggle_display("custom_zatca_submit_time", enabled);
-        //     frm.trigger('add_submit_button');
-        // });
+        check_zatca_enabled(frm, (enabled) => {
+            frm.zatca_enabled = enabled;
+            if (!enabled){
+                return;
+            }
+            frm.toggle_display("custom_zatca_submit_status", enabled);
+            frm.toggle_display("custom_zatca_submit_time", enabled);
+            frm.trigger('add_submit_button');
+        }); 
 
-    //     check_multi_sales_invoice_enabled(frm, (enabled) => {
-    //     frm.zatca_enabled = enabled;
-    //     frm.toggle_display("custom_credit_details", enabled);
-    //     frm.toggle_display("custom_cn_ref", enabled);
-    //     frm.toggle_display("custom_days_count", enabled);
-    //     frm.toggle_display("custom_get_all_items", enabled);
-    //     frm.toggle_display("custom_customer", enabled);
-    //     frm.toggle_display("custom_shipping_address", enabled);
-    //     frm.trigger('get_valid_sales_invoices');
-    // });
+        check_multi_sales_invoice_enabled(frm, (enabled) => {
+        frm.zatca_enabled = enabled;
+        frm.toggle_display("custom_credit_details", enabled);
+        frm.toggle_display("custom_cn_ref", enabled);
+        frm.toggle_display("custom_days_count", enabled);
+        frm.toggle_display("custom_get_all_items", enabled);
+        frm.toggle_display("custom_customer", enabled);
+        frm.toggle_display("custom_shipping_address", enabled);
+        frm.trigger('get_valid_sales_invoices');
+    });
 
-    // check_sales_retention_enabled(frm, (enabled) =>{
-    //     frm.zatca_enabled = enabled;
-    //     frm.toggle_display("custom_retention_account", enabled)
-    //     frm.toggle_display("custom_retention_percentage", enabled)
-    //     frm.toggle_display("custom_retention_amount", enabled)
-    //     frm.toggle_display("custom_base_retention_amount", enabled)
+    check_sales_retention_enabled(frm, (enabled) =>{
+        frm.zatca_enabled = enabled;
+        frm.toggle_display("custom_retention_account", enabled)
+        frm.toggle_display("custom_retention_percentage", enabled)
+        frm.toggle_display("custom_retention_amount", enabled)
+        frm.toggle_display("custom_base_retention_amount", enabled)
 
-    // })
+    })
 },
 
     validate: frm => {
@@ -230,7 +230,6 @@ frappe.ui.form.on('Sales Invoice', {
         const today = frappe.datetime.get_today();
         const days = frm.doc.custom_days_count || 360; // Default to 360 days
         const start_date = frappe.datetime.add_days(today, -days);
-
         return {
             query: "zatca_integration.customization.sales_invoice.sales_invoice.get_valid_sales_invoices",
             filters: {
