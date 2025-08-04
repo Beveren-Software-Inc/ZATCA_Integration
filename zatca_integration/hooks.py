@@ -99,6 +99,9 @@ fixtures = [
         "Sales Invoice-custom_is_zatca_test",
         "Sales Invoice-custom_column_break_y4zrs",
         "Sales Invoice-custom_section_break_c98tv",
+        "Sales Invoice-custom_column_break_9ona2",
+        "Sales Invoice-custom_section_break_s12jg",
+        "Sales Invoice-custom_credit_details",
         "Sales Invoice-custom_get_all_items",
         "Sales Invoice-custom_days_count",
         "Sales Invoice-custom_credit_note_details",
@@ -110,7 +113,7 @@ fixtures = [
         "Sales Invoice-custom_column_break_j4evp",
         "Sales Invoice-custom_retention_account",
         "Sales Invoice-custom_section_break_pz7hw",
-        "Sales Invoice-custom_remark",
+        # "Sales Invoice-custom_remark",
         "Sales Invoice-custom_column_break_pj7dp",
         "Sales Invoice-custom_zatca_phase",
         "Sales Invoice-custom_enable_zatca_e_invoicing",
@@ -140,6 +143,11 @@ fixtures = [
         "Sales Invoice-custom_invoice_hash",
         "Sales Invoice-custom_e_invoice_details",
         "Sales Invoice-custom_delivery_date",
+        "Sales Invoice-custom_credit_shipping_address",
+        "Sales Invoice-custom_credit_customer",
+        "Sales Invoice-custom_section_break_lg3it",
+        "Sales Invoice-custom_column_break_8uadn"
+        
         
         #Address
         "Address-custom_arabic_address",
