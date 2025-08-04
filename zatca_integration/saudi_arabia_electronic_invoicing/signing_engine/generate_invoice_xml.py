@@ -556,25 +556,28 @@ def company_data(invoice, sales_invoice_doc):
         frappe.throw(_(f"Error occurred in company data: {e}"))
         return None
 
-
 def customer_data(invoice, sales_invoice_doc):
     """
-    customer data of address and need values
+    Add customer data (address, registration, tax info) to the XML invoice.
+    Skips <PartyIdentification> if registration scheme or number is missing.
     """
     try:
-        
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
-        cac_accountingcustomerparty = ET.SubElement(
-            invoice, "cac:AccountingCustomerParty"
-        )
+        scheme_code = get_registration_scheme_code(customer_doc.custom_registration_scheme) or ""
+        customer_registration_number = customer_doc.custom_registration_number or ""
+
+        cac_accountingcustomerparty = ET.SubElement(invoice, "cac:AccountingCustomerParty")
         cac_party_2 = ET.SubElement(cac_accountingcustomerparty, "cac:Party")
-        cac_partyidentification_1 = ET.SubElement(
-            cac_party_2, "cac:PartyIdentification"
-        )
-        cbc_id_4 = ET.SubElement(cac_partyidentification_1, CBC_ID)
-        cbc_id_4.set("schemeID", "TIN")
-        cbc_id_4.text = ''
+
+        # Only add PartyIdentification if both scheme_code and registration_number are present
+        if scheme_code and customer_registration_number:
+            cac_partyidentification_1 = ET.SubElement(cac_party_2, "cac:PartyIdentification")
+            cbc_id_4 = ET.SubElement(cac_partyidentification_1, CBC_ID)
+            cbc_id_4.set("schemeID", scheme_code)
+            cbc_id_4.text = customer_registration_number
+
         address = None
+
         if customer_doc.customer_type != "Individual":
             company_address, customer_address = get_address(sales_invoice_doc)
             address_dict = {
@@ -584,92 +587,194 @@ def customer_data(invoice, sales_invoice_doc):
                 "city": customer_address.get("city", ""),  
                 "pincode": customer_address.get("pincode", ""), 
                 "state": customer_address.get("state", "") or "Eastern Province", 
-                "country": customer_address.get("country", "Saudi Arabia")  
+                "country": customer_address.get("country", "Saudi Arabia")
             }
             address = SimpleNamespace(**address_dict)
+
+            # Frappe v13 compatibility
             if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
                 if sales_invoice_doc.customer_address:
-                    address = frappe.get_doc(
-                        "Address", sales_invoice_doc.customer_address
-                    )
+                    address = frappe.get_doc("Address", sales_invoice_doc.customer_address)
             else:
                 if customer_doc.customer_primary_address:
-                    address = frappe.get_doc(
-                        "Address", customer_doc.customer_primary_address
-                    )
+                    address = frappe.get_doc("Address", customer_doc.customer_primary_address)
 
             if not address:
                 frappe.throw(_("Customer address is mandatory for non-B2C customers."))
+
             cac_postaladdress_1 = ET.SubElement(cac_party_2, "cac:PostalAddress")
-            
+
             if address.address_line1:
                 cbc_streetname_1 = ET.SubElement(cac_postaladdress_1, "cbc:StreetName")
-                cbc_streetname_1.text = address.address_line1
+                cbc_streetname_1.text = str(address.address_line1)
 
-            if (
-                hasattr(address, "address_line2")
-                and address.address_line2
-            ):
-                cbc_buildingnumber_1 = ET.SubElement(
-                    cac_postaladdress_1, "cbc:BuildingNumber"
-                )
-                cbc_buildingnumber_1.text = address.address_line2
+            if address.address_line2:
+                cbc_buildingnumber_1 = ET.SubElement(cac_postaladdress_1, "cbc:BuildingNumber")
+                cbc_buildingnumber_1.text = str(address.address_line2)
 
-            cbc_plotidentification_1 = ET.SubElement(
-                cac_postaladdress_1, "cbc:PlotIdentification"
-            )
+            cbc_plotidentification_1 = ET.SubElement(cac_postaladdress_1, "cbc:PlotIdentification")
             if hasattr(address, "po_box") and address.po_box:
-                cbc_plotidentification_1.text = address.po_box
+                cbc_plotidentification_1.text = str(address.po_box)
             elif address.address_line1:
-                cbc_plotidentification_1.text = address.address_line1
+                cbc_plotidentification_1.text = str(address.address_line1)
 
             if address.city:
-                cbc_citysubdivisionname_1 = ET.SubElement(
-                    cac_postaladdress_1, "cbc:CitySubdivisionName"
-                )
-                cbc_citysubdivisionname_1.text = address.city
+                cbc_citysubdivisionname_1 = ET.SubElement(cac_postaladdress_1, "cbc:CitySubdivisionName")
+                cbc_citysubdivisionname_1.text = str(address.city)
 
             if hasattr(address, "county") and address.county:
                 cbc_cityname_1 = ET.SubElement(cac_postaladdress_1, "cbc:CityName")
-                cbc_cityname_1.text = address.county
+                cbc_cityname_1.text = str(address.county)
 
             if address.pincode:
                 cbc_postalzone_1 = ET.SubElement(cac_postaladdress_1, "cbc:PostalZone")
-                cbc_postalzone_1.text = address.pincode
+                cbc_postalzone_1.text = str(address.pincode)
 
             if address.state:
-                cbc_countrysubentity_1 = ET.SubElement(
-                    cac_postaladdress_1, "cbc:CountrySubentity"
-                )
-                cbc_countrysubentity_1.text = address.state
+                cbc_countrysubentity_1 = ET.SubElement(cac_postaladdress_1, "cbc:CountrySubentity")
+                cbc_countrysubentity_1.text = str(address.state)
 
             cac_country_1 = ET.SubElement(cac_postaladdress_1, "cac:Country")
-            cbc_identificationcode_1 = ET.SubElement(
-                cac_country_1, "cbc:IdentificationCode"
-            )
-           
+            cbc_identificationcode_1 = ET.SubElement(cac_country_1, "cbc:IdentificationCode")
             cbc_identificationcode_1.text = "SA"
-        cac_partytaxscheme_1 = ET.SubElement(cac_party_2, "cac:PartyTaxScheme")
 
-        # Only include tax ID if country is Saudi Arabia
-        if address and address.country == "Saudi Arabia":
+        # Tax Info
+        cac_partytaxscheme_1 = ET.SubElement(cac_party_2, "cac:PartyTaxScheme")
+        if address and address.country == "Saudi Arabia" and customer_doc.tax_id:
             cbc_company_id = ET.SubElement(cac_partytaxscheme_1, "cbc:CompanyID")
             cbc_company_id.text = customer_doc.tax_id
 
-        # Always include tax scheme
         cac_taxscheme_1 = ET.SubElement(cac_partytaxscheme_1, "cac:TaxScheme")
         cbc_id_5 = ET.SubElement(cac_taxscheme_1, "cbc:ID")
         cbc_id_5.text = "VAT"
+
         cac_partylegalentity_1 = ET.SubElement(cac_party_2, "cac:PartyLegalEntity")
-        cbc_registrationname_1 = ET.SubElement(
-            cac_partylegalentity_1, "cbc:RegistrationName"
-        )
-        cbc_registrationname_1.text = customer_doc.customer_name
+        cbc_registrationname_1 = ET.SubElement(cac_partylegalentity_1, "cbc:RegistrationName")
+        cbc_registrationname_1.text = str(customer_doc.customer_name)
 
         return invoice
+
     except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
         frappe.throw(_(f"Error occurred in customer data: {e}"))
         return None
+
+# def customer_data(invoice, sales_invoice_doc):
+#     """
+#     customer data of address and need values
+#     """
+#     try:
+        
+#         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+#         scheme_code = get_registration_scheme_code(customer_doc.custom_registration_scheme) or ""
+#         customer_registration_number = customer_doc.custom_registration_number
+#         cac_accountingcustomerparty = ET.SubElement(
+#             invoice, "cac:AccountingCustomerParty"
+#         )
+#         cac_party_2 = ET.SubElement(cac_accountingcustomerparty, "cac:Party")
+#         cac_partyidentification_1 = ET.SubElement(
+#             cac_party_2, "cac:PartyIdentification"
+#         )
+        
+        
+#         cbc_id_4 = ET.SubElement(cac_partyidentification_1, CBC_ID)
+#         cbc_id_4.set("schemeID", scheme_code)
+#         cbc_id_4.text = customer_registration_number or ""
+#         address = None
+#         if customer_doc.customer_type != "Individual":
+#             company_address, customer_address = get_address(sales_invoice_doc)
+#             address_dict = {
+#                 "address_line1": customer_address.get("address_line1", ""),  
+#                 "address_line2": customer_address.get("address_line2", ""), 
+#                 "custom_building_number": customer_address.get("address_line2", ""),  
+#                 "city": customer_address.get("city", ""),  
+#                 "pincode": customer_address.get("pincode", ""), 
+#                 "state": customer_address.get("state", "") or "Eastern Province", 
+#                 "country": customer_address.get("country", "Saudi Arabia")  
+#             }
+#             address = SimpleNamespace(**address_dict)
+#             if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
+#                 if sales_invoice_doc.customer_address:
+#                     address = frappe.get_doc(
+#                         "Address", sales_invoice_doc.customer_address
+#                     )
+#             else:
+#                 if customer_doc.customer_primary_address:
+#                     address = frappe.get_doc(
+#                         "Address", customer_doc.customer_primary_address
+#                     )
+
+#             if not address:
+#                 frappe.throw(_("Customer address is mandatory for non-B2C customers."))
+#             cac_postaladdress_1 = ET.SubElement(cac_party_2, "cac:PostalAddress")
+            
+#             if address.address_line1:
+#                 cbc_streetname_1 = ET.SubElement(cac_postaladdress_1, "cbc:StreetName")
+#                 cbc_streetname_1.text = address.address_line1
+
+#             if (
+#                 hasattr(address, "address_line2")
+#                 and address.address_line2
+#             ):
+#                 cbc_buildingnumber_1 = ET.SubElement(
+#                     cac_postaladdress_1, "cbc:BuildingNumber"
+#                 )
+#                 cbc_buildingnumber_1.text = address.address_line2
+
+#             cbc_plotidentification_1 = ET.SubElement(
+#                 cac_postaladdress_1, "cbc:PlotIdentification"
+#             )
+#             if hasattr(address, "po_box") and address.po_box:
+#                 cbc_plotidentification_1.text = address.po_box
+#             elif address.address_line1:
+#                 cbc_plotidentification_1.text = address.address_line1
+
+#             if address.city:
+#                 cbc_citysubdivisionname_1 = ET.SubElement(
+#                     cac_postaladdress_1, "cbc:CitySubdivisionName"
+#                 )
+#                 cbc_citysubdivisionname_1.text = address.city
+
+#             if hasattr(address, "county") and address.county:
+#                 cbc_cityname_1 = ET.SubElement(cac_postaladdress_1, "cbc:CityName")
+#                 cbc_cityname_1.text = address.county
+
+#             if address.pincode:
+#                 cbc_postalzone_1 = ET.SubElement(cac_postaladdress_1, "cbc:PostalZone")
+#                 cbc_postalzone_1.text = address.pincode
+
+#             if address.state:
+#                 cbc_countrysubentity_1 = ET.SubElement(
+#                     cac_postaladdress_1, "cbc:CountrySubentity"
+#                 )
+#                 cbc_countrysubentity_1.text = address.state
+
+#             cac_country_1 = ET.SubElement(cac_postaladdress_1, "cac:Country")
+#             cbc_identificationcode_1 = ET.SubElement(
+#                 cac_country_1, "cbc:IdentificationCode"
+#             )
+           
+#             cbc_identificationcode_1.text = "SA"
+#         cac_partytaxscheme_1 = ET.SubElement(cac_party_2, "cac:PartyTaxScheme")
+
+#         # Only include tax ID if country is Saudi Arabia
+#         if address and address.country == "Saudi Arabia":
+#             cbc_company_id = ET.SubElement(cac_partytaxscheme_1, "cbc:CompanyID")
+#             cbc_company_id.text = customer_doc.tax_id
+
+#         # Always include tax scheme
+#         cac_taxscheme_1 = ET.SubElement(cac_partytaxscheme_1, "cac:TaxScheme")
+#         cbc_id_5 = ET.SubElement(cac_taxscheme_1, "cbc:ID")
+#         cbc_id_5.text = "VAT"
+#         cac_partylegalentity_1 = ET.SubElement(cac_party_2, "cac:PartyLegalEntity")
+#         cbc_registrationname_1 = ET.SubElement(
+#             cac_partylegalentity_1, "cbc:RegistrationName"
+#         )
+#         cbc_registrationname_1.text = customer_doc.customer_name
+
+#         return invoice
+#     except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
+#         frappe.throw(_(f"Error occurred in customer data: {e}"))
+#         return None
 
 
 def delivery_and_payment_means(invoice, sales_invoice_doc, is_return):
