@@ -2,7 +2,6 @@
 import json
 from datetime import datetime, date, timedelta
 import random
-from dateutil.parser import parse
 import uuid
 import frappe
 import time as time_module
@@ -90,7 +89,7 @@ def generate_einvoice(doc, submit_now=True):
 
     _save_transaction(doc, invoice_data,response, payload, backend_time_taken,zatca_time_taken,config)
     _handle_zatca_response(doc, response, invoice_data, payload, zatca_status_field)
-
+    
 
 def _submit_reporting_request(config, payload, doc):
     """Submit reporting request for Individual customers."""
@@ -183,6 +182,7 @@ def _save_transaction(doc, invoice_data,response, payload, backend_time_taken, z
         'transaction_time': frappe.utils.now_datetime(),
     })
     transaction.insert()
+    
     
 
 def _handle_zatca_response(doc, response, invoice_data, payload, zatca_status):
@@ -376,8 +376,9 @@ def update_status_on_error(doc, status, validation_results):
     frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_status", status, update_modified=True)
     frappe.db.set_value("Sales Invoice", doc.name, "custom_validation_results", validation_results, update_modified=True)
     frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_time", frappe.utils.now_datetime(), update_modified=True)
-    display_error_ui(validation_results, doc)
     frappe.db.commit()
+    display_error_ui(validation_results, doc)
+    
     
 
 def display_error_ui(validation_results, doc):
