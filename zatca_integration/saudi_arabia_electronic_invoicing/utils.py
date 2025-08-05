@@ -728,11 +728,11 @@ def delete_zatca_test_invoices_and_related_docs():
 def delete_gl_and_payment_ledgers(invoice_name):
 	gl_entries = frappe.get_all("GL Entry", filters={"voucher_type": "Sales Invoice", "voucher_no": invoice_name})
 	for entry in gl_entries:
-		frappe.delete_doc("GL Entry", entry.name, force=1)
+		frappe.delete_doc("GL Entry", entry.name,ignore_permissions=True, force=1)
 
 	payment_ledgers = frappe.get_all("Payment Ledger Entry", filters={"voucher_type": "Sales Invoice", "voucher_no": invoice_name})
 	for ple in payment_ledgers:
-		frappe.delete_doc("Payment Ledger Entry", ple.name, force=1)
+		frappe.delete_doc("Payment Ledger Entry", ple.name,ignore_permissions=True, force=1)
 
 def delete_zatca_transaction(invoice_name):
 	zatca_txn_name = frappe.get_value("ZATCA Transaction", {"sales_invoice": invoice_name}, "name")
