@@ -563,6 +563,7 @@ def customer_data(invoice, sales_invoice_doc):
     """
     try:
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        vat_registration_validator(customer_doc)
         scheme_code = get_registration_scheme_code(customer_doc.custom_registration_scheme) or ""
         customer_registration_number = customer_doc.custom_registration_number or ""
 
@@ -640,9 +641,9 @@ def customer_data(invoice, sales_invoice_doc):
 
         # Tax Info
         cac_partytaxscheme_1 = ET.SubElement(cac_party_2, "cac:PartyTaxScheme")
-        if address and address.country == "Saudi Arabia" and customer_doc.tax_id:
+        if address and address.country == "Saudi Arabia" and customer_doc.custom_vat_number:
             cbc_company_id = ET.SubElement(cac_partytaxscheme_1, "cbc:CompanyID")
-            cbc_company_id.text = customer_doc.tax_id
+            cbc_company_id.text = customer_doc.custom_vat_number
 
         cac_taxscheme_1 = ET.SubElement(cac_partytaxscheme_1, "cac:TaxScheme")
         cbc_id_5 = ET.SubElement(cac_taxscheme_1, "cbc:ID")
@@ -657,6 +658,16 @@ def customer_data(invoice, sales_invoice_doc):
     except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
         frappe.throw(_(f"Error occurred in customer data: {e}"))
         return None
+
+def vat_registration_validator(doc):
+    if doc.customer_type == "Company":
+        has_vat = bool(doc.get("custom_vat_number") or doc.get("tax_id"))
+        has_registration_number = bool(doc.get("custom_registration_number"))
+
+        if not (has_vat or has_registration_number):
+            frappe.throw(
+                _("Customers of type 'Company' must have at least one of: VAT Number or Registration Number.")
+            )
 
 # def customer_data(invoice, sales_invoice_doc):
 #     """
