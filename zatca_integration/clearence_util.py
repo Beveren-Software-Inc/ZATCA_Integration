@@ -446,12 +446,6 @@ def get_payment_means_code(payment_means):
     return payment_means_code
 
 
-def get_tax_exemption_code(exempt_reason):
-    reason, code = exempt_reason.split('(', 1)
-    code = code.rstrip(')')
-    return reason.strip(), code.strip()
-
-
 def get_clearence_headers():
     return {
         'accept': 'application/json',

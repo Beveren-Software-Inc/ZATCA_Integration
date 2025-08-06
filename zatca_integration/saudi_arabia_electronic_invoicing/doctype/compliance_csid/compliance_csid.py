@@ -220,11 +220,7 @@ class ComplianceCSID(Document):
 			'transaction_time': frappe.utils.now_datetime(),
 		})
 		transaction.insert()
-		
-		# if response.status_code == 200:
-		# 	return True, invoice_request["invoiceHash"]
-		# else:
-		# 	return False, None
+
 		if response.status_code == 200:
 			return True, invoice_request["invoiceHash"]
 		else:
@@ -258,25 +254,10 @@ def generate_debit_note_xml(compliance_name, csr_settings, invoiceType, invoiceN
 		invoice_name = create_standard_test_sales_invoice(csr_settings, compliance_name)
 	elif invoiceType == "simplified":
 		invoice_name = create_test_sales_invoice(csr_settings, compliance_name)
-	# 	template_file = "zatca_integration/templates/zatca/compliance/Standard_Debit_Note.xml"
-	# elif invoiceType == "simplified":
-	# 	template_file = "zatca_integration/templates/zatca/compliance/Simplified_Debit_Note.xml"
-	# else:
-	# 	frappe.throw("Invalid Invoice Type")
+
 
 	standard_debit_note_xml = render_template(invoice_name)
-	# standard_debit_note_xml = frappe.render_template(template_file, {
-	# 	"originalinvoiceNumber": originalinvoiceNumber,
-	# 	"previousInvoiceHash": previousInvoiceHash,
-	# 	"invoiceNumber": invoiceNumber,
-	# 	"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-	# 	"invoiceCounterValue": invoiceCounterValue,
-	# 	"invoice_date": invoice_date,
-	# 	"invoice_time": invoice_time,
-	# 	"seller": seller,
-	# 	"buyer": buyer,
-	# 	"invoiceDeliveryDate": originalinvoiceDeliveryDate,
-	# })
+	
 	standard_debit_note = {
 		"invoiceNumber": invoiceNumber,
 		"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
@@ -287,7 +268,6 @@ def generate_debit_note_xml(compliance_name, csr_settings, invoiceType, invoiceN
 	return standard_debit_note
 
 def generate_credit_note_xml(compliance_name, invoiceType, invoiceNumber, seller, buyer, originalinvoiceNumber, originalinvoiceDeliveryDate, previousInvoiceHash):
-	# invoice_name = create_return_invoice("test2")
 	# Global Unique Identifier
 	uniqueInvoiceIdentifier = str(uuid.uuid4())
 	# Counter Value, once used cannot be used even for same invoice
@@ -301,25 +281,9 @@ def generate_credit_note_xml(compliance_name, invoiceType, invoiceNumber, seller
 		invoice_name = create_standard_return_invoice(compliance_name)
 	elif invoiceType == "simplified":
 		invoice_name = create_return_invoice(compliance_name)
-	# if invoiceType == "standard":
-	# 	template_file = "zatca_integration/templates/zatca/compliance/Standard_Credit_Note.xml"
-	# elif invoiceType == "simplified":
-	# 	template_file = "zatca_integration/templates/zatca/compliance/Simplified_Credit_Note.xml"
-	# else:
-	# 	frappe.throw("Invalid Invoice Type")
+	
 	standard_credit_note_xml = render_template(invoice_name)
-	# standard_credit_note_xml = frappe.render_template(template_file, {
-	# 	"originalinvoiceNumber": originalinvoiceNumber,
-	# 	"previousInvoiceHash": previousInvoiceHash,
-	# 	"invoiceNumber": invoiceNumber,
-	# 	"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-	# 	"invoiceCounterValue": invoiceCounterValue,
-	# 	"invoice_date": invoice_date,
-	# 	"invoice_time": invoice_time,
-	# 	"seller": seller,
-	# 	"buyer": buyer,
-	# 	"invoiceDeliveryDate": originalinvoiceDeliveryDate,
-	# })
+	
  
 	standard_credit_note = {
 		"invoiceNumber": invoiceNumber,
@@ -333,7 +297,6 @@ def generate_credit_note_xml(compliance_name, invoiceType, invoiceNumber, seller
 
 	
 def generate_tax_invoice_xml(compliance_name, csr_settings, invoiceType, invoiceNumber, seller, buyer, previousInvoiceHash):
-		# invoice_name = create_test_sales_invoice(csr_settings)
 		# Global Unique Identifier
 		uniqueInvoiceIdentifier = str(uuid.uuid4())
 		# Counter Value, once used cannot be used even for same invoice
@@ -349,27 +312,7 @@ def generate_tax_invoice_xml(compliance_name, csr_settings, invoiceType, invoice
 			invoice_name = create_standard_test_sales_invoice(csr_settings, compliance_name)
 		elif invoiceType == "simplified":
 			invoice_name = create_test_sales_invoice(csr_settings, compliance_name)
-		# if invoiceType == "standard":
-		# 		template_file = "zatca_integration/templates/zatca/compliance/Standard_Invoice.xml"
-		# elif invoiceType == "simplified":
-				# template_file= get_signed_invoice_xml("SIN00004781c4f")
 		
-  # This will now be the XML content
-		# else:
-		# 		frappe.throw("Invalid Invoice Type, type: " + invoiceType)
-
-		# standard_invoice_xml = frappe.render_template(template_file, {
-		# 		"previousInvoiceHash": previousInvoiceHash,
-		# 		"invoiceNumber": invoiceNumber,
-		# 		"uniqueInvoiceIdentifier": uniqueInvoiceIdentifier,
-		# 		"invoiceCounterValue": invoiceCounterValue,
-		# 		"invoice_date": invoice_date,
-		# 		"invoice_time": invoice_time,
-		# 		"seller": seller,
-		# 		"buyer": buyer,
-		# 		"invoiceDeliveryDate": invoiceDeliveryDate,
-		# 		"qr_code":"qr_code",
-		# })
 		standard_invoice_xml = render_template(invoice_name)
 		standard_invoice = {
 				"invoiceNumber": invoiceNumber,

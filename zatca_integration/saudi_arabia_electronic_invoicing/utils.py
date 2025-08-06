@@ -481,25 +481,29 @@ def get_zatca_tax_category_details(invoice_doc):
 
 		tax_type = template.get("custom_tax_type", "Standard Rate")
 		rate = template.get("tax_rate", 15.0)
-
+		if template.taxes:
+			rate = template.taxes[0].rate
+		else:
+			rate = 15.0  # fallback default
+   
 		code_map = {
 			"Standard Rate": "S",
 			"Zero Rate": "Z",
 			"Except Rate": "E",
 		}
-
+		reason_and_code = None
 		reason_code = None
 		reason_text = None
 
 		if tax_type == "Zero Rate":
-			reason_code = template.get("custom_zero_rate_reason")
+			reason_and_code = template.get("custom_zero_rate_reason")
+
 		elif tax_type == "Except Rate":
-			reason_code = template.get("custom_except_rate_reason")
+			reason_and_code = template.get("custom_except_rate_reason")
 
-		if reason_code:
-			reason_map = get_exemption_reason_map()
-			reason_text = reason_map.get(reason_code, "Unknown reason")
-
+		if reason_and_code:
+			reason_text, reason_code= get_tax_exemption_code(reason_and_code)
+	
 		return {
 			"category": tax_type,
 			"rate": rate,
@@ -510,6 +514,11 @@ def get_zatca_tax_category_details(invoice_doc):
 
 	except Exception as e:
 		frappe.throw(_("Failed to determine ZATCA tax category: {0}").format(e))
+
+def get_tax_exemption_code(exempt_reason):
+    reason, code = exempt_reason.split('(', 1)
+    code = code.rstrip(')')
+    return reason.strip(), code.strip()
 
 
 def get_exemption_reason_map():
@@ -779,65 +788,3 @@ def delete_customer_and_addresses(customer_name):
 # -----------------------------
 # End of Helper Functions
 # -----------------------------
-
-# @frappe.whitelist()
-# def delete_zatca_test_invoices_and_related_docs():
-# 	# Get all Sales Invoices marked as test
-# 	test_invoices = frappe.get_all(
-# 		"Sales Invoice",
-# 		filters={"custom_is_zatca_test": 1},
-# 		fields=["name", "customer"]
-# 	)
-
-# 	for inv in test_invoices:
-# 		invoice_name = inv.name
-# 		customer_name = inv.customer
-# 		try:
-# 			invoice = frappe.get_doc("Sales Invoice", invoice_name)
-# 			frappe.msgprint(f"Processing test invoice: {invoice_name}")
-
-# 			# Cancel and delete return invoice if exists
-# 			return_invoice_name = frappe.get_value("Sales Invoice", {
-# 				"return_against": invoice_name
-# 			}, "name")
-
-# 			if return_invoice_name:
-# 				return_invoice = frappe.get_doc("Sales Invoice", return_invoice_name)
-# 				if return_invoice.docstatus == 1:
-# 					return_invoice.cancel()
-# 				frappe.delete_doc("Sales Invoice", return_invoice_name, force=1)
-
-# 			item_codes = [row.item_code for row in invoice.items]
-# 			warehouses = list(set([row.warehouse for row in invoice.items if row.warehouse]))
-
-# 			if invoice.docstatus == 1:
-# 				invoice.cancel()
-# 			frappe.delete_doc("Sales Invoice", invoice_name, force=1)
-
-# 			# Delete test items
-# 			for item_code in item_codes:
-# 				if frappe.db.exists("Item", item_code):
-# 					frappe.delete_doc("Item", item_code, force=1)
-
-# 			# Delete warehouses
-# 			for wh in warehouses:
-# 				if frappe.db.exists("Warehouse", wh):
-# 					frappe.delete_doc("Warehouse", wh, force=1)
-
-# 			# Delete address linked via Dynamic Link
-# 			address_names = frappe.get_all(
-# 				"Dynamic Link",
-# 				filters={"link_doctype": "Customer", "link_name": customer_name, "parenttype": "Address"},
-# 				pluck="parent"
-# 			)
-# 			# for addr in address_names:
-# 			# 	if frappe.db.exists("Address", addr):
-# 			# 		frappe.delete_doc("Address", addr, force=1)
-
-# 			# Delete customer
-# 			if frappe.db.exists("Customer", customer_name):
-# 				frappe.delete_doc("Customer", customer_name, force=1)
-
-# 		except Exception as e:
-# 			frappe.log_error(frappe.get_traceback(), f"Failed to delete test invoice {invoice_name}")
-# 			frappe.msgprint(f"Error deleting {invoice_name}: {e}")
