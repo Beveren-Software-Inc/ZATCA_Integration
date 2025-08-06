@@ -481,25 +481,29 @@ def get_zatca_tax_category_details(invoice_doc):
 
 		tax_type = template.get("custom_tax_type", "Standard Rate")
 		rate = template.get("tax_rate", 15.0)
-
+		if template.taxes:
+			rate = template.taxes[0].rate
+		else:
+			rate = 15.0  # fallback default
+   
 		code_map = {
 			"Standard Rate": "S",
 			"Zero Rate": "Z",
 			"Except Rate": "E",
 		}
-
+		reason_and_code = None
 		reason_code = None
 		reason_text = None
 
 		if tax_type == "Zero Rate":
-			reason_code = template.get("custom_zero_rate_reason")
+			reason_and_code = template.get("custom_zero_rate_reason")
+
 		elif tax_type == "Except Rate":
-			reason_code = template.get("custom_except_rate_reason")
+			reason_and_code = template.get("custom_except_rate_reason")
 
-		if reason_code:
-			reason_map = get_exemption_reason_map()
-			reason_text = reason_map.get(reason_code, "Unknown reason")
-
+		if reason_and_code:
+			reason_text, reason_code= get_tax_exemption_code(reason_and_code)
+	
 		return {
 			"category": tax_type,
 			"rate": rate,
@@ -510,6 +514,11 @@ def get_zatca_tax_category_details(invoice_doc):
 
 	except Exception as e:
 		frappe.throw(_("Failed to determine ZATCA tax category: {0}").format(e))
+
+def get_tax_exemption_code(exempt_reason):
+    reason, code = exempt_reason.split('(', 1)
+    code = code.rstrip(')')
+    return reason.strip(), code.strip()
 
 
 def get_exemption_reason_map():

@@ -107,7 +107,7 @@ def build_zatca_tax_section(invoice, sales_invoice_doc):
 
         tax_percent = ET.SubElement(tax_category, "cbc:Percent")
         tax_percent.text = f"{float(details['rate']):.2f}"
-
+        
         if details["category"] != "Standard Rate":
             exemption_code = ET.SubElement(tax_category, "cbc:TaxExemptionReasonCode")
             exemption_code.text = details["exemption_reason_code"]
