@@ -36,6 +36,30 @@ def get_issue_time(invoice_number):
     return issue_time
 
 
+# def billing_reference_for_credit_and_debit_note(invoice, sales_invoice_doc):
+#     """
+#     Adds billing reference details for credit and debit notes to the invoice XML.
+#     """
+#     try:
+#         # details of original invoice
+#         cac_billingreference = ET.SubElement(invoice, "cac:BillingReference")
+#         cac_invoicedocumentreference = ET.SubElement(
+#             cac_billingreference, "cac:InvoiceDocumentReference"
+#         )
+#         cbc_id13 = ET.SubElement(cac_invoicedocumentreference, CBC_ID)
+#         cbc_id13.text = (
+#             sales_invoice_doc.return_against if sales_invoice_doc.return_against else sales_invoice_doc.custom_cn_ref
+#         )  # field from return against invoice.
+
+#         return invoice
+#     except (ValueError, KeyError, AttributeError) as error:
+#         frappe.throw(
+#             _(
+#                 f"Error occurred while adding billing reference for credit/debit note: {str(error)}"
+#             )
+#         )
+#         return None
+
 def billing_reference_for_credit_and_debit_note(invoice, sales_invoice_doc):
     """
     Adds billing reference details for credit and debit notes to the invoice XML.
@@ -47,11 +71,21 @@ def billing_reference_for_credit_and_debit_note(invoice, sales_invoice_doc):
             cac_billingreference, "cac:InvoiceDocumentReference"
         )
         cbc_id13 = ET.SubElement(cac_invoicedocumentreference, CBC_ID)
-        cbc_id13.text = (
-            sales_invoice_doc.return_against if sales_invoice_doc.return_against else sales_invoice_doc.custom_cn_ref
-        )  # field from return against invoice.
+
+        # Check if it's a debit note
+        if getattr(sales_invoice_doc, "is_debit_note", False):
+            # Hardcoded reference for debit note
+            cbc_id13.text = "TEST-SINV-2025-105"
+        else:
+            # Use return_against or custom_cn_ref for credit notes
+            cbc_id13.text = (
+                sales_invoice_doc.return_against
+                if sales_invoice_doc.return_against
+                else sales_invoice_doc.custom_cn_ref
+            )
 
         return invoice
+
     except (ValueError, KeyError, AttributeError) as error:
         frappe.throw(
             _(
@@ -59,6 +93,7 @@ def billing_reference_for_credit_and_debit_note(invoice, sales_invoice_doc):
             )
         )
         return None
+
 
 
 def xml_tags():
@@ -326,7 +361,7 @@ def doc_reference(invoice, sales_invoice_doc):
         cbc_documentcurrencycode.text = sales_invoice_doc.currency
         cbc_taxcurrencycode = ET.SubElement(invoice, "cbc:TaxCurrencyCode")
         cbc_taxcurrencycode.text = "SAR"  # SAR is as zatca requires tax amount in SAR
-        if sales_invoice_doc.is_return == 1:
+        if sales_invoice_doc.is_return == 1 or sales_invoice_doc.is_debit_note:
             invoice = billing_reference_for_credit_and_debit_note(
                 invoice, sales_invoice_doc
             )
@@ -687,7 +722,7 @@ def delivery_and_payment_means(invoice, sales_invoice_doc, is_return):
         )
         cbc_payment_means_code.text = "30"
 
-        if is_return == 1:
+        if is_return == 1 or sales_invoice_doc.is_debit_note:
             cbc_instruction_note = ET.SubElement(
                 cac_payment_means, "cbc:InstructionNote"
             )

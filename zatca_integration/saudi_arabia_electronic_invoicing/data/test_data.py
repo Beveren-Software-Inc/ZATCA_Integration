@@ -161,7 +161,7 @@ def create_and_submit_invoice(invoice_data, invoice_name):
     return invoice.name
 
 @frappe.whitelist()
-def create_test_sales_invoice(csr_data, compliance_name):
+def create_test_sales_invoice(csr_data, compliance_name, is_debit=0):
     """Create test sales invoice (Individual customer)"""
     company = sanitize_company_name(csr_data)
     # frappe.throw(str(csr))
@@ -184,11 +184,71 @@ def create_test_sales_invoice(csr_data, compliance_name):
     invoice_data = create_base_invoice_data(company, csr_data, compliance_name, customer, item_data)
     invoice_data.update({
         "name": "TEST-SINV-2025-00212",
-        "po_no": "12345"
+        "po_no": "12345",
+        "is_debit_note":is_debit,
     })
     
     return create_and_submit_invoice(invoice_data, invoice_name)
 
+@frappe.whitelist()
+def create_test_simplified_debit_sales_invoice(csr_data, compliance_name):
+    """Create test sales invoice (Individual customer)"""
+    company = sanitize_company_name(csr_data)
+    # frappe.throw(str(csr))
+    # company = csr_data.csrorganizationname
+  
+    
+    invoice_name = "TEST-SINV-2025-205"
+    if frappe.db.exists("Sales Invoice", invoice_name):
+        return invoice_name
+    
+    # Create components
+    item_data = create_test_item(company)
+    customer = create_test_customer(
+        customer_type="Individual",
+        tax_id="300450349600004",
+        vat_number="300450349600003"
+    )
+    
+    # Create invoice data
+    invoice_data = create_base_invoice_data(company, csr_data, compliance_name, customer, item_data)
+    invoice_data.update({
+        "name": "TEST-SINV-2025-00216",
+        "po_no": "12345",
+       
+    })
+    
+    return create_and_submit_invoice(invoice_data, invoice_name)
+
+
+@frappe.whitelist()
+def create_standard_test_debit_sales_invoice(csr_data, compliance_name):
+    """Create standard test sales invoice (Company customer)"""
+    company = sanitize_company_name(csr_data)
+    
+    invoice_name = "TEST-SINV-2025-105"
+    if frappe.db.exists("Sales Invoice", invoice_name):
+        return invoice_name
+    
+    # Create components
+    item_data = create_test_item(company)
+    customer = create_test_customer(
+        customer_type="Company",
+        tax_id="300450349600003",
+        vat_number="300450349600003"
+    )
+    
+    # Create invoice data
+    invoice_data = create_base_invoice_data(company, csr_data, compliance_name, customer, item_data)
+    invoice_data.update({
+        "name": "TEST-SINV-2025-00215",
+        # "custom_customer_short_name": "S-CHEM",
+        "tax_id": "300450349600003",
+        "po_no": "123456",
+        "is_debit_note":1,
+    })
+    
+    return create_and_submit_invoice(invoice_data, invoice_name)
 
 @frappe.whitelist()
 def create_standard_test_sales_invoice(csr_data, compliance_name):
@@ -213,7 +273,8 @@ def create_standard_test_sales_invoice(csr_data, compliance_name):
         "name": "TEST-SINV-2025-00212",
         # "custom_customer_short_name": "S-CHEM",
         "tax_id": "300450349600003",
-        "po_no": "123456"
+        "po_no": "123456",
+        
     })
     
     return create_and_submit_invoice(invoice_data, invoice_name)
