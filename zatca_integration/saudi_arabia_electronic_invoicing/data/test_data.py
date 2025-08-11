@@ -1,6 +1,7 @@
 import frappe
 from frappe.utils import now, nowdate, add_to_date, flt
 import re
+import random
 
 # Constants
 TEST_ITEM_DATA = {
@@ -114,7 +115,21 @@ def create_base_invoice_data(company, csr_data, compliance_name, customer, item_
         }]
     })
     
+    if field_exists("Sales Invoice", "naming_series"):
+        invoice_data["naming_series"] = "ACC-SINV-.YYYY.-"
+    if field_exists("Sales Invoice", "reference_no"):
+        invoice_data["reference_no"] = random_number_upto_10m()
+    
+    
     return invoice_data
+
+def random_number_upto_10m():
+    return random.randint(0, 10_000_000)
+
+#Check if teh fields exist, if not then go jump
+def field_exists(doctype, fieldname):
+    meta = frappe.get_meta(doctype)
+    return any(df.fieldname == fieldname for df in meta.fields)
 
 def create_invoice_item(item_data):
     """Create invoice item from item data"""
