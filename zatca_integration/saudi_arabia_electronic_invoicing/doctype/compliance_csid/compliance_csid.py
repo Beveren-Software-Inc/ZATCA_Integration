@@ -10,11 +10,18 @@ import requests
 from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
 from zatca_integration.common_util import generate_invoice_payload_from_xml, generate_invoice_hash
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import build_certificate_data, create_public_key, delete_zatca_test_invoices_and_related_docs
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
+    build_certificate_data, create_public_key, delete_zatca_test_invoices_and_related_docs)
 import struct
 import qrcode
 from datetime import datetime, timedelta
-from zatca_integration.saudi_arabia_electronic_invoicing.data.test_data import create_return_invoice, create_test_sales_invoice, create_standard_return_invoice, create_standard_test_sales_invoice
+from zatca_integration.saudi_arabia_electronic_invoicing.data.test_data import (
+    create_return_invoice, 
+    create_test_sales_invoice, 
+    create_standard_return_invoice,
+    create_standard_test_sales_invoice,
+    create_standard_test_debit_sales_invoice,
+    create_test_simplified_debit_sales_invoice)
 
 class ComplianceCSID(Document):
 
@@ -251,9 +258,9 @@ def generate_debit_note_xml(compliance_name, csr_settings, invoiceType, invoiceN
 
 	# if invoiceType == "standard":
 	if invoiceType == "standard":
-		invoice_name = create_standard_test_sales_invoice(csr_settings, compliance_name)
+		invoice_name = create_standard_test_debit_sales_invoice(csr_settings, compliance_name)
 	elif invoiceType == "simplified":
-		invoice_name = create_test_sales_invoice(csr_settings, compliance_name)
+		invoice_name = create_test_simplified_debit_sales_invoice(csr_settings, compliance_name)
 
 
 	standard_debit_note_xml = render_template(invoice_name)
