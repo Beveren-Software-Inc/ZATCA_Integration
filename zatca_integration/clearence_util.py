@@ -355,6 +355,21 @@ def _format_delivery_date(delivery_date):
     return None
 
 
+# def _get_currency_info(currency):
+#     """Get currency information for invoice"""
+#     if currency == "SAR":
+#         return {
+#             'document_currency_code': "SAR",
+#             'tax_currency_code': "SAR"
+#         }
+#     elif currency == "USD":
+#         return {
+#             'document_currency_code': "USD",
+#             'tax_currency_code': "SAR"
+#         }
+#     else:
+#         frappe.throw("Currency is not Supported")
+
 def _get_currency_info(currency):
     """Get currency information for invoice"""
     if currency == "SAR":
@@ -362,15 +377,12 @@ def _get_currency_info(currency):
             'document_currency_code': "SAR",
             'tax_currency_code': "SAR"
         }
-    elif currency == "USD":
+    else :
         return {
-            'document_currency_code': "USD",
+            'document_currency_code':currency,
             'tax_currency_code': "SAR"
         }
-    else:
-        frappe.throw("Currency is not Supported")
-
-
+    
 def update_status_on_error(doc, status, validation_results):
     
     frappe.db.set_value("Sales Invoice", doc.name, "custom_zatca_submit_status", status, update_modified=True)

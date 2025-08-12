@@ -133,7 +133,7 @@ def tax_data_nominal(invoice, sales_invoice_doc):
             cac_taxscheme = ET.SubElement(cac_taxcategory, "cac:TaxScheme")
             cbc_taxscheme_id = ET.SubElement(cac_taxscheme, "cbc:ID")
             cbc_taxscheme_id.text = "VAT"
-
+       
         # === Out-of-Scope Placeholder Subtotal ===
         cac_taxsubtotal_2 = ET.SubElement(cac_taxtotal_currency, CAC_TAX_SUBTOTAL)
         cbc_taxableamount_2 = ET.SubElement(cac_taxsubtotal_2, CBC_TAXABLE_AMOUNT)
@@ -328,12 +328,55 @@ def item_data(invoice, sales_invoice_doc):
                 cac_price, "cbc:BaseQuantity", unitCode=str(item.uom)
             )
             base_quantity.text = "1"
-
+        #I just added this
+        # invoice = adjust_line_extension_totals(invoice, sales_invoice_doc)
         return invoice
 
     except Exception as e:
         frappe.throw(_("Error occurred in item data processing: {0}").format(str(e)))
         return None
+
+def adjust_line_extension_totals(invoice, sales_invoice_doc):
+    """
+    Adjust last item's LineExtensionAmount so the total matches ERPNext calculated total.
+    """
+    included = sales_invoice_doc.taxes[0].included_in_print_rate
+
+    # The expected total based on ERPNext doc
+    expected_total = round(
+        abs(
+            sales_invoice_doc.total
+            if included == 0
+            else sales_invoice_doc.base_net_total
+        ),
+        2
+    )
+
+    # Find all line extension amounts from XML using iter()
+    line_ext_elems = []
+    for elem in invoice.iter():
+        if elem.tag == "cbc:LineExtensionAmount":
+            line_ext_elems.append(elem)
+
+    if not line_ext_elems:
+        frappe.throw("No LineExtensionAmount elements found")
+        return invoice
+
+    # Calculate current total
+    current_total = round(sum(float(el.text) for el in line_ext_elems), 2)
+
+    # If totals differ, adjust the last item's amount
+    difference = round(expected_total - current_total, 2)
+    
+    # Remove this debug line once working:
+    frappe.throw(f"Expected: {expected_total}, Current: {current_total}, Difference: {difference}")
+    
+    if difference != 0:
+        last_elem = line_ext_elems[-1]
+        last_value = round(float(last_elem.text) + difference, 2)
+        last_elem.text = str(last_value)
+
+    return invoice
 
 # --- Helper Function ---
 def get_tax_code(category):
