@@ -42,7 +42,8 @@ def send_multiple_signed_compliance_invoices_to_zatca():
         is_zatca_compliance_ready(company.name)
         delete_zatca_test_invoices_and_related_docs()
         # Only include invoices posted in the last 24 hours
-        cutoff_time = add_to_date(now_datetime(), hours=-24)
+        # cutoff_time = add_to_date(now_datetime(), hours=-24)
+        cutoff_time = add_to_date(now_datetime(), months=-1)
 
         invoices = frappe.get_all(
             "Sales Invoice",
@@ -55,7 +56,6 @@ def send_multiple_signed_compliance_invoices_to_zatca():
             },
             fields=["name"]
         )
-       
         for invoice_data in invoices:
             
             try:
