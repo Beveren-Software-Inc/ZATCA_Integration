@@ -25,8 +25,48 @@ def is_zatca_compliance_ready(company_name):
     return compliance_doc, None
 
 
-def send_multiple_signed_compliance_invoices_to_zatca():
+# def send_multiple_signed_compliance_invoices_to_zatca():
     
+#     """
+#     Automatically send all signed B2C invoices (not yet reported) to ZATCA compliance API.
+#     """
+#     results = []
+
+#     companies = frappe.get_all(
+#         "Company",
+#         filters={"custom_enable_zatca_e_invoicing": 1},
+#         fields=["name"]
+#     )
+
+#     for company in companies:
+#         is_zatca_compliance_ready(company.name)
+#         delete_zatca_test_invoices_and_related_docs()
+#         # Only include invoices posted in the last 24 hours
+#         # cutoff_time = add_to_date(now_datetime(), hours=-24)
+#         cutoff_time = add_to_date(now_datetime(), months=-1)
+
+#         invoices = frappe.get_all(
+#             "Sales Invoice",
+#             filters={
+#                 "company": company.name,
+#                 "custom_zatca_submit_status": ["not in", ["REPORTED", "CLEARED"]],
+#                 "docstatus": 1,
+#                 "posting_date": [">=", cutoff_time.date()],
+#                 "custom_is_zatca_test":0,
+#             },
+#             fields=["name"]
+#         )
+#         for invoice_data in invoices:
+            
+#             try:
+#                 invoice = frappe.get_doc("Sales Invoice", invoice_data.name)
+#                 bg_generate_einvoice(invoice)
+#             except Exception as e:
+#                 frappe.log_error(f"Error generating einvoice for {invoice_data.name}: {str(e)}")
+#                 continue
+
+#     return results
+def send_multiple_signed_compliance_invoices_to_zatca():
     """
     Automatically send all signed B2C invoices (not yet reported) to ZATCA compliance API.
     """
@@ -41,7 +81,7 @@ def send_multiple_signed_compliance_invoices_to_zatca():
     for company in companies:
         is_zatca_compliance_ready(company.name)
         delete_zatca_test_invoices_and_related_docs()
-        # Only include invoices posted in the last 24 hours
+
         # cutoff_time = add_to_date(now_datetime(), hours=-24)
         cutoff_time = add_to_date(now_datetime(), months=-1)
 
@@ -52,20 +92,34 @@ def send_multiple_signed_compliance_invoices_to_zatca():
                 "custom_zatca_submit_status": ["not in", ["REPORTED", "CLEARED"]],
                 "docstatus": 1,
                 "posting_date": [">=", cutoff_time.date()],
-                "custom_is_zatca_test":0,
+                "custom_is_zatca_test": 0,
             },
             fields=["name"]
         )
+
         for invoice_data in invoices:
-            
             try:
                 invoice = frappe.get_doc("Sales Invoice", invoice_data.name)
                 bg_generate_einvoice(invoice)
+                results.append({"invoice": invoice.name, "status": "success"})
             except Exception as e:
-                frappe.log_error(f"Error generating einvoice for {invoice_data.name}: {str(e)}")
+                error_title = f"Error generating einvoice for {invoice_data.name}"
+                if len(error_title) > 140:
+                    error_title = error_title[:137] + "..."
+                
+                try:
+                    frappe.log_error(
+                        title=error_title,
+                        message=frappe.utils.cstr(e)
+                    )
+                except Exception:
+                    frappe.logger().error(f"Failed to log error for {invoice_data.name}: {str(e)}")
+
+                results.append({"invoice": invoice_data.name, "status": "failed", "error": str(e)})
                 continue
 
     return results
+
 
 # Notify user on the expiry of the production csid
 def notify_expiring_csids():
