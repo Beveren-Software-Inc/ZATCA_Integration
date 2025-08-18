@@ -389,11 +389,11 @@ def get_address(sales_invoice_doc):
 	"""
 	Returns both the Company and Customer billing addresses.
 	- Company address is fetched from ZATCA CSR Settings via Compliance CSID.
-	- Customer address is the first linked address to the customer via Dynamic Link.
-
-	Returns:
-		(dict) company_address, (dict) customer_address
+	- Customer address is resolved:
+	    1. From customer_primary_address if set.
+	    2. Else from the first linked Address via Dynamic Link.
 	"""
+
 	# -------- COMPANY ADDRESS --------
 	if sales_invoice_doc.custom_is_zatca_test:
 		compliance_csid = frappe.get_doc("Compliance CSID", sales_invoice_doc.custom_compliance)
@@ -404,51 +404,55 @@ def get_address(sales_invoice_doc):
 	csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
 
 	company_address = {
-	"address_line1": str(csr_settings.street_name or ""),
-	"address_line2": str(csr_settings.building_number or ""),
-	"city": str(csr_settings.city_name or ""),
-	"pincode": str(csr_settings.postal_zone or ""),
-	"state": str(csr_settings.city_subdivision_name or ""),
-	"country": "Saudi Arabia",
-	"registration_name": str(csr_settings.csrorganizationname or ""),
-	"company_tax_id": str(csr_settings.csrorganizationidentifier or ""),
-}
-
+		"address_line1": str(csr_settings.street_name or ""),
+		"address_line2": str(csr_settings.building_number or ""),
+		"city": str(csr_settings.city_name or ""),
+		"pincode": str(csr_settings.postal_zone or ""),
+		"state": str(csr_settings.city_subdivision_name or ""),
+		"country": "Saudi Arabia",
+		"registration_name": str(csr_settings.csrorganizationname or ""),
+		"company_tax_id": str(csr_settings.csrorganizationidentifier or ""),
+	}
 
 	# -------- CUSTOMER ADDRESS --------
 	customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
-	customer_links = frappe.get_all(
-		"Dynamic Link",
-		filters={
-			"link_doctype": "Customer",
-			"link_name": sales_invoice_doc.customer,
-			"parenttype": "Address",
-		},
-		fields=["parent"],
-		limit=1,
-	)
+	address_name = None
 
-	if not customer_links:
+	# Priority 1: customer_primary_address
+	if customer_doc.customer_primary_address:
+		address_name = customer_doc.customer_primary_address
+	else:
+		frappe.msgprint("Remember to choose customer primary address on Customer doctype")
+		# Priority 2: Dynamic Link
+		customer_link = frappe.get_all(
+			"Dynamic Link",
+			filters={
+				"link_doctype": "Customer",
+				"link_name": sales_invoice_doc.customer,
+				"parenttype": "Address",
+			},
+			fields=["parent"],
+			limit=1,
+		)
+		if customer_link:
+			address_name = customer_link[0].parent
+	
+	if not address_name:
 		if customer_doc.customer_type != "Individual":
 			frappe.throw(_("No address found for customer: {0}").format(sales_invoice_doc.customer))
-		else:
-			customer_address = {}
+		customer_address = {}
 	else:
-		customer_address = frappe.get_value(
-			"Address",
-			customer_links[0].parent,
-			[
-				"address_line1",
-				"address_line2",
-				"city",
-				"pincode",
-				"state",
-				"country",
-			],
-			as_dict=True,
-		)
-
+		address_fields = [
+			"address_line1",
+			"address_line2",
+			"city",
+			"pincode",
+			"state",
+			"country",
+		]
+		customer_address = frappe.get_value("Address", address_name, address_fields, as_dict=True)
 	return company_address, customer_address
+
 
 
 
