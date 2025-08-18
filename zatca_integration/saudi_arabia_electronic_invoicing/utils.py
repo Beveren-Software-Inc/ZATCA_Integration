@@ -454,9 +454,6 @@ def get_address(sales_invoice_doc):
 	return company_address, customer_address
 
 
-
-
-
 def get_zatca_tax_category_details(invoice_doc):
 	"""
 	Returns the ZATCA tax category, rate, and exemption reason (if any)
