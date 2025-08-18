@@ -9,6 +9,12 @@ frappe.ui.form.on('Sales Invoice', {
         }
     },
     refresh: frm => {
+        if (frm.doc.docstatus === 1) {
+            frm.add_custom_button(__('Print PDF+XML'), function () {
+                zatca_embed_qr_in_pdf(frm);
+            }, __('ZATCA Actions')); // 'ZATCA Actions' will be the group name
+        }
+
         frm.trigger('set_custom_payment_method')
         frm.trigger('set_delivery_date')
         check_zatca_enabled(frm, (enabled) => {
@@ -430,4 +436,70 @@ function create_missing_cn_reference(frm) {
 
         frm.set_value('custom_cn_ref', Array.from(selected_invoices).join(', '));
     }
+}
+
+
+function zatca_embed_qr_in_pdf(frm) {
+    if (frm.doc.docstatus !== 1) {
+        return;
+    }
+
+    // Fetch available print formats for Sales Invoice
+    frappe.call({
+        method: "frappe.client.get_list",
+        args: {
+            doctype: "Print Format",
+            fields: ["name"],
+            filters: {
+                doc_type: "Sales Invoice",
+                "disabled": 0,
+            }
+        },
+        callback: function(res) {
+            let print_formats = res.message.map(pf => pf.name);
+
+            let default_format = frm.meta.default_print_format || frappe.boot.sysdefaults.print_format;
+
+            if (!print_formats.includes(default_format)) {
+                print_formats.unshift(default_format);
+            }
+
+            // Create dialog
+            let d = new frappe.ui.Dialog({
+                title: __("Select Print Format"),
+                fields: [
+                    {
+                        label: "Print Format",
+                        fieldname: "print_format",
+                        fieldtype: "Select",
+                        options: print_formats,
+                        default: "Zatca PDF-A 3B"
+                    },
+                   
+                ],
+                primary_action_label: __("Generate PDF"),
+                primary_action(values) {
+                    d.hide();
+
+                    frappe.call({
+                        method: "zatca_integration.customization.sales_invoice.generate_pdf.zatca_embed_qr_in_pdf",
+                        args: {
+                            invoice_name: frm.doc.name,
+                            print_format: values.print_format,
+                            
+                        },
+                        callback: function(r) {
+                            if (r.message) {
+                                window.open(r.message, "_blank");
+                            } else {
+                                frappe.msgprint(__("Failed to generate PDF-A3"));
+                            }
+                        }
+                    });
+                }
+            });
+
+            d.show();
+        }
+    });
 }
