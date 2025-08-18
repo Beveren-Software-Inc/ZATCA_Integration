@@ -422,7 +422,9 @@ def get_address(sales_invoice_doc):
 	if customer_doc.customer_primary_address:
 		address_name = customer_doc.customer_primary_address
 	else:
-		frappe.msgprint("Remember to choose customer primary address on Customer doctype")
+		# remember to choose customer primary address on Customer doctype for non-individual customers
+		if customer_doc.customer_type != "Individual":
+			frappe.msgprint("Remember to choose customer primary address on Customer doctype")
 		# Priority 2: Dynamic Link
 		customer_link = frappe.get_all(
 			"Dynamic Link",
