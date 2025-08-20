@@ -292,7 +292,7 @@ def create_return_invoice_from_original(original_invoice_name, return_invoice_na
     return_invoice.is_return = 1
     return_invoice.return_against = original_invoice.name
     return_invoice.posting_date = nowdate()
-    return_invoice.posting_time = now()
+    # return_invoice.posting_time = now()
     return_invoice.custom_is_zatca_test = 1
     return_invoice.custom_compliance = compliance_name
     return_invoice.outstanding_amount = 0
