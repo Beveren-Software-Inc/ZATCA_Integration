@@ -1,3 +1,6 @@
+
+
+
 import json
 import frappe
 import os
@@ -63,8 +66,14 @@ def zatca_embed_qr_in_pdf(invoice_name, print_format=None):
             f"PDF-A3 {invoice_name} output.pdf"
         )
 
-        # Embed XML into PDF with proper PDF/A-3 compliance
-        embed_xml_file_in_pdf(input_pdf, xml_file, final_pdf_path, invoice_name)
+        # Embed XML into PDF
+        with pikepdf.Pdf.open(input_pdf, allow_overwriting_input=True) as pdf:
+            with open(xml_file, "rb") as xml_attachment:
+                pdf.attachments["invoice.xml"] = xml_attachment.read()
+            pdf.save(input_pdf)
+
+            # Ensure PDF/A-3 compliance
+            embed_xml_file_in_pdf(input_pdf, xml_file, final_pdf_path, invoice_name)
 
         # Save file record
         file_doc = frappe.get_doc({
@@ -86,175 +95,135 @@ def zatca_embed_qr_in_pdf(invoice_name, print_format=None):
         frappe.throw(_(f"I/O error: {e}"))
 
 
+
 def embed_xml_file_in_pdf(input_pdf, xml_file, output_pdf, invoice_name):
     """Embed an XML file into a PDF and make it PDF/A-3 compliant."""
     icc_path = os.path.join(frappe.get_app_path("zatca_integration"), "public", "sRGB2014.icc")
 
     with pikepdf.open(input_pdf, allow_overwriting_input=True) as pdf:
-        
-        # Get XML file stats for proper metadata
-        xml_stats = os.stat(xml_file)
-        xml_size = xml_stats.st_size
-        xml_mod_time = datetime.fromtimestamp(xml_stats.st_mtime)
-        
         # -----------------------------
-        # 1. Set PDF/A-3 XMP Metadata (CRITICAL)
+        # 1. Set PDF Metadata
+        # -----------------------------
+        with pdf.open_metadata() as metadata:
+            metadata["pdf:Trapped"] = "False"
+            metadata["dc:creator"] = ["ERPNext ZATCA"]  
+            metadata["dc:title"] = "ZATCA Invoice PDF/A-3"
+            metadata["dc:description"] = "Invoice with embedded ZATCA XML"
+            metadata["dc:date"] = datetime.now().isoformat()
+
+        # -----------------------------
+        # 2. Build XMP Metadata
         # -----------------------------
         xmp_metadata = f"""<?xpacket begin='' id='W5M0MpCehiHzreSzNTczkc9d'?>
-<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="pikepdf">
-    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-        <rdf:Description rdf:about=""
-            xmlns:dc="http://purl.org/dc/elements/1.1/"
-            xmlns:pdf="http://ns.adobe.com/pdf/1.3/"
-            xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/"
-            xmlns:xmp="http://ns.adobe.com/xap/1.0/">
-            <dc:format>application/pdf</dc:format>
-            <dc:creator>
-                <rdf:Seq>
-                    <rdf:li>ERPNext ZATCA</rdf:li>
-                </rdf:Seq>
-            </dc:creator>
-            <dc:title>
-                <rdf:Alt>
-                    <rdf:li xml:lang="en">ZATCA Invoice {invoice_name}</rdf:li>
-                </rdf:Alt>
-            </dc:title>
-            <dc:description>
-                <rdf:Alt>
-                    <rdf:li xml:lang="en">ZATCA compliant invoice with embedded XML</rdf:li>
-                </rdf:Alt>
-            </dc:description>
-            <xmp:CreateDate>{datetime.now().isoformat()}Z</xmp:CreateDate>
-            <xmp:ModifyDate>{datetime.now().isoformat()}Z</xmp:CreateDate>
-            <xmp:CreatorTool>ERPNext ZATCA Integration</xmp:CreatorTool>
-            <pdf:Producer>pikepdf</pdf:Producer>
-            <pdf:Trapped>False</pdf:Trapped>
-            <pdfaid:part>3</pdfaid:part>
-            <pdfaid:conformance>A</pdfaid:conformance>
-        </rdf:Description>
-    </rdf:RDF>
-</x:xmpmeta>
-<?xpacket end="w"?>"""
+        <x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP toolkit 2.9.1">
+            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+                <rdf:Description rdf:about=""
+                    xmlns:dc="http://purl.org/dc/elements/1.1/"
+                    xmlns:pdf="http://ns.adobe.com/pdf/1.3/"
+                    xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">
+                    <pdf:Producer>pikepdf</pdf:Producer>
+                    <pdf:Trapped>False</pdf:Trapped>
+                    <dc:creator>
+                        <rdf:Seq>
+                            <rdf:li>ERPNext ZATCA</rdf:li>
+                        </rdf:Seq>
+                    </dc:creator>
+                    <dc:title>
+                        <rdf:Alt>
+                            <rdf:li xml:lang="x-default">ZATCA Invoice PDF/A-3</rdf:li>
+                        </rdf:Alt>
+                    </dc:title>
+                    <dc:description>
+                        <rdf:Alt>
+                            <rdf:li xml:lang="x-default">Invoice with embedded ZATCA XML</rdf:li>
+                        </rdf:Alt>
+                    </dc:description>
+                    <pdfaid:part>3</pdfaid:part>
+                    <pdfaid:conformance>A</pdfaid:conformance>
+                </rdf:Description>
+            </rdf:RDF>
+        </x:xmpmeta>
+        <?xpacket end="w"?>"""
 
-        # Set the XMP metadata
+        if "/StructTreeRoot" not in pdf.Root:
+            pdf.Root["/StructTreeRoot"] = pikepdf.Dictionary()
         pdf.Root["/Metadata"] = pdf.make_stream(xmp_metadata.encode("utf-8"))
-        
-        # -----------------------------
-        # 2. Set PDF document info
-        # -----------------------------
-        pdf.docinfo["/Title"] = f"ZATCA Invoice {invoice_name}"
-        pdf.docinfo["/Author"] = "ERPNext ZATCA Integration"
-        pdf.docinfo["/Subject"] = "ZATCA compliant invoice with embedded XML"
-        pdf.docinfo["/Creator"] = "ERPNext ZATCA"
-        pdf.docinfo["/Producer"] = "pikepdf"
-        pdf.docinfo["/CreationDate"] = pikepdf.String(f"D:{datetime.now().strftime('%Y%m%d%H%M%S')}+00'00'")
-        pdf.docinfo["/ModDate"] = pikepdf.String(f"D:{datetime.now().strftime('%Y%m%d%H%M%S')}+00'00'")
-        pdf.docinfo["/Trapped"] = pikepdf.Name("/False")
+        pdf.Root["/MarkInfo"] = pikepdf.Dictionary({"/Marked": True})
+        pdf.Root["/Lang"] = pikepdf.String("en-US")
 
         # -----------------------------
-        # 3. Add Color Profile (ICC Profile)
-        # -----------------------------
-        if os.path.exists(icc_path):
-            with open(icc_path, "rb") as icc_file:
-                icc_data = icc_file.read()
-                
-            # Create ICC-based color space
-            icc_stream = pdf.make_stream(icc_data)
-            icc_stream.N = 3  # RGB
-            icc_stream.Filter = pikepdf.Name("/FlateDecode")
-            
-            output_intent_dict = pikepdf.Dictionary({
-                "/Type": pikepdf.Name("/OutputIntent"),
-                "/S": pikepdf.Name("/GTS_PDFA1"),
-                "/OutputConditionIdentifier": pikepdf.String("sRGB"),
-                "/Info": pikepdf.String("sRGB IEC61966-2.1"),
-                "/DestOutputProfile": icc_stream,
-                "/OutputCondition": pikepdf.String("sRGB")
-            })
-            
-            pdf.Root["/OutputIntents"] = pikepdf.Array([output_intent_dict])
-
-        # -----------------------------
-        # 4. Embed XML File with Complete Metadata
+        # 3. Embed XML File
         # -----------------------------
         with open(xml_file, "rb") as xf:
             xml_data = xf.read()
 
-        # Create the embedded file stream with proper parameters
         embedded_file_stream = pdf.make_stream(xml_data)
-        embedded_file_stream["/Type"] = pikepdf.Name("/EmbeddedFile")
-        embedded_file_stream["/Subtype"] = pikepdf.Name("/application#2Fxml")  # MIME type
-        embedded_file_stream["/Length"] = len(xml_data)
-        embedded_file_stream["/Filter"] = pikepdf.Name("/FlateDecode")
-        
-        # Add file parameters with proper metadata
-        embedded_file_stream["/Params"] = pikepdf.Dictionary({
-            "/Size": xml_size,
-            "/CreationDate": pikepdf.String(f"D:{xml_mod_time.strftime('%Y%m%d%H%M%S')}+00'00'"),
-            "/ModDate": pikepdf.String(f"D:{xml_mod_time.strftime('%Y%m%d%H%M%S')}+00'00'"),
-            "/CheckSum": pikepdf.String(""),  # You can add MD5 checksum if needed
-        })
+        embedded_file_stream.Type = "/EmbeddedFile"
+        embedded_file_stream.Subtype = "/application/xml"
 
-        # Create file specification dictionary with complete metadata
-        xml_filename_base = os.path.basename(xml_file)
         embedded_file_dict = pikepdf.Dictionary({
-            "/Type": pikepdf.Name("/Filespec"),
-            "/F": pikepdf.String(xml_filename_base),
-            "/UF": pikepdf.String(xml_filename_base),  # Unicode filename
+            "/Type": "/Filespec",
+            "/F": pikepdf.String(os.path.basename(xml_file)),
             "/EF": pikepdf.Dictionary({"/F": embedded_file_stream}),
-            "/AFRelationship": pikepdf.Name("/Source"),  # Changed from /Data to /Source for ZATCA
-            "/Desc": pikepdf.String("ZATCA Invoice XML - Source data for this invoice")
+            "/AFRelationship": pikepdf.Name("/Data"),
+            "/Desc": "ZATCA Invoice XML"
         })
 
-        # -----------------------------
-        # 5. Add to PDF Names Dictionary
-        # -----------------------------
         if "/Names" not in pdf.Root:
-            pdf.Root["/Names"] = pikepdf.Dictionary()
+            pdf.Root.Names = pikepdf.Dictionary()
         if "/EmbeddedFiles" not in pdf.Root.Names:
-            pdf.Root.Names["/EmbeddedFiles"] = pikepdf.Dictionary()
+            pdf.Root.Names.EmbeddedFiles = pikepdf.Dictionary()
         if "/Names" not in pdf.Root.Names.EmbeddedFiles:
-            pdf.Root.Names.EmbeddedFiles["/Names"] = pikepdf.Array()
+            pdf.Root.Names.EmbeddedFiles.Names = pikepdf.Array()
 
-        # Add to embedded files array
-        pdf.Root.Names.EmbeddedFiles.Names.extend([
-            pikepdf.String(xml_filename_base),
-            embedded_file_dict
-        ])
+        pdf.Root.Names.EmbeddedFiles.Names.append(
+            pikepdf.String(os.path.basename(xml_file))
+        )
+        pdf.Root.Names.EmbeddedFiles.Names.append(embedded_file_dict)
         
-        # -----------------------------
-        # 6. Associate Files Array (AF) - CRITICAL for PDF/A-3
-        # -----------------------------
+        #Added to enforce the embedded file to be recognized as an attachment
         pdf.Root["/AF"] = pikepdf.Array([embedded_file_dict])
 
+        #OutputIntent
+        with open(icc_path, "rb") as icc_file:
+            icc_data = icc_file.read()
+            output_intent_dict = pikepdf.Dictionary(
+                {
+                    "/Type": "/OutputIntent",
+                    "/S": "/GTS_PDFA1",
+                    "/OutputConditionIdentifier": "sRGB",
+                    "/Info": "sRGB IEC61966-2.1",
+                    "/DestOutputProfile": pdf.make_stream(icc_data),
+                }
+            )
+            if "/OutputIntents" not in pdf.Root:
+                pdf.Root["/OutputIntents"] = pikepdf.Array([output_intent_dict])
+            else:
+                pdf.Root.OutputIntents.append(output_intent_dict)
+                
         # -----------------------------
-        # 7. Structure and Accessibility
+        # 4. Final  Compliance Info
         # -----------------------------
-        if "/StructTreeRoot" not in pdf.Root:
-            pdf.Root["/StructTreeRoot"] = pikepdf.Dictionary({
-                "/Type": pikepdf.Name("/StructTreeRoot")
-            })
+        #added latest just to test if its missing piece for compliance
+        pdf.Root["/GTS_PDFA1"] = pikepdf.Name("/PDF/A-3A")
+        pdf.docinfo["/GTS_PDFA1"] = "PDF/A-3A"
+        ########################################
         
-        pdf.Root["/MarkInfo"] = pikepdf.Dictionary({
-            "/Marked": True,
-            "/UserProperties": False,
-            "/Suspects": False
-        })
+        # Set PDF metadata
         
-        pdf.Root["/Lang"] = pikepdf.String("en-US")
-        
-        # -----------------------------
-        # 8. PDF/A Version Declaration
-        # -----------------------------
-        pdf.Root["/Version"] = pikepdf.Name("/1.7")
+        pdf.docinfo["/Title"] = invoice_name
+        pdf.docinfo["/Author"] = "ERPNext ZATCA Integration"
+        pdf.docinfo["/Subject"] = "Invoice with Embedded XML"
+        pdf.docinfo["/Creator"] = "ERPNext ZATCA"
+        pdf.docinfo["/Producer"] = "pikepdf"
+        pdf.docinfo["/CreationDate"] = datetime.now().isoformat()
 
         # -----------------------------
-        # 9. Save the final PDF
+        # 5. Save File
         # -----------------------------
-        pdf.save(output_pdf, min_version=(1, 7))
+        pdf.save(output_pdf)
 
         print(f"✅ XML embedded successfully into {output_pdf}")
-        return output_pdf
 
 
 def generate_invoice_pdf(invoice, language, letterhead=None, print_format=None, public=False):
