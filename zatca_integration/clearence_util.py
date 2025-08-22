@@ -158,7 +158,7 @@ def validate_invoice_dates(doc, company, customer_type):
 
     # Validate Invoice Date and Delivery Date for ZATCA Compliance
     if company.custom_enforce_date_validation == 1:
-        validate_delivery_date(delivery_date, invoice_date, customer_type)
+        validate_delivery_date(delivery_date, invoice_date, customer_type, doc.posting_time)
 
         
         
@@ -324,7 +324,7 @@ def _prepare_invoice_data(doc, config):
     
     # Validate dates if required
     if config['company'].custom_enforce_date_validation == 1:
-        validate_delivery_date(delivery_date, invoice_date, customer_type)
+        validate_delivery_date(delivery_date, invoice_date, customer_type, doc.posting_time)
     
     # Handle currency
     currency_info = _get_currency_info(doc.currency)
@@ -516,7 +516,7 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
     return img_byte_arr
 
 
-def validate_delivery_date(delivery_date, invoice_date, customer_type):
+def validate_delivery_date(delivery_date, invoice_date, customer_type, posting_time):
     del_date = datetime.strptime(delivery_date, "%Y-%m-%d")
     inv_date = datetime.strptime(invoice_date, "%Y-%m-%d")
 
@@ -533,7 +533,8 @@ def validate_delivery_date(delivery_date, invoice_date, customer_type):
         if del_date > inv_date:
             frappe.throw("Delivery Date is not valid, Standard Tax Invoices (B2B) the supply must take place before the invoice date.")
     elif customer_type == "Individual":  # Delivery Date must be today, otherwise throw an error
-        if del_date.date() != datetime.now().date():
+        delivery_datetime = datetime.strptime(f"{delivery_date} {posting_time}", "%Y-%m-%d %H:%M:%S")
+        if datetime.now() > delivery_datetime + timedelta(hours=24):
             frappe.throw("Delivery Date is not valid, Simplified Tax Invoices (B2C) must be issued and submitted on the same day of the supply.")
     else:
         frappe.throw("Customer Type is not Supported")
