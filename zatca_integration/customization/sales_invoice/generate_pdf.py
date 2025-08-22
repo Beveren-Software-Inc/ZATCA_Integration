@@ -687,10 +687,6 @@ def draw_pdf_with_reportlab(temp_pdf_path: str, invoice_doc):
             if qr_code_path.startswith('/files/'):
                 qr_code_path = qr_code_path.replace('/files/', '')
             
-            # You may need to adjust the path to your actual files directory
-            # Common paths in Frappe: 
-            # - frappe.utils.get_site_path('public', 'files', qr_code_path)
-            # - or just use the full system path
             full_qr_path = frappe.utils.get_site_path('public', 'files', qr_code_path)
             
             # Draw the QR code image

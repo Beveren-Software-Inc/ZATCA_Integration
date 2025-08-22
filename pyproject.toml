@@ -14,6 +14,7 @@ dependencies = [
     "numpy==2.2.4",
     "pillow==10.2.0",
      "pikepdf",
+     "reportlab",
 ]
 
 [build-system]
