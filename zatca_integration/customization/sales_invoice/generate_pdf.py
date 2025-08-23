@@ -16,7 +16,9 @@ from reportlab.lib import colors
 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-
+from reportlab.platypus import Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Image as RLImage
 
 import pikepdf
 from pikepdf import Name, Dictionary, Array, String
@@ -140,6 +142,31 @@ def draw_pdf_with_reportlab(temp_pdf_path: str, invoice_doc):
     c.save()
 
 
+# def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=9, align='left', bg_color=None):
+#     """Helper function to draw bordered table cell with optional background color."""
+#     if bg_color:
+#         c.setFillColor(bg_color)
+#         c.rect(x, y-h, w, h, fill=1)
+#         c.setFillColor(black)
+    
+#     c.rect(x, y-h, w, h, fill=0)
+#     c.setFont(font_name, font_size)
+    
+#     # Handle multi-line text
+#     text_str = str(text)
+#     lines = text_str.split('\n')
+#     line_height = font_size + 2
+    
+#     for i, line in enumerate(lines):
+#         text_y = y - h/2 - font_size/3 + (len(lines)/2 - i - 0.5) * line_height
+        
+#         if align == 'center':
+#             c.drawCentredString(x + w/2, text_y, line)
+#         elif align == 'right':
+#             c.drawRightString(x + w - 5, text_y, line)
+#         else:
+#             c.drawString(x + 5, text_y, line)
+
 def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=9, align='left', bg_color=None):
     """Helper function to draw bordered table cell with optional background color."""
     if bg_color:
@@ -147,7 +174,13 @@ def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=9, align='left', 
         c.rect(x, y-h, w, h, fill=1)
         c.setFillColor(black)
     
+    # CHANGE THIS: Make lines thinner
+    c.setLineWidth(0.5)  # Change from default (usually 1) to 0.5 or 0.3
     c.rect(x, y-h, w, h, fill=0)
+    
+    # Reset line width after drawing
+    c.setLineWidth(1)
+    
     c.setFont(font_name, font_size)
     
     # Handle multi-line text
@@ -164,9 +197,7 @@ def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=9, align='left', 
             c.drawRightString(x + w - 5, text_y, line)
         else:
             c.drawString(x + 5, text_y, line)
-from reportlab.platypus import Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import Image as RLImage
+
 def add_letterhead(c, doc, page_width, page_height, top_margin=20):
     """
     Adds letterhead (image or HTML) directly to the canvas.
@@ -212,7 +243,7 @@ def add_letterhead(c, doc, page_width, page_height, top_margin=20):
     elif letterhead.content:
         try:
             styles = getSampleStyleSheet()
-            style = styles["Normal"]
+            style = styles["Times New Roman"]
             style.fontSize = 9
             style.leading = 12
 
@@ -234,7 +265,7 @@ def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     qr_width = 80
     detail_width = table_width - qr_width
     y = add_letterhead(c, invoice_doc, width, height)
-    y=700
+    
     # Invoice title
     c.setFont(font_name, 14)
     c.setFillColor(black)
@@ -242,7 +273,7 @@ def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     y -= 30
     
     # Invoice details table (left side)
-    col_widths = [80, 80, 100, 60, 80, 80]
+    col_widths = [70, 90, 80, 80, 70, 80]
     
     # Row data for invoice details
     delivery_note = getattr(invoice_doc.items[0], 'delivery_note', '') if invoice_doc.items else ''
@@ -321,25 +352,100 @@ def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     
     return current_y - cell_height - 20
 
+import textwrap
+from reportlab.pdfbase.pdfmetrics import stringWidth
+
+
+def _draw_table_cell_with_wrapping(c, x, y, w, h, text, font_name, font_size=9, align='left', bg_color=None, auto_height=False):
+    """Helper function to draw bordered table cell with text wrapping for long content."""
+    
+    # Calculate available width for text (minus padding)
+    text_width = w - 10  # 5px padding on each side
+    
+    # Handle empty or None text
+    if not text:
+        text = ""
+    
+    text_str = str(text)
+    
+    # Check if text fits in one line
+    if stringWidth(text_str, font_name, font_size) <= text_width:
+        lines = [text_str]
+    else:
+        # Calculate approximate characters per line
+        avg_char_width = stringWidth('A', font_name, font_size)
+        chars_per_line = int(text_width / avg_char_width)
+        
+        # Wrap text
+        lines = textwrap.wrap(text_str, width=chars_per_line)
+        
+        # If still too wide, force break long words
+        final_lines = []
+        for line in lines:
+            while stringWidth(line, font_name, font_size) > text_width:
+                # Find how many characters fit
+                for i in range(len(line), 0, -1):
+                    if stringWidth(line[:i], font_name, font_size) <= text_width:
+                        final_lines.append(line[:i])
+                        line = line[i:]
+                        break
+            if line:
+                final_lines.append(line)
+        lines = final_lines
+    
+    # Calculate required height if auto_height is True
+    line_height = font_size + 2
+    required_height = max(h, len(lines) * line_height + 4)  # 4px total padding
+    
+    # Use required height if auto_height, otherwise use provided height
+    cell_height = required_height if auto_height else h
+    
+    # Draw background if specified
+    if bg_color:
+        c.setFillColor(bg_color)
+        c.rect(x, y-cell_height, w, cell_height, fill=1)
+        c.setFillColor(black)
+    
+    # Draw border
+    c.setLineWidth(0.5)  # Thin border
+    c.rect(x, y-cell_height, w, cell_height, fill=0)
+    c.setLineWidth(1)  # Reset
+    
+    # Set font
+    c.setFont(font_name, font_size)
+    
+    # Draw text lines
+    for i, line in enumerate(lines):
+        text_y = y - cell_height/2 - font_size/2 + (len(lines)/2 - i - 0.5) * line_height
+        
+        if align == 'center':
+            c.drawCentredString(x + w/2, text_y, line)
+        elif align == 'right':
+            c.drawRightString(x + w - 5, text_y, line)
+        else:
+            c.drawString(x + 5, text_y, line)
+    
+    return cell_height  # Return actual height used
+
 
 def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
-    """Draw seller and buyer information section."""
-    cell_height = 15
+    """Draw seller and buyer information section with text wrapping."""
+    base_cell_height = 15
     seller_buyer_width = (width - 2 * margin_x) / 2
     detail_col_width = seller_buyer_width / 4
     
     # Headers
     current_y = y
-    _draw_table_cell(c, margin_x, current_y, seller_buyer_width/2, cell_height, 
+    _draw_table_cell_with_wrapping(c, margin_x, current_y, seller_buyer_width/2, base_cell_height, 
                     "Seller:", font_name, 10, bg_color=colors.lightgrey)
-    _draw_table_cell(c, margin_x + seller_buyer_width/2, current_y, seller_buyer_width/2, cell_height, 
+    _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width/2, current_y, seller_buyer_width/2, base_cell_height, 
                     ":المورد", font_name, 10, 'right', colors.lightgrey)
-    _draw_table_cell(c, margin_x + seller_buyer_width, current_y, seller_buyer_width/2, cell_height, 
+    _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width, current_y, seller_buyer_width/2, base_cell_height, 
                     "Buyer:", font_name, 10, bg_color=colors.lightgrey)
-    _draw_table_cell(c, margin_x + seller_buyer_width + seller_buyer_width/2, current_y, 
-                    seller_buyer_width/2, cell_height, ":العميل", font_name, 10, 'right', colors.lightgrey)
+    _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + seller_buyer_width/2, current_y, 
+                    seller_buyer_width/2, base_cell_height, ":العميل", font_name, 10, 'right', colors.lightgrey)
     
-    current_y -= cell_height
+    current_y -= base_cell_height
     
     # Seller and Buyer details
     details_data = [
@@ -356,19 +462,41 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     ]
     
     for label, seller_val, buyer_val, arabic_label in details_data:
-        # Seller side
-        _draw_table_cell(c, margin_x, current_y, detail_col_width, cell_height, label, font_name, 9)
-        _draw_table_cell(c, margin_x + detail_col_width, current_y, detail_col_width, cell_height, str(seller_val), font_name, 9)
-        _draw_table_cell(c, margin_x + detail_col_width * 2, current_y, detail_col_width, cell_height, str(seller_val), font_name, 9, 'right')
-        _draw_table_cell(c, margin_x + detail_col_width * 3, current_y, detail_col_width, cell_height, arabic_label, font_name, 9, 'right')
+        # Calculate the maximum height needed for this row
+        max_height = base_cell_height
         
-        # Buyer side
-        _draw_table_cell(c, margin_x + seller_buyer_width, current_y, detail_col_width, cell_height, label, font_name, 9)
-        _draw_table_cell(c, margin_x + seller_buyer_width + detail_col_width, current_y, detail_col_width, cell_height, str(buyer_val), font_name, 9)
-        _draw_table_cell(c, margin_x + seller_buyer_width + detail_col_width * 2, current_y, detail_col_width, cell_height, str(buyer_val), font_name, 9, 'right')
-        _draw_table_cell(c, margin_x + seller_buyer_width + detail_col_width * 3, current_y, detail_col_width, cell_height, arabic_label, font_name, 9, 'right')
+        # Check each cell content and calculate required height
+        for content in [label, str(seller_val), str(buyer_val), arabic_label]:
+            content_width = detail_col_width - 10  # minus padding
+            if stringWidth(str(content), font_name, 9) > content_width:
+                # Calculate lines needed
+                avg_char_width = stringWidth('A', font_name, 9)
+                chars_per_line = int(content_width / avg_char_width)
+                lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
+                content_height = lines_needed * 11 + 4  # 9px font + 2px spacing + 4px padding
+                max_height = max(max_height, content_height)
         
-        current_y -= cell_height
+        # Draw seller side
+        _draw_table_cell_with_wrapping(c, margin_x, current_y, detail_col_width, max_height, 
+                        label, font_name, 9)
+        _draw_table_cell_with_wrapping(c, margin_x + detail_col_width, current_y, detail_col_width, max_height, 
+                        str(seller_val), font_name, 9)
+        _draw_table_cell_with_wrapping(c, margin_x + detail_col_width * 2, current_y, detail_col_width, max_height, 
+                        str(seller_val), font_name, 9, 'right')
+        _draw_table_cell_with_wrapping(c, margin_x + detail_col_width * 3, current_y, detail_col_width, max_height, 
+                        arabic_label, font_name, 9, 'right')
+        
+        # Draw buyer side
+        _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width, current_y, detail_col_width, max_height, 
+                        label, font_name, 9)
+        _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width, current_y, detail_col_width, max_height, 
+                        str(buyer_val), font_name, 9)
+        _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width * 2, current_y, detail_col_width, max_height, 
+                        str(buyer_val), font_name, 9, 'right')
+        _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width * 3, current_y, detail_col_width, max_height, 
+                        arabic_label, font_name, 9, 'right')
+        
+        current_y -= max_height
     
     return current_y - 20
 
