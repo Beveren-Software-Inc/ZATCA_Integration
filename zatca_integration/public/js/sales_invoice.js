@@ -490,7 +490,7 @@ function zatca_embed_qr_in_pdf(frm) {
                         },
                         callback: function(r) {
                             if (r.message) {
-                                window.open(r.message, "_blank");
+                                window.open(r.message.file_url, "_blank");
                             } else {
                                 frappe.msgprint(__("Failed to generate PDF-A3"));
                             }
