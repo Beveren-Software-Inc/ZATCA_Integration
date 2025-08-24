@@ -630,6 +630,14 @@ def strip_html_tags(text):
     
     return clean_text.strip()
 
+def get_first_tax_rate(doc):
+    """
+    Get the tax rate from the first row of Sales Taxes and Charges
+    """
+    if getattr(doc, "taxes", None) and len(doc.taxes) > 0:
+        return doc.taxes[0].rate or 0
+    return 0
+
 def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
     """Draw items table section with flexible row heights based on content."""
     base_cell_height = 15
@@ -648,12 +656,12 @@ def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
     # English and Arabic headers combined
     combined_headers = [
         "PO Item\nبند طلب",
-        "Description\nتفاصيل",
-        "Unit Price\nسعر",
-        "Qty\nكمية",
-        "Taxable Amt\nالمبلغ",
-        "Tax Amt\nضريبة",
-        "Subtotal\nالمجموع"
+        "Nature of goods or services\nفاصيل السلع او الخدمات",
+        "Unit Price\nعر الوحدة",
+        "Qty\nالكمية",
+        "Taxable Amt\nلمبلغ الخاضع للضريبة",
+        "Tax Amt\nبلغ الضريبة",
+        "Subtotal(Inc. VAT)\nلمجموع شامل الضريبة"
     ]
 
     for i, header in enumerate(combined_headers):
@@ -673,6 +681,7 @@ def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
     current_y -= base_cell_height * 2
 
     # Items data with flexible row heights
+    
     if invoice_doc.items:
         for item in invoice_doc.items:
             # Calculate maximum height needed for this row
@@ -681,14 +690,15 @@ def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
             # Prepare item data
             clean_description = strip_html_tags(item.description or '')
             item_description = f"{item.item_code}\n{item.item_name}\n{clean_description}"
+            item_tax_amount = get_first_tax_rate(invoice_doc) * item.amount / 100 if get_first_tax_rate(invoice_doc) else 0
             item_data = [
                 getattr(item, 'line_item', '') or '',
                 item_description,
-                f"{item.rate:.2f}",
+                format_currency(item.rate, invoice_doc.currency),
                 f"{item.qty}",
-                f"{item.amount:.2f}",
-                f"{getattr(item, 'item_tax_amount', 0):.2f}",
-                f"{(item.amount + getattr(item, 'item_tax_amount', 0)):.2f}"
+                format_currency(item.amount, invoice_doc.currency),
+                format_currency(item_tax_amount, invoice_doc.currency),
+                format_currency(item.amount + item_tax_amount, invoice_doc.currency)
             ]
             
             # Calculate required height for each cell
@@ -758,19 +768,19 @@ def _draw_totals_section(c, invoice_doc, width, margin_x, y, font_name):
     current_y = check_page_break(c, y, height, 150, font_name, 9, False, invoice_doc)
     _draw_table_cell_with_wrapping(
         c, margin_x, current_y, table_width/2, base_cell_height,
-        "Total Amounts:", font_name, 8, bg_color=colors.lightgrey, auto_height=True
+        "Total Amounts:", font_name, 7, bg_color=colors.lightgrey, auto_height=True
     )
     _draw_table_cell_with_wrapping(
         c, margin_x + table_width/2, current_y, table_width/2, base_cell_height,
-        ":اجمالي المبالغ", font_name, 8, 'right', colors.lightgrey, auto_height=True
+        ":اجمالي المبالغ", font_name, 7, 'right', colors.lightgrey, auto_height=True
     )
     current_y -= base_cell_height
 
     # Totals data
     totals_data = [
-        ("Total Taxable Amount (Excluding VAT)", "الاجمالي الخاضع للضريبة  (غير شامل ضريبة القيمة المضافة)", f"{invoice_doc.net_total:.2f} {invoice_doc.currency}"),
-        ("Total VAT", "مجموع ضريبة القيمة المضافة", f"{invoice_doc.total_taxes_and_charges:.2f} {invoice_doc.currency}"),
-        ("Total Amount Due", "اجمالي المبلغ المستحق", f"{invoice_doc.grand_total:.2f} {invoice_doc.currency}"),
+        ("Total Taxable Amount (Excluding VAT)", "الاجمالي الخاضع للضريبة  (غير شامل ضريبة القيمة المضافة)", format_currency(invoice_doc.net_total, invoice_doc.currency)),
+        ("Total VAT", "مجموع ضريبة القيمة المضافة", format_currency(invoice_doc.total_taxes_and_charges, invoice_doc.currency)),
+        ("Total Amount Due", "اجمالي المبلغ المستحق", format_currency(invoice_doc.grand_total, invoice_doc.currency)),
         ("Total In Words", "", invoice_doc.in_words or "")
     ]
 
@@ -798,6 +808,16 @@ def _draw_totals_section(c, invoice_doc, width, margin_x, y, font_name):
     return current_y - 20
 
 
+def format_currency(value, currency):
+    """Format currency using ERPNext Currency Doc symbol"""
+    if not currency:
+        return value
+    # fetch symbol from Currency doctype
+    symbol = frappe.db.get_value("Currency", currency, "symbol") or currency
+    # format number with 2 decimals and add symbol
+    return f"{symbol} {frappe.utils.fmt_money(value, 2)}"
+
+
 def _draw_tax_summary(c, invoice_doc, width, margin_x, y, font_name):
     """Draw tax summary section."""
     cell_height = 15
@@ -823,13 +843,13 @@ def _draw_tax_summary(c, invoice_doc, width, margin_x, y, font_name):
     current_y -= cell_height
     
     # Tax data
-    base_net_total = getattr(invoice_doc, 'base_net_total', invoice_doc.net_total * conversion_rate)
-    base_tax_amount = getattr(invoice_doc, 'base_total_taxes_and_charges', invoice_doc.total_taxes_and_charges * conversion_rate)
+    base_net_total = format_currency(getattr(invoice_doc, 'base_net_total', invoice_doc.net_total * conversion_rate), "SAR")
+    base_tax_amount = format_currency(getattr(invoice_doc, 'base_total_taxes_and_charges', invoice_doc.total_taxes_and_charges * conversion_rate), "SAR")
     
     tax_data = [
         getattr(invoice_doc, 'taxes_and_charges', 'VAT 15%'),
-        f"{base_net_total:.2f}",
-        f"{base_tax_amount:.2f}"
+        f"{base_net_total}",
+        f"{base_tax_amount}"
     ]
     
     for i, data in enumerate(tax_data):
