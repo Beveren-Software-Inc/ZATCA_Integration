@@ -262,9 +262,12 @@ def add_letterhead(c, doc, page_width, page_height, top_margin=20):
     # --- Image ---
     if letterhead.image:
         file_url = letterhead.image
-        if file_url.startswith("/files/"):
+        if file_url.startswith("/files/"):  # public file
             file_path = frappe.get_site_path("public", "files", file_url.split("/files/")[1])
+        elif file_url.startswith("/private/files/"):  # private file
+            file_path = frappe.get_site_path("private", "files", file_url.split("/private/files/")[1])
         else:
+            # fallback: try relative to /public
             file_path = frappe.get_site_path("public", file_url.lstrip("/"))
 
         try:
