@@ -19,6 +19,8 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Image as RLImage
+import textwrap
+from reportlab.pdfbase.pdfmetrics import stringWidth
 
 import pikepdf
 from pikepdf import Name, Dictionary, Array, String
@@ -29,6 +31,7 @@ font_dir = Path(frappe.get_app_path("zatca_integration", "public", "fonts"))
 template_dir = Path(frappe.get_app_path("zatca_integration", "public", "template"))
 icc_ = Path(frappe.get_app_path("zatca_integration", "public"))
 icc_2014 = icc_ / "sRGB2014.icc"
+height = A4
 
 regular = str(font_dir / "DejaVuSans.ttf")
 helvetica = str(font_dir / "Helvetica.ttf")
@@ -116,6 +119,7 @@ def generate_invoice_content(invoice_doc):
     
     return content_lines
 
+
 def draw_pdf_with_reportlab(temp_pdf_path: str, invoice_doc):
     """Draw Sales Invoice on canvas with complete layout matching HTML template."""
     
@@ -125,22 +129,59 @@ def draw_pdf_with_reportlab(temp_pdf_path: str, invoice_doc):
     pdfmetrics.registerFont(TTFont(font_name, ttf_path))
 
     c = canvas.Canvas(temp_pdf_path, pagesize=A4, pageCompression=0)
-    width, height = A4
+    width, height = A4  # This returns a tuple (width, height)
     margin_x = 30
-    margin_y = 30
-    y = height - 60
+    y = height - 60  # height is now just the numeric value
     
     # ---------- DRAW INVOICE SECTIONS ----------
+    y = add_letterhead(c, invoice_doc, width, height)
     y = _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name)
     y = _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name)
     y = _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name)
     y = _draw_totals_section(c, invoice_doc, width, margin_x, y, font_name)
     y = _draw_tax_summary(c, invoice_doc, width, margin_x, y, font_name)
-    _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name)
+    y = _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name)
     _draw_footer(c, width, font_name)
     
     c.save()
 
+def check_page_break(c, y, height, margin_y=100, font_name="Helvetica", font_size=9, debug=False, invoice_doc=None):
+    """
+    Check if we need to start a new page. Return reset y if page breaks.
+    Added debug parameter to print information about page break decisions.
+    """
+    # Handle case where height might be a tuple (width, height)
+    if isinstance(height, tuple):
+        page_height = height[1] 
+    else:
+        page_height = height
+    
+    if debug:
+        print(f"DEBUG: Current y={y}, margin_y={margin_y}, page_height={page_height}, page_break_needed={y < margin_y}")
+    
+    if y < margin_y:  
+        width = c._pagesize[0]
+        c.showPage()
+        c.setFont(font_name, font_size)
+        add_letterhead(c, invoice_doc, width, page_height)
+
+        # Draw footer on new page
+        try:
+            _draw_footer(c, c._pagesize[0], font_name)
+        except Exception as e:
+            if debug:
+                print(f"DEBUG: Error drawing footer on new page: {e}")
+        
+        new_y = page_height - 100  # reset y for new page top
+        if debug:
+            print(f"DEBUG: Returning new y position: {new_y}")
+        
+        return new_y
+    
+    if debug:
+        print(f"DEBUG: No page break needed. Current y ({y}) is above margin ({margin_y})")
+    
+    return y
 
 # def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=9, align='left', bg_color=None):
 #     """Helper function to draw bordered table cell with optional background color."""
@@ -167,7 +208,7 @@ def draw_pdf_with_reportlab(temp_pdf_path: str, invoice_doc):
 #         else:
 #             c.drawString(x + 5, text_y, line)
 
-def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=9, align='left', bg_color=None):
+def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=7, align='left', bg_color=None):
     """Helper function to draw bordered table cell with optional background color."""
     if bg_color:
         c.setFillColor(bg_color)
@@ -228,14 +269,20 @@ def add_letterhead(c, doc, page_width, page_height, top_margin=20):
 
         try:
             img_height = 60
+            img_width = 400
+            x = (page_width - img_width) / 2  # center horizontally
+            y = page_height - img_height - top_margin
+
             c.drawImage(
                 file_path,
-                (page_width - 200) / 2,
-                page_height - img_height - top_margin,
-                width=200, height=img_height,
-                preserveAspectRatio=True, mask="auto"
+                x,
+                y,
+                width=img_width,
+                height=img_height,
+                preserveAspectRatio=True,
+                mask="auto"
             )
-            y_after = page_height - img_height - top_margin - 10
+            y_after = y - 10
         except Exception as e:
             frappe.log_error(f"Letterhead image rendering failed: {e}", "PDF Generator")
 
@@ -243,36 +290,40 @@ def add_letterhead(c, doc, page_width, page_height, top_margin=20):
     elif letterhead.content:
         try:
             styles = getSampleStyleSheet()
-            style = styles["Times New Roman"]
-            style.fontSize = 9
-            style.leading = 12
+            style = styles["Normal"]
+            style.fontName = "Times-Roman"
+            style.fontSize = 20
+            style.leading = 22
+            style.alignment = 1  # center text
 
             para = Paragraph(letterhead.content, style)
             w, h = para.wrap(page_width - 80, 100)
-            para.drawOn(c, 40, page_height - h - top_margin)
-            y_after = page_height - h - top_margin - 10
+            x = (page_width - w) / 2  # center horizontally
+            y = page_height - h - top_margin
+
+            para.drawOn(c, x, y)
+            y_after = y - 10
         except Exception as e:
             frappe.log_error(f"Letterhead HTML rendering failed: {e}", "PDF Generator")
 
     return y_after
 
 
-        
+    
 def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     """Draw the header section including invoice details and QR code."""
     cell_height = 15
-    table_width = width - 2 * margin_x
-    qr_width = 80
-    detail_width = table_width - qr_width
+    table_width = width - 2 * margin_x  # Full width between margins
+    qr_width = 60
     y = add_letterhead(c, invoice_doc, width, height)
     
     # Invoice title
-    c.setFont(font_name, 14)
+    c.setFont(font_name, 8)
     c.setFillColor(black)
     c.drawCentredString(width/2, y, "Tax Invoice - فاتورة ضريبية")
     y -= 30
     
-    # Invoice details table (left side)
+    # Invoice details table (left side) - 6 columns with dynamic height
     col_widths = [70, 90, 80, 80, 70, 80]
     
     # Row data for invoice details
@@ -287,42 +338,58 @@ def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     ]
     
     current_y = y
+    total_table_height = 0 
+    
     for row_data in rows_data:
+        # Calculate max height needed for this row
+        max_height = cell_height
+        for i, text in enumerate(row_data):
+            text_width = col_widths[i] - 10
+            avg_char_width = stringWidth('A', font_name, 7)
+            chars_per_line = max(1, int(text_width / avg_char_width))
+            lines_needed = len(textwrap.wrap(str(text), width=chars_per_line))
+            content_height = lines_needed * (9 + 2) + 4 
+            max_height = max(max_height, content_height)
+        
+        # Draw the row with consistent height
         for i, text in enumerate(row_data):
             align = 'right' if i in [2, 5] else 'left'
-            _draw_table_cell(c, margin_x + sum(col_widths[:i]), current_y, col_widths[i], 
-                            cell_height, text, font_name, 9, align)
-        current_y -= cell_height
+            _draw_table_cell_with_wrapping(
+                c, margin_x + sum(col_widths[:i]), current_y, col_widths[i], 
+                max_height, text, font_name, 7, align, auto_height=True
+            )
+        
+        total_table_height += max_height
+        current_y -= max_height
     
-    # QR Code (right side)
+    # QR Code (right side) - NO BORDER
     qr_x = width - margin_x - qr_width
-    c.rect(qr_x, y - cell_height * 3, qr_width, cell_height * 3)
     
-    # Draw QR code image if available
+    # Draw QR code image if available (without border) - height matches table height
     qr_code_path = getattr(invoice_doc, 'custom_invoice_qr_code', '')
     if qr_code_path:
         try:
-            # Remove '/files/' prefix if present and get the actual file path
             if qr_code_path.startswith('/files/'):
                 qr_code_path = qr_code_path.replace('/files/', '')
             
             full_qr_path = frappe.utils.get_site_path('public', 'files', qr_code_path)
             
-            # Draw the QR code image
-            c.drawImage(full_qr_path, qr_x + 5, y - cell_height * 3 + 5, 
-                    width=qr_width - 10, height=cell_height * 3 - 10, 
+            # Draw the QR code image without border - height matches table height
+            # Position it to the right of the table, not overlapping
+            c.drawImage(full_qr_path, qr_x, y - total_table_height, 
+                    width=qr_width, height=total_table_height, 
                     preserveAspectRatio=True, mask='auto')
         except Exception as e:
             print(f"Error loading QR code: {e}")
             # Fallback to text if image can't be loaded
-            c.drawCentredString(qr_x + qr_width/2, y - cell_height * 1.5, "QR CODE")
+            c.drawCentredString(qr_x + qr_width/2, y - total_table_height/2, "QR CODE")
     else:
-        c.drawCentredString(qr_x + qr_width/2, y - cell_height * 1.5, "QR CODE")
+        c.drawCentredString(qr_x + qr_width/2, y - total_table_height/2, "QR CODE")
     
-    y = current_y - cell_height - 10
+    y = current_y - 20  
     
-    # Purchase order details table
-    po_table_width = detail_width
+    # Purchase order details table - 6 columns (FULL WIDTH like other tables)
+    po_table_width = table_width  
     po_col_width = po_table_width / 6
     
     # Headers
@@ -348,15 +415,12 @@ def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     
     for i, data in enumerate(po_data):
         _draw_table_cell(c, margin_x + i * po_col_width, current_y, po_col_width, 
-                        cell_height, data, font_name, 9, 'center')
+                        cell_height, data, font_name, 7, 'center')
     
     return current_y - cell_height - 20
 
-import textwrap
-from reportlab.pdfbase.pdfmetrics import stringWidth
 
-
-def _draw_table_cell_with_wrapping(c, x, y, w, h, text, font_name, font_size=9, align='left', bg_color=None, auto_height=False):
+def _draw_table_cell_with_wrapping(c, x, y, w, h, text, font_name, font_size=7, align='left', bg_color=None, auto_height=False):
     """Helper function to draw bordered table cell with text wrapping for long content."""
     
     # Calculate available width for text (minus padding)
@@ -407,9 +471,9 @@ def _draw_table_cell_with_wrapping(c, x, y, w, h, text, font_name, font_size=9, 
         c.setFillColor(black)
     
     # Draw border
-    c.setLineWidth(0.5)  # Thin border
+    c.setLineWidth(0.5) 
     c.rect(x, y-cell_height, w, cell_height, fill=0)
-    c.setLineWidth(1)  # Reset
+    c.setLineWidth(1)
     
     # Set font
     c.setFont(font_name, font_size)
@@ -425,8 +489,7 @@ def _draw_table_cell_with_wrapping(c, x, y, w, h, text, font_name, font_size=9, 
         else:
             c.drawString(x + 5, text_y, line)
     
-    return cell_height  # Return actual height used
-
+    return cell_height
 
 def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     """Draw seller and buyer information section with text wrapping."""
@@ -437,162 +500,272 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     # Headers
     current_y = y
     _draw_table_cell_with_wrapping(c, margin_x, current_y, seller_buyer_width/2, base_cell_height, 
-                    "Seller:", font_name, 10, bg_color=colors.lightgrey)
+                    "Seller:", font_name, 8, bg_color=colors.lightgrey)
     _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width/2, current_y, seller_buyer_width/2, base_cell_height, 
-                    ":المورد", font_name, 10, 'right', colors.lightgrey)
+                    ":المورد", font_name, 8, 'right', colors.lightgrey)
     _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width, current_y, seller_buyer_width/2, base_cell_height, 
-                    "Buyer:", font_name, 10, bg_color=colors.lightgrey)
+                    "Buyer:", font_name, 8, bg_color=colors.lightgrey)
     _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + seller_buyer_width/2, current_y, 
-                    seller_buyer_width/2, base_cell_height, ":العميل", font_name, 10, 'right', colors.lightgrey)
+                    seller_buyer_width/2, base_cell_height, ":العميل", font_name, 8, 'right', colors.lightgrey)
     
     current_y -= base_cell_height
     
-    # Seller and Buyer details
+    # Fetch address details from linked Address records
+    company_name_arabic = frappe.db.get_value('Company', invoice_doc.company, 'company_name_in_arabic')
+    company_tax_id = frappe.db.get_value('Company', invoice_doc.company, 'tax_id')
+    company_cr_number = frappe.db.get_value('Company', invoice_doc.company, 'cr_number')
+    
+    # Get company address details
+    company_address_title = frappe.db.get_value('Address', invoice_doc.company_address, 'address_title') if invoice_doc.company_address else '-'
+    company_address_line1 = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line1') if invoice_doc.company_address else '-'
+    company_address_line1_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line_1_in_arabic') if invoice_doc.company_address else '-'
+    company_address_line2 = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line2') if invoice_doc.company_address else '-'
+    company_address_line2_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line_2_in_arabic') if invoice_doc.company_address else '-'
+    company_city = frappe.db.get_value('Address', invoice_doc.company_address, 'city') if invoice_doc.company_address else '-'
+    company_city_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'city_in_arabic') if invoice_doc.company_address else '-'
+    company_country = frappe.db.get_value('Address', invoice_doc.company_address, 'country') if invoice_doc.company_address else '-'
+    company_country_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'county_in_arabic') if invoice_doc.company_address else '-'
+    company_pincode = frappe.db.get_value('Address', invoice_doc.company_address, 'pincode') if invoice_doc.company_address else '-'
+    company_additional_number = frappe.db.get_value('Address', invoice_doc.company_address, 'additional_number') if invoice_doc.company_address else '-'
+    
+    # Get customer address details
+    customer_name_arabic = getattr(invoice_doc, 'customer_name_in_arabic', invoice_doc.customer_name)
+    customer_cr = frappe.db.get_value('Customer', invoice_doc.customer, 'cr') if invoice_doc.customer else '-'
+    
+    customer_address_title = frappe.db.get_value('Address', invoice_doc.customer_address, 'address_title') if invoice_doc.customer_address else '-'
+    customer_address_line1 = frappe.db.get_value('Address', invoice_doc.customer_address, 'address_line1') if invoice_doc.customer_address else '-'
+    customer_address_line1_arabic = frappe.db.get_value('Address', invoice_doc.customer_address, 'address_line_1_in_arabic') if invoice_doc.customer_address else '-'
+    customer_address_line2 = frappe.db.get_value('Address', invoice_doc.customer_address, 'address_line2') if invoice_doc.customer_address else '-'
+    customer_address_line2_arabic = frappe.db.get_value('Address', invoice_doc.customer_address, 'address_line_2_in_arabic') if invoice_doc.customer_address else '-'
+    customer_city = frappe.db.get_value('Address', invoice_doc.customer_address, 'city') if invoice_doc.customer_address else '-'
+    customer_city_arabic = frappe.db.get_value('Address', invoice_doc.customer_address, 'city_in_arabic') if invoice_doc.customer_address else '-'
+    customer_country = frappe.db.get_value('Address', invoice_doc.customer_address, 'country') if invoice_doc.customer_address else '-'
+    customer_country_arabic = frappe.db.get_value('Address', invoice_doc.customer_address, 'county_in_arabic') if invoice_doc.customer_address else '-'
+    customer_pincode = frappe.db.get_value('Address', invoice_doc.customer_address, 'pincode') if invoice_doc.customer_address else '-'
+    customer_additional_number = frappe.db.get_value('Address', invoice_doc.customer_address, 'additional_number') if invoice_doc.customer_address else '-'
+    
+    # Seller and Buyer details - Format: Label, Value, Arabic Value, Arabic Label
     details_data = [
-        ("Name:", invoice_doc.company, invoice_doc.customer_name, "الاسم"),
-        ("Building No", getattr(invoice_doc, 'company_building_no', ''), getattr(invoice_doc, 'customer_building_no', ''), "رقم المبنى"),
-        ("Street Name", getattr(invoice_doc, 'company_street', ''), getattr(invoice_doc, 'customer_street', ''), "اسم الشارع"),
-        ("District", getattr(invoice_doc, 'company_district', ''), getattr(invoice_doc, 'customer_district', ''), "الحي"),
-        ("City", getattr(invoice_doc, 'company_city', ''), getattr(invoice_doc, 'customer_city', ''), "المدينه"),
-        ("Country", getattr(invoice_doc, 'company_country', 'Saudi Arabia'), getattr(invoice_doc, 'customer_country', ''), "البلد"),
-        ("Postal Code", getattr(invoice_doc, 'company_pincode', ''), getattr(invoice_doc, 'customer_pincode', ''), "الرمز البريدي"),
-        ("Additional No.", getattr(invoice_doc, 'company_additional_no', ''), getattr(invoice_doc, 'customer_additional_no', ''), "رقم إضافي"),
-        ("VAT Number", getattr(invoice_doc, 'company_tax_id', ''), invoice_doc.tax_id or '', "الرقم الضريبي"),
-        ("Other ID", getattr(invoice_doc, 'company_cr_number', ''), getattr(invoice_doc, 'customer_cr', ''), "معرف آخر")
+        ("Name:", invoice_doc.company, company_name_arabic or '-', "الاسم"),
+        ("Building No", company_address_title, company_address_title, "رقم المبنى"),
+        ("Street Name", company_address_line1, company_address_line1_arabic, "اسم الشارع"),
+        ("District", company_address_line2, company_address_line2_arabic, "الحي"),
+        ("City", company_city, company_city_arabic, "المدينه"),
+        ("Country", company_country, company_country_arabic, "البلد"),
+        ("Postal Code", company_pincode, company_pincode, "الرمز البريدي"),
+        ("Additional No.", company_additional_number, company_additional_number, "رقم إضافي"),
+        ("VAT Number", company_tax_id or '-', company_tax_id or '-', "الرقم الضريبي"),
+        ("Other ID", company_cr_number or '-', company_cr_number or '-', "معرف آخر")
     ]
     
-    for label, seller_val, buyer_val, arabic_label in details_data:
+    buyer_details_data = [
+        ("Name:", invoice_doc.customer_name, customer_name_arabic or '-', "الاسم"),
+        ("Building No", customer_address_title, customer_address_title, "رقم المبنى"),
+        ("Street Name", customer_address_line1, customer_address_line1_arabic, "اسم الشارع"),
+        ("District", customer_address_line2, customer_address_line2_arabic, "الحي"),
+        ("City", customer_city, customer_city_arabic, "المدينه"),
+        ("Country", customer_country, customer_country_arabic, "البلد"),
+        ("Postal Code", customer_pincode, customer_pincode, "الرمز البريدي"),
+        ("Additional No.", customer_additional_number, customer_additional_number, "رقم إضافي"),
+        ("VAT Number", invoice_doc.tax_id or '-', invoice_doc.tax_id or '-', "الرقم الضريبي"),
+        ("Other ID", customer_cr or '-', customer_cr or '-', "معرف آخر")
+    ]
+    
+    for i, (label, seller_val, seller_val_arabic, arabic_label) in enumerate(details_data):
         # Calculate the maximum height needed for this row
         max_height = base_cell_height
         
         # Check each cell content and calculate required height
-        for content in [label, str(seller_val), str(buyer_val), arabic_label]:
+        for content in [label, str(seller_val), str(seller_val_arabic), arabic_label]:
             content_width = detail_col_width - 10  # minus padding
-            if stringWidth(str(content), font_name, 9) > content_width:
-                # Calculate lines needed
-                avg_char_width = stringWidth('A', font_name, 9)
+            if stringWidth(str(content), font_name, 7) > content_width:
+                avg_char_width = stringWidth('A', font_name, 7)
                 chars_per_line = int(content_width / avg_char_width)
                 lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
                 content_height = lines_needed * 11 + 4  # 9px font + 2px spacing + 4px padding
                 max_height = max(max_height, content_height)
         
-        # Draw seller side
+        # Draw seller side - Format: Label, Value, Arabic Value, Arabic Label
         _draw_table_cell_with_wrapping(c, margin_x, current_y, detail_col_width, max_height, 
-                        label, font_name, 9)
+                        label, font_name, 7)
         _draw_table_cell_with_wrapping(c, margin_x + detail_col_width, current_y, detail_col_width, max_height, 
-                        str(seller_val), font_name, 9)
+                        str(seller_val), font_name, 7)
         _draw_table_cell_with_wrapping(c, margin_x + detail_col_width * 2, current_y, detail_col_width, max_height, 
-                        str(seller_val), font_name, 9, 'right')
+                        str(seller_val_arabic), font_name, 7, 'right')  # Arabic value
         _draw_table_cell_with_wrapping(c, margin_x + detail_col_width * 3, current_y, detail_col_width, max_height, 
-                        arabic_label, font_name, 9, 'right')
+                        arabic_label, font_name, 7, 'right')  # Arabic label
         
-        # Draw buyer side
-        _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width, current_y, detail_col_width, max_height, 
-                        label, font_name, 9)
-        _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width, current_y, detail_col_width, max_height, 
-                        str(buyer_val), font_name, 9)
-        _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width * 2, current_y, detail_col_width, max_height, 
-                        str(buyer_val), font_name, 9, 'right')
-        _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width * 3, current_y, detail_col_width, max_height, 
-                        arabic_label, font_name, 9, 'right')
+        # Draw buyer side - Format: Label, Value, Arabic Value, Arabic Label
+        if i < len(buyer_details_data):
+            buyer_label, buyer_val, buyer_val_arabic, buyer_arabic_label = buyer_details_data[i]
+            _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width, current_y, detail_col_width, max_height, 
+                            buyer_label, font_name, 7)
+            _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width, current_y, detail_col_width, max_height, 
+                            str(buyer_val), font_name, 7)
+            _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width * 2, current_y, detail_col_width, max_height, 
+                            str(buyer_val_arabic), font_name, 7, 'right')  # Arabic value
+            _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width * 3, current_y, detail_col_width, max_height, 
+                            buyer_arabic_label, font_name, 7, 'right')  # Arabic label
         
         current_y -= max_height
     
     return current_y - 20
 
+import re
+
+def strip_html_tags(text):
+    """Remove HTML tags from text and return plain text."""
+    if not text:
+        return ""
+    
+    # Remove HTML tags using regex
+    clean_text = re.sub('<[^<]+?>', '', str(text))
+    
+    # Replace HTML entities if needed
+    clean_text = clean_text.replace('&amp;', '&')
+    clean_text = clean_text.replace('&lt;', '<')
+    clean_text = clean_text.replace('&gt;', '>')
+    clean_text = clean_text.replace('&quot;', '"')
+    clean_text = clean_text.replace('&#39;', "'")
+    
+    return clean_text.strip()
 
 def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
-    """Draw items table section."""
-    cell_height = 15
-    items_table_width = width - 2 * margin_x
-    item_col_widths = [60, 180, 70, 60, 90, 80, 120]  # Adjusted widths to fit properly
+    """Draw items table section with flexible row heights based on content."""
+    base_cell_height = 15
+    table_width = width - 2 * margin_x  # Full width between margins
     
-    # Headers
+    # Column widths that add up to table_width
+    item_col_widths = [60, 180, 70, 60, 90, 80, 120]
+    # Adjust if they don't add up to table_width
+    total_col_width = sum(item_col_widths)
+    if total_col_width != table_width:
+        scale_factor = table_width / total_col_width
+        item_col_widths = [int(w * scale_factor) for w in item_col_widths]
+    
     current_y = y
-    item_headers = [
-        "PO Item\nبند طلب شراء",
-        "Nature of goods or services\nتفاصيل السلع او الخدمات",
-        "Unit Price\nسعر الوحدة",
-        "Quantity\nالكمية",
-        "Taxable Amount\nالمبلغ الخاضع للضريبة",
-        "Tax Amount\nمبلغ الضريبة",
-        "Subtotal (Incl. VAT)\nالمجموع شامل الضريبة"
+    
+    # English and Arabic headers combined
+    combined_headers = [
+        "PO Item\nبند طلب",
+        "Description\nتفاصيل",
+        "Unit Price\nسعر",
+        "Qty\nكمية",
+        "Taxable Amt\nالمبلغ",
+        "Tax Amt\nضريبة",
+        "Subtotal\nالمجموع"
     ]
-    
-    for i, header in enumerate(item_headers):
-        _draw_table_cell(c, margin_x + sum(item_col_widths[:i]), current_y, item_col_widths[i], 
-                        cell_height * 2, header, font_name, 8, 'center', colors.lightgrey)
-    
-    current_y -= cell_height * 2
-    
-    # Items data
+
+    for i, header in enumerate(combined_headers):
+        _draw_table_cell(
+            c,
+            margin_x + sum(item_col_widths[:i]),
+            current_y,
+            item_col_widths[i],
+            base_cell_height * 2,  # Double height for two lines
+            header,
+            font_name,
+            7,  # Consistent font size
+            'center',
+            colors.lightgrey
+        )
+
+    current_y -= base_cell_height * 2
+
+    # Items data with flexible row heights
     if invoice_doc.items:
-        # Check if all items are the same
-        first_item = invoice_doc.items[0]
-        same_item = all(item.item_code == first_item.item_code for item in invoice_doc.items)
-        
-        if same_item:
-            # Consolidate same items
-            total_qty = sum(item.qty for item in invoice_doc.items)
-            total_amount = sum(item.amount for item in invoice_doc.items)
+        for item in invoice_doc.items:
+            # Calculate maximum height needed for this row
+            max_height = base_cell_height
             
+            # Prepare item data
+            clean_description = strip_html_tags(item.description or '')
+            item_description = f"{item.item_code}\n{item.item_name}\n{clean_description}"
             item_data = [
-                getattr(first_item, 'line_item', ''),
-                f"{first_item.item_code}\n{first_item.item_name}\n{first_item.description}",
-                f"{first_item.rate:.2f} {invoice_doc.currency}",
-                f"{total_qty:.0f}\n{first_item.uom}",
-                f"{total_amount:.2f} {invoice_doc.currency}",
-                f"{invoice_doc.total_taxes_and_charges:.2f} {invoice_doc.currency}\n15%",
-                f"{invoice_doc.grand_total:.2f} {invoice_doc.currency}"
+                getattr(item, 'line_item', '') or '',
+                item_description,
+                f"{item.rate:.2f}",
+                f"{item.qty}",
+                f"{item.amount:.2f}",
+                f"{getattr(item, 'item_tax_amount', 0):.2f}",
+                f"{(item.amount + getattr(item, 'item_tax_amount', 0)):.2f}"
             ]
             
+            # Calculate required height for each cell
             for i, data in enumerate(item_data):
-                align = 'right' if i > 1 else 'left'
-                _draw_table_cell(c, margin_x + sum(item_col_widths[:i]), current_y, 
-                                item_col_widths[i], cell_height * 2, data, font_name, 8, align)
+                if i == 1:  # Description column needs special handling
+                    # Calculate lines needed for description
+                    desc_width = item_col_widths[1] - 10  # minus padding
+                    avg_char_width = stringWidth('A', font_name, 7)
+                    chars_per_line = max(1, int(desc_width / avg_char_width))
+                    lines_needed = len(textwrap.wrap(str(data), width=chars_per_line))
+                    content_height = lines_needed * (8 + 2) + 4  # font + spacing + padding
+                    max_height = max(max_height, content_height)
+                else:
+                    # For other columns, check if text fits or needs wrapping
+                    text_width = item_col_widths[i] - 10
+                    if stringWidth(str(data), font_name, 7) > text_width:
+                        avg_char_width = stringWidth('A', font_name, 7)
+                        chars_per_line = max(1, int(text_width / avg_char_width))
+                        lines_needed = len(textwrap.wrap(str(data), width=chars_per_line))
+                        content_height = lines_needed * (8 + 2) + 4
+                        max_height = max(max_height, content_height)
             
-            current_y -= cell_height * 2
-        else:
-            # Show individual items
-            for item in invoice_doc.items:
-                if current_y < 150:  # Check for page break
-                    c.showPage()
-                    current_y = height - 100
+            # Check page break before drawing the row
+            current_y = check_page_break(c, current_y, height, 100, font_name, 8, False, invoice_doc)
+            
+            # Draw each cell with consistent row height
+            for i, data in enumerate(item_data):
+                align = 'right' if i in [2, 3, 4, 5, 6] else 'left'
                 
-                item_data = [
-                    getattr(item, 'line_item', ''),
-                    f"{item.item_code}\n{item.item_name}\n{item.description}",
-                    f"{item.rate:.2f} {invoice_doc.currency}",
-                    f"{item.qty}\n{item.uom}",
-                    f"{item.amount:.2f} {invoice_doc.currency}",
-                    f"{invoice_doc.total_taxes_and_charges:.2f} {invoice_doc.currency}\n15%",
-                    f"{invoice_doc.grand_total:.2f} {invoice_doc.currency}"
-                ]
-                
-                for i, data in enumerate(item_data):
-                    align = 'right' if i > 1 else 'left'
-                    _draw_table_cell(c, margin_x + sum(item_col_widths[:i]), current_y, 
-                                    item_col_widths[i], cell_height * 2, data, font_name, 8, align)
-                
-                current_y -= cell_height * 2
-    
+                if i == 1:  # Use wrapping for description column
+                    _draw_table_cell_with_wrapping(
+                        c,
+                        margin_x + sum(item_col_widths[:i]),
+                        current_y,
+                        item_col_widths[i],
+                        max_height,
+                        str(data),
+                        font_name,
+                        7,
+                        align,
+                        auto_height=False
+                    )
+                else:
+                    _draw_table_cell(
+                        c,
+                        margin_x + sum(item_col_widths[:i]),
+                        current_y,
+                        item_col_widths[i],
+                        max_height,
+                        str(data),
+                        font_name,
+                        7,
+                        align
+                    )
+
+            current_y -= max_height
+
     return current_y - 20
 
 
 def _draw_totals_section(c, invoice_doc, width, margin_x, y, font_name):
-    """Draw totals section."""
-    cell_height = 15
-    totals_width = width - 2 * margin_x
-    
+    """Draw totals section with dynamic height expansion."""
+    base_cell_height = 15
+    table_width = width - 2 * margin_x  
+
     # Total amounts header
-    current_y = y
-    _draw_table_cell(c, margin_x, current_y, totals_width/2, cell_height, 
-                    "Total Amounts:", font_name, 10, bg_color=colors.lightgrey)
-    _draw_table_cell(c, margin_x + totals_width/2, current_y, totals_width/2, cell_height, 
-                    ":اجمالي المبالغ", font_name, 10, 'right', colors.lightgrey)
-    
-    current_y -= cell_height
-    
+    current_y = check_page_break(c, y, height, 150, font_name, 9, False, invoice_doc)
+    _draw_table_cell_with_wrapping(
+        c, margin_x, current_y, table_width/2, base_cell_height,
+        "Total Amounts:", font_name, 8, bg_color=colors.lightgrey, auto_height=True
+    )
+    _draw_table_cell_with_wrapping(
+        c, margin_x + table_width/2, current_y, table_width/2, base_cell_height,
+        ":اجمالي المبالغ", font_name, 8, 'right', colors.lightgrey, auto_height=True
+    )
+    current_y -= base_cell_height
+
     # Totals data
     totals_data = [
         ("Total Taxable Amount (Excluding VAT)", "الاجمالي الخاضع للضريبة  (غير شامل ضريبة القيمة المضافة)", f"{invoice_doc.net_total:.2f} {invoice_doc.currency}"),
@@ -600,32 +773,46 @@ def _draw_totals_section(c, invoice_doc, width, margin_x, y, font_name):
         ("Total Amount Due", "اجمالي المبلغ المستحق", f"{invoice_doc.grand_total:.2f} {invoice_doc.currency}"),
         ("Total In Words", "", invoice_doc.in_words or "")
     ]
-    
+
+    col_widths = [table_width/4, table_width/4, table_width/4, table_width/4]
+
     for english, arabic, amount in totals_data:
-        _draw_table_cell(c, margin_x, current_y, totals_width/4, cell_height, "", font_name, 9)
-        _draw_table_cell(c, margin_x + totals_width/4, current_y, totals_width/4, cell_height, english, font_name, 9)
-        _draw_table_cell(c, margin_x + totals_width/2, current_y, totals_width/4, cell_height, arabic, font_name, 9, 'right')
-        _draw_table_cell(c, margin_x + 3*totals_width/4, current_y, totals_width/4, cell_height, amount, font_name, 9, 'right')
-        current_y -= cell_height
-    
+        # First pass: calculate required height
+        max_height = base_cell_height
+        for content, w in zip(["", english, arabic, amount], col_widths):
+            content_width = w - 10
+            avg_char_width = stringWidth('A', font_name, 7)
+            chars_per_line = max(1, int(content_width / avg_char_width))
+            lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
+            content_height = lines_needed * (9 + 2) + 4 
+            max_height = max(max_height, content_height)
+
+        # Second pass: draw row with dynamic height
+        _draw_table_cell_with_wrapping(c, margin_x, current_y, col_widths[0], max_height, "", font_name, 7, auto_height=True)
+        _draw_table_cell_with_wrapping(c, margin_x + col_widths[0], current_y, col_widths[1], max_height, english, font_name, 7, auto_height=True)
+        _draw_table_cell_with_wrapping(c, margin_x + col_widths[0] + col_widths[1], current_y, col_widths[2], max_height, arabic, font_name, 7, 'right', auto_height=True)
+        _draw_table_cell_with_wrapping(c, margin_x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], max_height, amount, font_name, 7, 'right', auto_height=True)
+
+        current_y -= max_height
+
     return current_y - 20
 
 
 def _draw_tax_summary(c, invoice_doc, width, margin_x, y, font_name):
     """Draw tax summary section."""
     cell_height = 15
-    totals_width = width - 2 * margin_x
+    table_width = width - 2 * margin_x  # Full width between margins
     conversion_rate = getattr(invoice_doc, 'conversion_rate', 1)
+    current_y = check_page_break(c, y, height, 150, font_name, 7,False, invoice_doc)
     
     # Tax summary header
-    current_y = y
-    _draw_table_cell(c, margin_x, current_y, totals_width, cell_height, 
+    _draw_table_cell(c, margin_x, current_y, table_width, cell_height, 
                     f"Tax Summary (1 {invoice_doc.currency} = {conversion_rate} SAR)", 
-                    font_name, 10, bg_color=colors.lightgrey)
+                    font_name, 8, bg_color=colors.lightgrey)
     current_y -= cell_height
     
     # Tax table headers
-    tax_col_widths = [totals_width/2, totals_width/4, totals_width/4]
+    tax_col_widths = [table_width/2, table_width/4, table_width/4]
     tax_headers = ["Tax Details", "Taxable Amount(SAR)", "Tax Amount(SAR)"]
     
     for i, header in enumerate(tax_headers):
@@ -648,25 +835,28 @@ def _draw_tax_summary(c, invoice_doc, width, margin_x, y, font_name):
     for i, data in enumerate(tax_data):
         align = 'left' if i == 0 else 'right'
         _draw_table_cell(c, margin_x + sum(tax_col_widths[:i]), current_y, tax_col_widths[i], 
-                        cell_height, data, font_name, 9, align)
+                        cell_height, data, font_name, 7, align)
     
     return current_y - cell_height - 20
 
 
 def _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name):
-    """Draw bank details section."""
-    cell_height = 15
-    totals_width = width - 2 * margin_x
+    """Draw bank details section with dynamic height expansion."""
+    base_cell_height = 15
+    table_width = width - 2 * margin_x  # Full width between margins
+    current_y = check_page_break(c, y, height, 150, font_name, 9, False, invoice_doc)
     
     # Bank details header
-    current_y = y
-    _draw_table_cell(c, margin_x, current_y, totals_width/2, cell_height, 
-                    "Bank Details (USD)", font_name, 10, bg_color=colors.lightgrey)
-    _draw_table_cell(c, margin_x + totals_width/2, current_y, totals_width/2, cell_height, 
-                    "التفاصيل المصرفية", font_name, 10, 'right', colors.lightgrey)
-    
-    current_y -= cell_height
-    
+    _draw_table_cell_with_wrapping(
+        c, margin_x, current_y, table_width/2, base_cell_height,
+        "Bank Details (USD)", font_name, 8, bg_color=colors.lightgrey, auto_height=True
+    )
+    _draw_table_cell_with_wrapping(
+        c, margin_x + table_width/2, current_y, table_width/2, base_cell_height,
+        "التفاصيل المصرفية", font_name, 8, 'right', colors.lightgrey, auto_height=True
+    )
+    current_y -= base_cell_height
+
     # Bank details data
     bank_details = [
         ("Account Name", "اسم الحساب المصرفي", "Renewable Energy Petrochemicals Factory Co Ltd", "شركة مصنع مواد الطاقة المتجددة للبتروكيماويات المحدودة"),
@@ -674,25 +864,51 @@ def _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name):
         ("IBAN", "رقم الآيبان", "SA56 5500 0000 0995 4870 0220", "SA56 5500 0000 0995 4870 0220"),
         ("Swift Code", "رمز السويفت", "BSFRSARIXXX", "BSFRSARIXXX")
     ]
-    
-    bank_col_width = totals_width / 4
-    
+
+    bank_col_width = table_width / 4
+
     for english_label, arabic_label, english_value, arabic_value in bank_details:
-        _draw_table_cell(c, margin_x, current_y, bank_col_width, cell_height, 
-                        english_label, font_name, 9, bg_color=colors.white)
-        _draw_table_cell(c, margin_x + bank_col_width, current_y, bank_col_width, cell_height, 
-                        english_value, font_name, 9, 'center')
-        _draw_table_cell(c, margin_x + 2*bank_col_width, current_y, bank_col_width, cell_height, 
-                        arabic_value, font_name, 9, 'center')
-        _draw_table_cell(c, margin_x + 3*bank_col_width, current_y, bank_col_width, cell_height, 
-                        arabic_label, font_name, 9, 'right', colors.white)
-        current_y -= cell_height
+        
+        # First pass: calculate required height
+        max_height = base_cell_height
+        row_data = [english_label, english_value, arabic_value, arabic_label]
+        for content, w in zip(row_data, [bank_col_width] * 4):
+            content_width = w - 10
+            avg_char_width = stringWidth('A', font_name, 7)
+            chars_per_line = max(1, int(content_width / avg_char_width))
+            lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
+            content_height = lines_needed * (9 + 2) + 4  # font + spacing + padding
+            max_height = max(max_height, content_height)
+
+        # Second pass: draw row with dynamic height
+        _draw_table_cell_with_wrapping(
+            c, margin_x, current_y, bank_col_width, max_height,
+            english_label, font_name, 7, bg_color=colors.white, auto_height=True
+        )
+        _draw_table_cell_with_wrapping(
+            c, margin_x + bank_col_width, current_y, bank_col_width, max_height,
+            english_value, font_name, 7, 'center', auto_height=True
+        )
+        _draw_table_cell_with_wrapping(
+            c, margin_x + 2*bank_col_width, current_y, bank_col_width, max_height,
+            arabic_value, font_name, 7, 'center', auto_height=True
+        )
+        _draw_table_cell_with_wrapping(
+            c, margin_x + 3*bank_col_width, current_y, bank_col_width, max_height,
+            arabic_label, font_name, 7, 'right', colors.white, auto_height=True
+        )
+
+        current_y -= max_height
+
+    return current_y - 20
+
 
 
 def _draw_footer(c, width, font_name):
     """Draw footer section."""
     c.setFont(font_name, 8)
     c.drawCentredString(width/2, 30, "This is a PDF/A-3A compliant invoice with embedded XML")
+    print("here man")
     
 
 def build_xmp_metadata(invoice_doc) -> bytes:
