@@ -390,7 +390,8 @@ def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
         getattr(invoice_doc, 'custom_purchase_agreement', '') or '-',
         getattr(invoice_doc, 'custom_asn_number', '') or '-',
         getattr(invoice_doc, 'custom_truck_request_number', '') or '-',
-        invoice_doc.reference_no or '-'
+        getattr(invoice_doc, 'reference_no', '') or '-',
+       
     ]
     
     for i, data in enumerate(po_data):
