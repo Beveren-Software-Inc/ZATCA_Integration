@@ -510,18 +510,18 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     company_cr_number = safe_get_value("Company", invoice_doc.company, "cr_number")
     
     # Get company address details
-    company_address_title = frappe.db.get_value('Address', invoice_doc.company_address, 'address_title') if invoice_doc.company_address else '-'
-    company_address_line1 = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line1') if invoice_doc.company_address else '-'
-    company_address_line1_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line_1_in_arabic') if invoice_doc.company_address else '-'
-    company_address_line2 = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line2') if invoice_doc.company_address else '-'
-    company_address_line2_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line_2_in_arabic') if invoice_doc.company_address else '-'
-    company_city = frappe.db.get_value('Address', invoice_doc.company_address, 'city') if invoice_doc.company_address else '-'
-    company_city_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'city_in_arabic') if invoice_doc.company_address else '-'
-    company_country = frappe.db.get_value('Address', invoice_doc.company_address, 'country') if invoice_doc.company_address else '-'
-    company_country_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'county_in_arabic') if invoice_doc.company_address else '-'
-    company_pincode = frappe.db.get_value('Address', invoice_doc.company_address, 'pincode') if invoice_doc.company_address else '-'
-    company_additional_number = frappe.db.get_value('Address', invoice_doc.company_address, 'additional_number') if invoice_doc.company_address else '-'
-    
+    company_address_title = safe_get_value('Address', invoice_doc.company_address, 'address_title')
+    company_address_line1 = safe_get_value('Address', invoice_doc.company_address, 'address_line1')
+    company_address_line1_arabic = safe_get_value('Address', invoice_doc.company_address, 'address_line_1_in_arabic')
+    company_address_line2 = safe_get_value('Address', invoice_doc.company_address, 'address_line2')
+    company_address_line2_arabic = safe_get_value('Address', invoice_doc.company_address, 'address_line_2_in_arabic')
+    company_city = safe_get_value('Address', invoice_doc.company_address, 'city')
+    company_city_arabic = safe_get_value('Address', invoice_doc.company_address, 'city_in_arabic')
+    company_country = safe_get_value('Address', invoice_doc.company_address, 'country')
+    company_country_arabic = safe_get_value('Address', invoice_doc.company_address, 'county_in_arabic')
+    company_pincode = safe_get_value('Address', invoice_doc.company_address, 'pincode')
+    company_additional_number = safe_get_value('Address', invoice_doc.company_address, 'additional_number')
+
     # Get customer address details
     # customer_name_arabic = getattr(invoice_doc, 'customer_name_in_arabic', invoice_doc.customer_name)
     # customer_cr = frappe.db.get_value('Customer', invoice_doc.customer, 'cr') if invoice_doc.customer else '-'
@@ -570,7 +570,6 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     ]
     
     for i, (label, seller_val, seller_val_arabic, arabic_label) in enumerate(details_data):
-        # Calculate the maximum height needed for this row
         max_height = base_cell_height
         
         # Check each cell content and calculate required height
@@ -589,7 +588,7 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
         _draw_table_cell_with_wrapping(c, margin_x + detail_col_width, current_y, detail_col_width, max_height, 
                         str(seller_val), font_name, 7)
         _draw_table_cell_with_wrapping(c, margin_x + detail_col_width * 2, current_y, detail_col_width, max_height, 
-                        str(seller_val_arabic), font_name, 7, 'right')  # Arabic value
+                        str(seller_val_arabic), font_name, 7, 'right') 
         _draw_table_cell_with_wrapping(c, margin_x + detail_col_width * 3, current_y, detail_col_width, max_height, 
                         arabic_label, font_name, 7, 'right')  # Arabic label
         
@@ -601,9 +600,9 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
             _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width, current_y, detail_col_width, max_height, 
                             str(buyer_val), font_name, 7)
             _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width * 2, current_y, detail_col_width, max_height, 
-                            str(buyer_val_arabic), font_name, 7, 'right')  # Arabic value
+                            str(buyer_val_arabic), font_name, 7, 'right')
             _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width * 3, current_y, detail_col_width, max_height, 
-                            buyer_arabic_label, font_name, 7, 'right')  # Arabic label
+                            buyer_arabic_label, font_name, 7, 'right')
         
         current_y -= max_height
     
@@ -857,16 +856,93 @@ def _draw_tax_summary(c, invoice_doc, width, margin_x, y, font_name):
     return current_y - cell_height - 20
 
 
-def _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name):
-    """Draw bank details section with dynamic height expansion."""
-    base_cell_height = 15
-    table_width = width - 2 * margin_x  # Full width between margins
-    current_y = check_page_break(c, y, height, 150, font_name, 9, False, invoice_doc)
+# def _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name):
+#     """Draw bank details section with dynamic height expansion."""
+#     base_cell_height = 15
+#     table_width = width - 2 * margin_x  # Full width between margins
+#     current_y = check_page_break(c, y, height, 150, font_name, 9, False, invoice_doc)
     
-    # Bank details header
+#     # Bank details header
+#     _draw_table_cell_with_wrapping(
+#         c, margin_x, current_y, table_width/2, base_cell_height,
+#         "Bank Details (USD)", font_name, 8, bg_color=colors.lightgrey, auto_height=True
+#     )
+#     _draw_table_cell_with_wrapping(
+#         c, margin_x + table_width/2, current_y, table_width/2, base_cell_height,
+#         "التفاصيل المصرفية", font_name, 8, 'right', colors.lightgrey, auto_height=True
+#     )
+#     current_y -= base_cell_height
+
+#     # Bank details data
+#     bank_details = [
+#         ("Account Name", "اسم الحساب المصرفي", "Renewable Energy Petrochemicals Factory Co Ltd", "شركة مصنع مواد الطاقة المتجددة للبتروكيماويات المحدودة"),
+#         ("Bank Name", "اسم البنك", "Banque Saudi Fransi", "البنك السعودي الفرنسي"),
+#         ("IBAN", "رقم الآيبان", "SA56 5500 0000 0995 4870 0220", "SA56 5500 0000 0995 4870 0220"),
+#         ("Swift Code", "رمز السويفت", "BSFRSARIXXX", "BSFRSARIXXX")
+#     ]
+
+#     bank_col_width = table_width / 4
+
+#     for english_label, arabic_label, english_value, arabic_value in bank_details:
+        
+#         # First pass: calculate required height
+#         max_height = base_cell_height
+#         row_data = [english_label, english_value, arabic_value, arabic_label]
+#         for content, w in zip(row_data, [bank_col_width] * 4):
+#             content_width = w - 10
+#             avg_char_width = stringWidth('A', font_name, 7)
+#             chars_per_line = max(1, int(content_width / avg_char_width))
+#             lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
+#             content_height = lines_needed * (9 + 2) + 4  # font + spacing + padding
+#             max_height = max(max_height, content_height)
+
+#         # Second pass: draw row with dynamic height
+#         _draw_table_cell_with_wrapping(
+#             c, margin_x, current_y, bank_col_width, max_height,
+#             english_label, font_name, 7, bg_color=colors.white, auto_height=True
+#         )
+#         _draw_table_cell_with_wrapping(
+#             c, margin_x + bank_col_width, current_y, bank_col_width, max_height,
+#             english_value, font_name, 7, 'center', auto_height=True
+#         )
+#         _draw_table_cell_with_wrapping(
+#             c, margin_x + 2*bank_col_width, current_y, bank_col_width, max_height,
+#             arabic_value, font_name, 7, 'center', auto_height=True
+#         )
+#         _draw_table_cell_with_wrapping(
+#             c, margin_x + 3*bank_col_width, current_y, bank_col_width, max_height,
+#             arabic_label, font_name, 7, 'right', colors.white, auto_height=True
+#         )
+
+#         current_y -= max_height
+
+#     return current_y - 20
+def _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name):
+    """Draw bank details section dynamically from Bank Account doctype, only if custom_display_in_pdf is ticked."""
+    base_cell_height = 15
+    table_width = width - 2 * margin_x  
+    current_y = check_page_break(c, y, height, 150, font_name, 9, False, invoice_doc)
+
+    # Fetch bank accounts with display flag
+    bank_accounts = frappe.get_all(
+        "Bank Account",
+        filters={"custom_display_in_pdf": 1},
+        fields=["account_name", "custom_account_name_in_arabic", "bank", "iban"]
+    )
+
+    if not bank_accounts:
+        # No accounts with ticked flag -> skip table
+        return y  
+
+    # Add swift_number from Bank master
+    for ba in bank_accounts:
+        ba["swift_number"] = safe_get_value("Bank", ba.bank, "swift_number")
+        ba["custom_bank_name_in_arabic"] = safe_get_value("Bank", ba.bank,"custom_bank_name_in_arabic")
+
+    # Table header
     _draw_table_cell_with_wrapping(
         c, margin_x, current_y, table_width/2, base_cell_height,
-        "Bank Details (USD)", font_name, 8, bg_color=colors.lightgrey, auto_height=True
+        "Bank Details", font_name, 8, bg_color=colors.lightgrey, auto_height=True
     )
     _draw_table_cell_with_wrapping(
         c, margin_x + table_width/2, current_y, table_width/2, base_cell_height,
@@ -874,48 +950,39 @@ def _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name):
     )
     current_y -= base_cell_height
 
-    # Bank details data
-    bank_details = [
-        ("Account Name", "اسم الحساب المصرفي", "Renewable Energy Petrochemicals Factory Co Ltd", "شركة مصنع مواد الطاقة المتجددة للبتروكيماويات المحدودة"),
-        ("Bank Name", "اسم البنك", "Banque Saudi Fransi", "البنك السعودي الفرنسي"),
-        ("IBAN", "رقم الآيبان", "SA56 5500 0000 0995 4870 0220", "SA56 5500 0000 0995 4870 0220"),
-        ("Swift Code", "رمز السويفت", "BSFRSARIXXX", "BSFRSARIXXX")
-    ]
-
     bank_col_width = table_width / 4
 
-    for english_label, arabic_label, english_value, arabic_value in bank_details:
-        
-        # First pass: calculate required height
-        max_height = base_cell_height
-        row_data = [english_label, english_value, arabic_value, arabic_label]
-        for content, w in zip(row_data, [bank_col_width] * 4):
-            content_width = w - 10
-            avg_char_width = stringWidth('A', font_name, 7)
-            chars_per_line = max(1, int(content_width / avg_char_width))
-            lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
-            content_height = lines_needed * (9 + 2) + 4  # font + spacing + padding
-            max_height = max(max_height, content_height)
+    for ba in bank_accounts:
+        bank_details = [
+            ("Account Name", "اسم الحساب المصرفي", ba.account_name, ba.custom_account_name_in_arabic or "-"),
+            ("Bank Name", "اسم البنك", ba.bank or "-", ba.custom_bank_name_in_arabic or "-"),
+            ("IBAN", "رقم الآيبان", ba.iban or "-", ba.iban or "-"),
+            ("Swift Code", "رمز السويفت", ba.swift_number or "-", ba.swift_number or "-")
+        ]
 
-        # Second pass: draw row with dynamic height
-        _draw_table_cell_with_wrapping(
-            c, margin_x, current_y, bank_col_width, max_height,
-            english_label, font_name, 7, bg_color=colors.white, auto_height=True
-        )
-        _draw_table_cell_with_wrapping(
-            c, margin_x + bank_col_width, current_y, bank_col_width, max_height,
-            english_value, font_name, 7, 'center', auto_height=True
-        )
-        _draw_table_cell_with_wrapping(
-            c, margin_x + 2*bank_col_width, current_y, bank_col_width, max_height,
-            arabic_value, font_name, 7, 'center', auto_height=True
-        )
-        _draw_table_cell_with_wrapping(
-            c, margin_x + 3*bank_col_width, current_y, bank_col_width, max_height,
-            arabic_label, font_name, 7, 'right', colors.white, auto_height=True
-        )
+        for english_label, arabic_label, english_value, arabic_value in bank_details:
+            # Calculate dynamic row height
+            max_height = base_cell_height
+            row_data = [english_label, english_value, arabic_value, arabic_label]
+            for content, w in zip(row_data, [bank_col_width] * 4):
+                content_width = w - 10
+                avg_char_width = stringWidth('A', font_name, 7)
+                chars_per_line = max(1, int(content_width / avg_char_width))
+                lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
+                content_height = lines_needed * (9 + 2) + 4  
+                max_height = max(max_height, content_height)
 
-        current_y -= max_height
+            # Draw the row
+            _draw_table_cell_with_wrapping(c, margin_x, current_y, bank_col_width, max_height,
+                                           english_label, font_name, 7, bg_color=colors.white, auto_height=True)
+            _draw_table_cell_with_wrapping(c, margin_x + bank_col_width, current_y, bank_col_width, max_height,
+                                           english_value, font_name, 7, 'center', auto_height=True)
+            _draw_table_cell_with_wrapping(c, margin_x + 2*bank_col_width, current_y, bank_col_width, max_height,
+                                           arabic_value, font_name, 7, 'center', auto_height=True)
+            _draw_table_cell_with_wrapping(c, margin_x + 3*bank_col_width, current_y, bank_col_width, max_height,
+                                           arabic_label, font_name, 7, 'right', colors.white, auto_height=True)
+
+            current_y -= max_height
 
     return current_y - 20
 

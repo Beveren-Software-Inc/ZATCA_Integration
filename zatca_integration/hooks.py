@@ -186,6 +186,11 @@ fixtures = [
         "Sales Taxes and Charges Template-custom_zero_rate_reason",
         "Sales Taxes and Charges Template-custom_tax_type",
         
+        #Bank and Bank account
+        "Bank-custom_bank_name_in_arabic",
+        "Bank Account-custom_display_in_pdf",
+        "Bank Account-custom_account_name_in_arabic"
+        
 ]]]},
 
     # Property Setters
