@@ -4,6 +4,7 @@ Generate PDF/A-3A compliant PDF for Frappe Sales Invoice with embedded XML
 This method integrates with ERPNext Sales Invoice to create compliant PDFs
 """
 import os
+import re
 import tempfile
 from datetime import datetime, timezone
 import frappe
@@ -183,30 +184,6 @@ def check_page_break(c, y, height, margin_y=100, font_name="Helvetica", font_siz
     
     return y
 
-# def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=9, align='left', bg_color=None):
-#     """Helper function to draw bordered table cell with optional background color."""
-#     if bg_color:
-#         c.setFillColor(bg_color)
-#         c.rect(x, y-h, w, h, fill=1)
-#         c.setFillColor(black)
-    
-#     c.rect(x, y-h, w, h, fill=0)
-#     c.setFont(font_name, font_size)
-    
-#     # Handle multi-line text
-#     text_str = str(text)
-#     lines = text_str.split('\n')
-#     line_height = font_size + 2
-    
-#     for i, line in enumerate(lines):
-#         text_y = y - h/2 - font_size/3 + (len(lines)/2 - i - 0.5) * line_height
-        
-#         if align == 'center':
-#             c.drawCentredString(x + w/2, text_y, line)
-#         elif align == 'right':
-#             c.drawRightString(x + w - 5, text_y, line)
-#         else:
-#             c.drawString(x + 5, text_y, line)
 
 def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=7, align='left', bg_color=None):
     """Helper function to draw bordered table cell with optional background color."""
@@ -494,6 +471,19 @@ def _draw_table_cell_with_wrapping(c, x, y, w, h, text, font_name, font_size=7, 
     
     return cell_height
 
+def safe_get_value(doctype, name, fieldname):
+    try:
+        meta = frappe.get_meta(doctype)
+        fieldnames = [df.fieldname for df in meta.fields]
+
+        if fieldname in fieldnames:
+            return frappe.db.get_value(doctype, name, fieldname) or "-"
+        else:
+            return "-"
+    except Exception:
+        return "-"
+
+
 def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     """Draw seller and buyer information section with text wrapping."""
     base_cell_height = 15
@@ -514,9 +504,9 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     current_y -= base_cell_height
     
     # Fetch address details from linked Address records
-    company_name_arabic = frappe.db.get_value('Company', invoice_doc.company, 'company_name_in_arabic')
-    company_tax_id = frappe.db.get_value('Company', invoice_doc.company, 'tax_id')
-    company_cr_number = frappe.db.get_value('Company', invoice_doc.company, 'cr_number')
+    company_name_arabic = safe_get_value("Company", invoice_doc.company, "company_name_in_arabic")
+    company_tax_id = safe_get_value("Company", invoice_doc.company, "tax_id")
+    company_cr_number = safe_get_value("Company", invoice_doc.company, "cr_number")
     
     # Get company address details
     company_address_title = frappe.db.get_value('Address', invoice_doc.company_address, 'address_title') if invoice_doc.company_address else '-'
@@ -532,21 +522,25 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     company_additional_number = frappe.db.get_value('Address', invoice_doc.company_address, 'additional_number') if invoice_doc.company_address else '-'
     
     # Get customer address details
-    customer_name_arabic = getattr(invoice_doc, 'customer_name_in_arabic', invoice_doc.customer_name)
-    customer_cr = frappe.db.get_value('Customer', invoice_doc.customer, 'cr') if invoice_doc.customer else '-'
+    # customer_name_arabic = getattr(invoice_doc, 'customer_name_in_arabic', invoice_doc.customer_name)
+    # customer_cr = frappe.db.get_value('Customer', invoice_doc.customer, 'cr') if invoice_doc.customer else '-'
+    customer_name_arabic = safe_get_value("Sales Invoice", invoice_doc.name, "customer_name_in_arabic") or invoice_doc.customer_name
+    customer_cr = safe_get_value("Customer", invoice_doc.customer, "cr") if invoice_doc.customer else "-"
+
     
-    customer_address_title = frappe.db.get_value('Address', invoice_doc.customer_address, 'address_title') if invoice_doc.customer_address else '-'
-    customer_address_line1 = frappe.db.get_value('Address', invoice_doc.customer_address, 'address_line1') if invoice_doc.customer_address else '-'
-    customer_address_line1_arabic = frappe.db.get_value('Address', invoice_doc.customer_address, 'address_line_1_in_arabic') if invoice_doc.customer_address else '-'
-    customer_address_line2 = frappe.db.get_value('Address', invoice_doc.customer_address, 'address_line2') if invoice_doc.customer_address else '-'
-    customer_address_line2_arabic = frappe.db.get_value('Address', invoice_doc.customer_address, 'address_line_2_in_arabic') if invoice_doc.customer_address else '-'
-    customer_city = frappe.db.get_value('Address', invoice_doc.customer_address, 'city') if invoice_doc.customer_address else '-'
-    customer_city_arabic = frappe.db.get_value('Address', invoice_doc.customer_address, 'city_in_arabic') if invoice_doc.customer_address else '-'
-    customer_country = frappe.db.get_value('Address', invoice_doc.customer_address, 'country') if invoice_doc.customer_address else '-'
-    customer_country_arabic = frappe.db.get_value('Address', invoice_doc.customer_address, 'county_in_arabic') if invoice_doc.customer_address else '-'
-    customer_pincode = frappe.db.get_value('Address', invoice_doc.customer_address, 'pincode') if invoice_doc.customer_address else '-'
-    customer_additional_number = frappe.db.get_value('Address', invoice_doc.customer_address, 'additional_number') if invoice_doc.customer_address else '-'
-    
+    customer_address_title = safe_get_value("Address", invoice_doc.customer_address, "address_title")
+    customer_address_line1 = safe_get_value("Address", invoice_doc.customer_address, "address_line1")
+    customer_address_line1_arabic = safe_get_value("Address", invoice_doc.customer_address, "address_line_1_in_arabic")
+    customer_address_line2 = safe_get_value("Address", invoice_doc.customer_address, "address_line2")
+    customer_address_line2_arabic = safe_get_value("Address", invoice_doc.customer_address, "address_line_2_in_arabic")
+    customer_city = safe_get_value("Address", invoice_doc.customer_address, "city")
+    customer_city_arabic = safe_get_value("Address", invoice_doc.customer_address, "city_in_arabic")
+    customer_country = safe_get_value("Address", invoice_doc.customer_address, "country")
+    customer_country_arabic = safe_get_value("Address", invoice_doc.customer_address, "county_in_arabic")
+    customer_pincode = safe_get_value("Address", invoice_doc.customer_address, "pincode")
+    customer_additional_number = safe_get_value("Address", invoice_doc.customer_address, "additional_number")
+
+
     # Seller and Buyer details - Format: Label, Value, Arabic Value, Arabic Label
     details_data = [
         ("Name:", invoice_doc.company, company_name_arabic or '-', "الاسم"),
@@ -614,7 +608,6 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     
     return current_y - 20
 
-import re
 
 def strip_html_tags(text):
     """Remove HTML tags from text and return plain text."""
