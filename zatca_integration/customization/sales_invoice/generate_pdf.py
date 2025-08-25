@@ -332,7 +332,7 @@ def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     # Row data for invoice details
     delivery_note = getattr(invoice_doc.items[0], 'delivery_note', '') if invoice_doc.items else ''
     delivery_note = delivery_note if delivery_note else '-'
-    supply_date = getattr(invoice_doc, 'custom_date_of_supply', '') or '-'
+    supply_date = frappe.utils.get_datetime(frappe.db.get_value('Delivery Note', invoice_doc.items[0].delivery_note, 'posting_date')).strftime("%d-%m-%Y") or '-'
     
     rows_data = [
         ["Invoice No:", invoice_doc.name, "رقم الفاتورة", "Issue Date:", str(invoice_doc.posting_date), "تاريخ إصدار الفاتورة"],
