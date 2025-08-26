@@ -103,7 +103,7 @@
   "doctype_or_field": "DocField",
   "field_name": "pincode",
   "is_system_generated": 0,
-  "modified": "2025-08-21 09:18:52.947789",
+  "modified": "2025-08-25 17:50:55.616615",
   "module": null,
   "name": "Address-pincode-reqd",
   "property": "reqd",

@@ -37,15 +37,152 @@ height = A4
 regular = str(font_dir / "DejaVuSans.ttf")
 helvetica = str(font_dir / "Helvetica.ttf")
 helvetica_bold = str(font_dir / "Helvetica-Bold.ttf")
+amiri_regular = str(font_dir / "Amiri-Regular.ttf")
+amiri_bold = str(font_dir / "Amiri-Bold.ttf")
+cairo_regular = str(font_dir / "Cairo-Regular.ttf")
+cairo_bold = str(font_dir / "Cairo-Bold.ttf")
+
 EMBEDDED_SRGB_ICC = icc_2014
-EMBEDDED_FONT_TTF = regular
+# EMBEDDED_FONT_TTF = regular
+EMBEDDED_FONT_TTF = cairo_regular
 template_dir = str( template_dir / "invoice.html")
+
 
 
 # Register the font files you already placed in zatca_integration/public/fonts
 pdfmetrics.registerFont(TTFont("HelveticaVCA", helvetica))        
 pdfmetrics.registerFont(TTFont("HelveticaVCA-Bold", helvetica_bold))  
 
+pdfmetrics.registerFont(TTFont("Amiri", amiri_regular))
+pdfmetrics.registerFont(TTFont("Amiri-Bold", amiri_bold))
+
+pdfmetrics.registerFont(TTFont("Cairo", cairo_regular))
+pdfmetrics.registerFont(TTFont("Cairo-Bold", cairo_bold))
+
+# Arabic text detection and processing functions
+def is_arabic_text(text):
+    """
+    Detect if text contains Arabic characters.
+    Returns True if text contains Arabic characters.
+    """
+    if not text:
+        return False
+    
+    text_str = str(text)
+    # Arabic Unicode ranges: 0x0600-0x06FF (Arabic), 0x0750-0x077F (Arabic Supplement)
+    arabic_pattern = re.compile(r'[\u0600-\u06FF\u0750-\u077F]')
+    return bool(arabic_pattern.search(text_str))
+
+
+def has_mixed_content(text):
+    """
+    Check if text contains both Arabic and Latin characters.
+    """
+    if not text:
+        return False
+    
+    text_str = str(text)
+    has_arabic = is_arabic_text(text_str)
+    has_latin = bool(re.search(r'[a-zA-Z]', text_str))
+    
+    return has_arabic and has_latin
+
+def get_appropriate_font(text, base_font_name="EmbeddedTTF", arabic_font_name="Amiri"):
+    """
+    Return appropriate font name based on text content.
+    """
+    if is_arabic_text(text):
+        # Check if Amiri font is available
+        try:
+            pdfmetrics.getFont(arabic_font_name)
+            return arabic_font_name
+        except:
+            # Fallback to base font if Amiri not available
+            return base_font_name
+    return base_font_name
+
+def process_bidi_text(text):
+    """
+    Process bidirectional text (Arabic + English).
+    This is a simplified version - for production, consider using python-bidi library.
+    """
+    if not text or not has_mixed_content(text):
+        return str(text)
+    
+    # Simple approach: reverse Arabic words while keeping English words in order
+    text_str = str(text)
+    words = text_str.split()
+    processed_words = []
+    
+    for word in words:
+        if is_arabic_text(word):
+            # For Arabic words, we might need to reverse character order
+            # This is very basic - proper implementation would use bidi algorithm
+            processed_words.append(word)  # Keep as-is for now
+        else:
+            processed_words.append(word)
+    
+    return ' '.join(processed_words)
+
+def get_text_alignment(text, default_align):
+    """
+    Determine text alignment based on content and default alignment.
+    Arabic text should generally be right-aligned.
+    """
+    if is_arabic_text(text):
+        return 'right'
+    return default_align
+
+def wrap_text_with_font(text, max_width, font_name, font_size):
+    """
+    Wrap text considering the specific font metrics.
+    """
+    if not text:
+        return [""]
+    
+    # Check if text fits in one line
+    if stringWidth(text, font_name, font_size) <= max_width:
+        return [text]
+    
+    # Calculate approximate characters per line based on font
+    avg_char_width = stringWidth('A', font_name, font_size)  # Use 'A' as average
+    
+    # For Arabic text, use different character for average width calculation
+    if is_arabic_text(text):
+        # Use Arabic letter 'alef' as average character width
+        avg_char_width = stringWidth('ا', font_name, font_size)
+    
+    chars_per_line = max(1, int(max_width / avg_char_width))
+    
+    # Split text respecting word boundaries
+    words = text.split()
+    lines = []
+    current_line = ""
+    
+    for word in words:
+        test_line = current_line + (" " if current_line else "") + word
+        
+        if stringWidth(test_line, font_name, font_size) <= max_width:
+            current_line = test_line
+        else:
+            if current_line:
+                lines.append(current_line)
+                current_line = word
+            else:
+                # Word is too long, force break
+                while stringWidth(word, font_name, font_size) > max_width:
+                    # Find how many characters fit
+                    for i in range(len(word), 0, -1):
+                        if stringWidth(word[:i], font_name, font_size) <= max_width:
+                            lines.append(word[:i])
+                            word = word[i:]
+                            break
+                current_line = word
+    
+    if current_line:
+        lines.append(current_line)
+    
+    return lines if lines else [""]
 
 def find_ttf_font() -> str:
     """Return a TTF path to embed. Prefer bundled DejaVuSans.ttf; otherwise try common system fonts."""
@@ -146,7 +283,7 @@ def draw_pdf_with_reportlab(temp_pdf_path: str, invoice_doc):
     
     c.save()
 
-def check_page_break(c, y, height, margin_y=100, font_name="Helvetica", font_size=9, debug=False, invoice_doc=None):
+def check_page_break(c, y, height, margin_y=100, font_name="Cairo", font_size=9, debug=False, invoice_doc=None):
     """
     Check if we need to start a new page. Return reset y if page breaks.
     Added debug parameter to print information about page break decisions.
@@ -185,36 +322,81 @@ def check_page_break(c, y, height, margin_y=100, font_name="Helvetica", font_siz
     return y
 
 
-def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=7, align='left', bg_color=None):
-    """Helper function to draw bordered table cell with optional background color."""
+# def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=7, align='left', bg_color=None):
+#     """Helper function to draw bordered table cell with optional background color."""
+#     if bg_color:
+#         c.setFillColor(bg_color)
+#         c.rect(x, y-h, w, h, fill=1)
+#         c.setFillColor(black)
+    
+#     # CHANGE THIS: Make lines thinner
+#     c.setLineWidth(0.5)  # Change from default (usually 1) to 0.5 or 0.3
+#     c.rect(x, y-h, w, h, fill=0)
+    
+#     # Reset line width after drawing
+#     c.setLineWidth(1)
+    
+#     c.setFont(font_name, font_size)
+    
+#     # Handle multi-line text
+#     text_str = str(text)
+#     lines = text_str.split('\n')
+#     line_height = font_size + 2
+    
+#     for i, line in enumerate(lines):
+#         text_y = y - h/2 - font_size/3 + (len(lines)/2 - i - 0.5) * line_height
+        
+#         if align == 'center':
+#             c.drawCentredString(x + w/2, text_y, line)
+#         elif align == 'right':
+#             c.drawRightString(x + w - 5, text_y, line)
+#         else:
+#             c.drawString(x + 5, text_y, line)
+def _draw_table_cell(c, x, y, w, h, text, base_font_name, font_size=7, align='left', bg_color=None):
+    """
+    Enhanced table cell drawing with bilingual (English/Arabic) font support.
+    Supports multi-line (split by \n).
+    """
+    if not text:
+        text = ""
+    
+    text_str = str(text)
+    lines = text_str.split('\n')   # -> ["Vendor Number", "رقم البائع"]
+    
+    # Draw background if specified
     if bg_color:
         c.setFillColor(bg_color)
         c.rect(x, y-h, w, h, fill=1)
         c.setFillColor(black)
     
-    # CHANGE THIS: Make lines thinner
-    c.setLineWidth(0.5)  # Change from default (usually 1) to 0.5 or 0.3
+    # Draw border
+    c.setLineWidth(0.5)
     c.rect(x, y-h, w, h, fill=0)
-    
-    # Reset line width after drawing
     c.setLineWidth(1)
     
-    c.setFont(font_name, font_size)
-    
-    # Handle multi-line text
-    text_str = str(text)
-    lines = text_str.split('\n')
     line_height = font_size + 2
+    total_text_height = len(lines) * line_height
+    
+    # Start drawing from vertical center
+    start_y = y - (h/2) + (total_text_height/2) - font_size
     
     for i, line in enumerate(lines):
-        text_y = y - h/2 - font_size/3 + (len(lines)/2 - i - 0.5) * line_height
+        # Pick correct font for this line
+        font_name = get_appropriate_font(line, base_font_name)
+        c.setFont(font_name, font_size)
         
-        if align == 'center':
+        text_y = start_y - i * line_height
+        
+        # Alignment
+        effective_align = get_text_alignment(line, align)
+        
+        if effective_align == 'center':
             c.drawCentredString(x + w/2, text_y, line)
-        elif align == 'right':
+        elif effective_align == 'right' or is_arabic_text(line):
             c.drawRightString(x + w - 5, text_y, line)
         else:
             c.drawString(x + 5, text_y, line)
+
 
 def add_letterhead(c, doc, page_width, page_height, top_margin=20):
     """
@@ -401,46 +583,112 @@ def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     return current_y - cell_height - 20
 
 
-def _draw_table_cell_with_wrapping(c, x, y, w, h, text, font_name, font_size=7, align='left', bg_color=None, auto_height=False):
-    """Helper function to draw bordered table cell with text wrapping for long content."""
+# def _draw_table_cell_with_wrapping(c, x, y, w, h, text, font_name, font_size=7, align='left', bg_color=None, auto_height=False):
+#     """Helper function to draw bordered table cell with text wrapping for long content."""
     
-    # Calculate available width for text (minus padding)
-    text_width = w - 10  # 5px padding on each side
+#     # Calculate available width for text (minus padding)
+#     text_width = w - 10  # 5px padding on each side
     
+#     # Handle empty or None text
+#     if not text:
+#         text = ""
+    
+#     text_str = str(text)
+    
+#     # Check if text fits in one line
+#     if stringWidth(text_str, font_name, font_size) <= text_width:
+#         lines = [text_str]
+#     else:
+#         # Calculate approximate characters per line
+#         avg_char_width = stringWidth('A', font_name, font_size)
+#         chars_per_line = int(text_width / avg_char_width)
+        
+#         # Wrap text
+#         lines = textwrap.wrap(text_str, width=chars_per_line)
+        
+#         # If still too wide, force break long words
+#         final_lines = []
+#         for line in lines:
+#             while stringWidth(line, font_name, font_size) > text_width:
+#                 # Find how many characters fit
+#                 for i in range(len(line), 0, -1):
+#                     if stringWidth(line[:i], font_name, font_size) <= text_width:
+#                         final_lines.append(line[:i])
+#                         line = line[i:]
+#                         break
+#             if line:
+#                 final_lines.append(line)
+#         lines = final_lines
+    
+#     # Calculate required height if auto_height is True
+#     line_height = font_size + 2
+#     required_height = max(h, len(lines) * line_height + 4)  # 4px total padding
+    
+#     # Use required height if auto_height, otherwise use provided height
+#     cell_height = required_height if auto_height else h
+    
+#     # Draw background if specified
+#     if bg_color:
+#         c.setFillColor(bg_color)
+#         c.rect(x, y-cell_height, w, cell_height, fill=1)
+#         c.setFillColor(black)
+    
+#     # Draw border
+#     c.setLineWidth(0.5) 
+#     c.rect(x, y-cell_height, w, cell_height, fill=0)
+#     c.setLineWidth(1)
+    
+#     # Set font
+#     c.setFont(font_name, font_size)
+    
+#     # Draw text lines
+#     for i, line in enumerate(lines):
+#         text_y = y - cell_height/2 - font_size/2 + (len(lines)/2 - i - 0.5) * line_height
+        
+#         if align == 'center':
+#             c.drawCentredString(x + w/2, text_y, line)
+#         elif align == 'right':
+#             c.drawRightString(x + w - 5, text_y, line)
+#         else:
+#             c.drawString(x + 5, text_y, line)
+    
+#     return cell_height
+
+def _draw_table_cell_with_wrapping(c, x, y, w, h, text, base_font_name, font_size=7, align='left', bg_color=None, auto_height=False):
+    """
+    Enhanced table cell drawing with Arabic font support and RTL positioning.
+    """
     # Handle empty or None text
     if not text:
         text = ""
     
     text_str = str(text)
     
-    # Check if text fits in one line
-    if stringWidth(text_str, font_name, font_size) <= text_width:
-        lines = [text_str]
-    else:
-        # Calculate approximate characters per line
-        avg_char_width = stringWidth('A', font_name, font_size)
-        chars_per_line = int(text_width / avg_char_width)
+    # Calculate available width for text (minus padding)
+    text_width = w - 10  # 5px padding on each side
+    
+    # Split by newlines first to handle explicit line breaks
+    explicit_lines = text_str.split('\n')
+    final_lines = []
+    
+    # Process each explicit line for wrapping if needed
+    for line in explicit_lines:
+        processed_line = process_bidi_text(line)
         
-        # Wrap text
-        lines = textwrap.wrap(text_str, width=chars_per_line)
-        
-        # If still too wide, force break long words
-        final_lines = []
-        for line in lines:
-            while stringWidth(line, font_name, font_size) > text_width:
-                # Find how many characters fit
-                for i in range(len(line), 0, -1):
-                    if stringWidth(line[:i], font_name, font_size) <= text_width:
-                        final_lines.append(line[:i])
-                        line = line[i:]
-                        break
-            if line:
-                final_lines.append(line)
-        lines = final_lines
+        # Check if this line fits
+        line_font = get_appropriate_font(processed_line, base_font_name)
+        if stringWidth(processed_line, line_font, font_size) <= text_width:
+            final_lines.append((processed_line, line_font))
+        else:
+            # Line needs wrapping
+            wrapped_lines = wrap_text_with_font(processed_line, text_width, line_font, font_size)
+            for wrapped_line in wrapped_lines:
+                wrapped_font = get_appropriate_font(wrapped_line, base_font_name)
+                final_lines.append((wrapped_line, wrapped_font))
     
     # Calculate required height if auto_height is True
     line_height = font_size + 2
-    required_height = max(h, len(lines) * line_height + 4)  # 4px total padding
+    required_height = max(h, len(final_lines) * line_height + 4)  # 4px total padding
     
     # Use required height if auto_height, otherwise use provided height
     cell_height = required_height if auto_height else h
@@ -452,20 +700,24 @@ def _draw_table_cell_with_wrapping(c, x, y, w, h, text, font_name, font_size=7, 
         c.setFillColor(black)
     
     # Draw border
-    c.setLineWidth(0.5) 
+    c.setLineWidth(0.5)
     c.rect(x, y-cell_height, w, cell_height, fill=0)
     c.setLineWidth(1)
     
-    # Set font
-    c.setFont(font_name, font_size)
-    
-    # Draw text lines
-    for i, line in enumerate(lines):
-        text_y = y - cell_height/2 - font_size/2 + (len(lines)/2 - i - 0.5) * line_height
+    # Draw text lines with proper alignment for Arabic/RTL content
+    for i, (line, line_font) in enumerate(final_lines):
+        # Set font for each line individually
+        c.setFont(line_font, font_size)
         
-        if align == 'center':
+        text_y = y - cell_height/2 - font_size/2 + (len(final_lines)/2 - i - 0.5) * line_height
+        
+        # Determine alignment based on text content
+        effective_align = get_text_alignment(line, align)
+        
+        if effective_align == 'center':
             c.drawCentredString(x + w/2, text_y, line)
-        elif align == 'right':
+        elif effective_align == 'right' or is_arabic_text(line):
+            # Arabic text should be right-aligned
             c.drawRightString(x + w - 5, text_y, line)
         else:
             c.drawString(x + 5, text_y, line)
@@ -510,18 +762,18 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     company_cr_number = safe_get_value("Company", invoice_doc.company, "cr_number")
     
     # Get company address details
-    company_address_title = frappe.db.get_value('Address', invoice_doc.company_address, 'address_title') if invoice_doc.company_address else '-'
-    company_address_line1 = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line1') if invoice_doc.company_address else '-'
-    company_address_line1_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line_1_in_arabic') if invoice_doc.company_address else '-'
-    company_address_line2 = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line2') if invoice_doc.company_address else '-'
-    company_address_line2_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'address_line_2_in_arabic') if invoice_doc.company_address else '-'
-    company_city = frappe.db.get_value('Address', invoice_doc.company_address, 'city') if invoice_doc.company_address else '-'
-    company_city_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'city_in_arabic') if invoice_doc.company_address else '-'
-    company_country = frappe.db.get_value('Address', invoice_doc.company_address, 'country') if invoice_doc.company_address else '-'
-    company_country_arabic = frappe.db.get_value('Address', invoice_doc.company_address, 'county_in_arabic') if invoice_doc.company_address else '-'
-    company_pincode = frappe.db.get_value('Address', invoice_doc.company_address, 'pincode') if invoice_doc.company_address else '-'
-    company_additional_number = frappe.db.get_value('Address', invoice_doc.company_address, 'additional_number') if invoice_doc.company_address else '-'
-    
+    company_address_title = safe_get_value('Address', invoice_doc.company_address, 'address_title')
+    company_address_line1 = safe_get_value('Address', invoice_doc.company_address, 'address_line1')
+    company_address_line1_arabic = safe_get_value('Address', invoice_doc.company_address, 'address_line_1_in_arabic')
+    company_address_line2 = safe_get_value('Address', invoice_doc.company_address, 'address_line2')
+    company_address_line2_arabic = safe_get_value('Address', invoice_doc.company_address, 'address_line_2_in_arabic')
+    company_city = safe_get_value('Address', invoice_doc.company_address, 'city')
+    company_city_arabic = safe_get_value('Address', invoice_doc.company_address, 'city_in_arabic')
+    company_country = safe_get_value('Address', invoice_doc.company_address, 'country')
+    company_country_arabic = safe_get_value('Address', invoice_doc.company_address, 'county_in_arabic')
+    company_pincode = safe_get_value('Address', invoice_doc.company_address, 'pincode')
+    company_additional_number = safe_get_value('Address', invoice_doc.company_address, 'additional_number')
+
     # Get customer address details
     # customer_name_arabic = getattr(invoice_doc, 'customer_name_in_arabic', invoice_doc.customer_name)
     # customer_cr = frappe.db.get_value('Customer', invoice_doc.customer, 'cr') if invoice_doc.customer else '-'
@@ -570,7 +822,6 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     ]
     
     for i, (label, seller_val, seller_val_arabic, arabic_label) in enumerate(details_data):
-        # Calculate the maximum height needed for this row
         max_height = base_cell_height
         
         # Check each cell content and calculate required height
@@ -589,7 +840,7 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
         _draw_table_cell_with_wrapping(c, margin_x + detail_col_width, current_y, detail_col_width, max_height, 
                         str(seller_val), font_name, 7)
         _draw_table_cell_with_wrapping(c, margin_x + detail_col_width * 2, current_y, detail_col_width, max_height, 
-                        str(seller_val_arabic), font_name, 7, 'right')  # Arabic value
+                        str(seller_val_arabic), font_name, 7, 'right') 
         _draw_table_cell_with_wrapping(c, margin_x + detail_col_width * 3, current_y, detail_col_width, max_height, 
                         arabic_label, font_name, 7, 'right')  # Arabic label
         
@@ -601,9 +852,9 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
             _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width, current_y, detail_col_width, max_height, 
                             str(buyer_val), font_name, 7)
             _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width * 2, current_y, detail_col_width, max_height, 
-                            str(buyer_val_arabic), font_name, 7, 'right')  # Arabic value
+                            str(buyer_val_arabic), font_name, 7, 'right')
             _draw_table_cell_with_wrapping(c, margin_x + seller_buyer_width + detail_col_width * 3, current_y, detail_col_width, max_height, 
-                            buyer_arabic_label, font_name, 7, 'right')  # Arabic label
+                            buyer_arabic_label, font_name, 7, 'right')
         
         current_y -= max_height
     
@@ -858,15 +1109,31 @@ def _draw_tax_summary(c, invoice_doc, width, margin_x, y, font_name):
 
 
 def _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name):
-    """Draw bank details section with dynamic height expansion."""
+    """Draw bank details section dynamically from Bank Account doctype, only if custom_display_in_pdf is ticked."""
     base_cell_height = 15
-    table_width = width - 2 * margin_x  # Full width between margins
+    table_width = width - 2 * margin_x  
     current_y = check_page_break(c, y, height, 150, font_name, 9, False, invoice_doc)
-    
-    # Bank details header
+
+    # Fetch bank accounts with display flag
+    bank_accounts = frappe.get_all(
+        "Bank Account",
+        filters={"custom_display_in_pdf": 1},
+        fields=["account_name", "custom_account_name_in_arabic", "bank", "iban"]
+    )
+
+    if not bank_accounts:
+        # No accounts with ticked flag -> skip table
+        return y  
+
+    # Add swift_number from Bank master
+    for ba in bank_accounts:
+        ba["swift_number"] = safe_get_value("Bank", ba.bank, "swift_number")
+        ba["custom_bank_name_in_arabic"] = safe_get_value("Bank", ba.bank,"custom_bank_name_in_arabic")
+
+    # Table header
     _draw_table_cell_with_wrapping(
         c, margin_x, current_y, table_width/2, base_cell_height,
-        "Bank Details (USD)", font_name, 8, bg_color=colors.lightgrey, auto_height=True
+        "Bank Details", font_name, 8, bg_color=colors.lightgrey, auto_height=True
     )
     _draw_table_cell_with_wrapping(
         c, margin_x + table_width/2, current_y, table_width/2, base_cell_height,
@@ -874,48 +1141,39 @@ def _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name):
     )
     current_y -= base_cell_height
 
-    # Bank details data
-    bank_details = [
-        ("Account Name", "اسم الحساب المصرفي", "Renewable Energy Petrochemicals Factory Co Ltd", "شركة مصنع مواد الطاقة المتجددة للبتروكيماويات المحدودة"),
-        ("Bank Name", "اسم البنك", "Banque Saudi Fransi", "البنك السعودي الفرنسي"),
-        ("IBAN", "رقم الآيبان", "SA56 5500 0000 0995 4870 0220", "SA56 5500 0000 0995 4870 0220"),
-        ("Swift Code", "رمز السويفت", "BSFRSARIXXX", "BSFRSARIXXX")
-    ]
-
     bank_col_width = table_width / 4
 
-    for english_label, arabic_label, english_value, arabic_value in bank_details:
-        
-        # First pass: calculate required height
-        max_height = base_cell_height
-        row_data = [english_label, english_value, arabic_value, arabic_label]
-        for content, w in zip(row_data, [bank_col_width] * 4):
-            content_width = w - 10
-            avg_char_width = stringWidth('A', font_name, 7)
-            chars_per_line = max(1, int(content_width / avg_char_width))
-            lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
-            content_height = lines_needed * (9 + 2) + 4  # font + spacing + padding
-            max_height = max(max_height, content_height)
+    for ba in bank_accounts:
+        bank_details = [
+            ("Account Name", "اسم الحساب المصرفي", ba.account_name, ba.custom_account_name_in_arabic or "-"),
+            ("Bank Name", "اسم البنك", ba.bank or "-", ba.custom_bank_name_in_arabic or "-"),
+            ("IBAN", "رقم الآيبان", ba.iban or "-", ba.iban or "-"),
+            ("Swift Code", "رمز السويفت", ba.swift_number or "-", ba.swift_number or "-")
+        ]
 
-        # Second pass: draw row with dynamic height
-        _draw_table_cell_with_wrapping(
-            c, margin_x, current_y, bank_col_width, max_height,
-            english_label, font_name, 7, bg_color=colors.white, auto_height=True
-        )
-        _draw_table_cell_with_wrapping(
-            c, margin_x + bank_col_width, current_y, bank_col_width, max_height,
-            english_value, font_name, 7, 'center', auto_height=True
-        )
-        _draw_table_cell_with_wrapping(
-            c, margin_x + 2*bank_col_width, current_y, bank_col_width, max_height,
-            arabic_value, font_name, 7, 'center', auto_height=True
-        )
-        _draw_table_cell_with_wrapping(
-            c, margin_x + 3*bank_col_width, current_y, bank_col_width, max_height,
-            arabic_label, font_name, 7, 'right', colors.white, auto_height=True
-        )
+        for english_label, arabic_label, english_value, arabic_value in bank_details:
+            # Calculate dynamic row height
+            max_height = base_cell_height
+            row_data = [english_label, english_value, arabic_value, arabic_label]
+            for content, w in zip(row_data, [bank_col_width] * 4):
+                content_width = w - 10
+                avg_char_width = stringWidth('A', font_name, 7)
+                chars_per_line = max(1, int(content_width / avg_char_width))
+                lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
+                content_height = lines_needed * (9 + 2) + 4  
+                max_height = max(max_height, content_height)
 
-        current_y -= max_height
+            # Draw the row
+            _draw_table_cell_with_wrapping(c, margin_x, current_y, bank_col_width, max_height,
+                                           english_label, font_name, 7, bg_color=colors.white, auto_height=True)
+            _draw_table_cell_with_wrapping(c, margin_x + bank_col_width, current_y, bank_col_width, max_height,
+                                           english_value, font_name, 7, 'center', auto_height=True)
+            _draw_table_cell_with_wrapping(c, margin_x + 2*bank_col_width, current_y, bank_col_width, max_height,
+                                           arabic_value, font_name, 7, 'center', auto_height=True)
+            _draw_table_cell_with_wrapping(c, margin_x + 3*bank_col_width, current_y, bank_col_width, max_height,
+                                           arabic_label, font_name, 7, 'right', colors.white, auto_height=True)
+
+            current_y -= max_height
 
     return current_y - 20
 
