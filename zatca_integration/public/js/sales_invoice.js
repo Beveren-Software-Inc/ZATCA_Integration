@@ -472,8 +472,8 @@ function zatca_embed_qr_in_pdf(frm) {
                         label: "Print Format",
                         fieldname: "print_format",
                         fieldtype: "Select",
-                        options: "Zatca PDF-A 3B",
-                        default: "Zatca PDF-A 3B",
+                        options: "Zatca PDF-A 3A",
+                        default: "Zatca PDF-A 3A",
                         read_only: 1,
                     },
                    
