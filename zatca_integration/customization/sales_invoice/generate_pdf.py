@@ -26,6 +26,8 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 import pikepdf
 from pikepdf import Name, Dictionary, Array, String
 from pathlib import Path
+import arabic_reshaper
+from bidi.algorithm import get_display
 
 # Configuration paths
 font_dir = Path(frappe.get_app_path("zatca_integration", "public", "fonts"))
@@ -41,6 +43,11 @@ amiri_regular = str(font_dir / "Amiri-Regular.ttf")
 amiri_bold = str(font_dir / "Amiri-Bold.ttf")
 cairo_regular = str(font_dir / "Cairo-Regular.ttf")
 cairo_bold = str(font_dir / "Cairo-Bold.ttf")
+pdf = str(font_dir / "REPC-SRET-000001.pdf")
+
+san_serif = str(font_dir / "san_seriff.ttf")
+noto_sans = str(font_dir / "NotoSans.ttf")
+plex_regular = str(font_dir / "Plex-Regular.ttf")
 
 EMBEDDED_SRGB_ICC = icc_2014
 # EMBEDDED_FONT_TTF = regular
@@ -59,6 +66,11 @@ pdfmetrics.registerFont(TTFont("Amiri-Bold", amiri_bold))
 pdfmetrics.registerFont(TTFont("Cairo", cairo_regular))
 pdfmetrics.registerFont(TTFont("Cairo-Bold", cairo_bold))
 
+pdfmetrics.registerFont(TTFont("San-Serif", san_serif))
+pdfmetrics.registerFont(TTFont("NotoSan", noto_sans))
+
+
+
 # Arabic text detection and processing functions
 def is_arabic_text(text):
     """
@@ -73,6 +85,20 @@ def is_arabic_text(text):
     arabic_pattern = re.compile(r'[\u0600-\u06FF\u0750-\u077F]')
     return bool(arabic_pattern.search(text_str))
 
+# def prepare_arabic_text(text: str) -> str:
+#     """Reshape and reorder Arabic text for correct PDF display."""
+#     if not text:
+#         return ""
+#     reshaped_text = arabic_reshaper.reshape(text)  
+#     bidi_text = get_display(reshaped_text)  # Reorder for RTL
+#     return sanitize_text(bidi_text)
+
+# def sanitize_text(text: str) -> str:
+#     if not text:
+#         return ""
+#     # Remove forbidden Unicode code points for PDF/A
+#     return "".join(ch for ch in text if ch not in ['\uFEFF', '\uFFFE'])
+
 
 def has_mixed_content(text):
     """
@@ -84,7 +110,6 @@ def has_mixed_content(text):
     text_str = str(text)
     has_arabic = is_arabic_text(text_str)
     has_latin = bool(re.search(r'[a-zA-Z]', text_str))
-    
     return has_arabic and has_latin
 
 def get_appropriate_font(text, base_font_name="EmbeddedTTF", arabic_font_name="Amiri"):
@@ -322,74 +347,93 @@ def check_page_break(c, y, height, margin_y=100, font_name="Cairo", font_size=9,
     return y
 
 
-# def _draw_table_cell(c, x, y, w, h, text, font_name, font_size=7, align='left', bg_color=None):
-#     """Helper function to draw bordered table cell with optional background color."""
+# def _draw_table_cell(c, x, y, w, h, text, base_font_name, font_size=7, align='left', bg_color=None):
+#     """
+#     Enhanced table cell drawing with bilingual (English/Arabic) font support.
+#     Supports multi-line (split by \n).
+#     """
+#     if not text:
+#         text = ""
+
+#     # Always normalize text
+#     text_str = str(text)
+#     if is_arabic_text(text_str):
+#         text_str = fix_arabic_words_for_pdf(text_str)
+
+#     lines = text_str.split('\n')   # -> ["Vendor Number", "رقم البائع"]
+
+#     # Background if specified
 #     if bg_color:
 #         c.setFillColor(bg_color)
 #         c.rect(x, y-h, w, h, fill=1)
 #         c.setFillColor(black)
-    
-#     # CHANGE THIS: Make lines thinner
-#     c.setLineWidth(0.5)  # Change from default (usually 1) to 0.5 or 0.3
+
+#     # Border
+#     c.setLineWidth(0.5)
 #     c.rect(x, y-h, w, h, fill=0)
-    
-#     # Reset line width after drawing
 #     c.setLineWidth(1)
-    
-#     c.setFont(font_name, font_size)
-    
-#     # Handle multi-line text
-#     text_str = str(text)
-#     lines = text_str.split('\n')
+
 #     line_height = font_size + 2
-    
+#     total_text_height = len(lines) * line_height
+#     start_y = y - (h/2) + (total_text_height/2) - font_size
+
 #     for i, line in enumerate(lines):
-#         text_y = y - h/2 - font_size/3 + (len(lines)/2 - i - 0.5) * line_height
-        
-#         if align == 'center':
+#         # Choose correct font
+#         font_name = get_appropriate_font(line, base_font_name)
+#         c.setFont(font_name, font_size)
+
+#         text_y = start_y - i * line_height
+#         effective_align = get_text_alignment(line, align)
+
+#         if effective_align == 'center':
 #             c.drawCentredString(x + w/2, text_y, line)
-#         elif align == 'right':
+#         elif effective_align == 'right' or is_arabic_text(line):
 #             c.drawRightString(x + w - 5, text_y, line)
 #         else:
 #             c.drawString(x + 5, text_y, line)
 def _draw_table_cell(c, x, y, w, h, text, base_font_name, font_size=7, align='left', bg_color=None):
     """
     Enhanced table cell drawing with bilingual (English/Arabic) font support.
-    Supports multi-line (split by \n).
+    Supports multi-line (split by \n) with proper Arabic handling per line.
     """
     if not text:
         text = ""
-    
+
     text_str = str(text)
-    lines = text_str.split('\n')   # -> ["Vendor Number", "رقم البائع"]
-    
-    # Draw background if specified
+    lines = text_str.split('\n')  # Split first, then process each line
+
+    # Process each line separately for Arabic
+    processed_lines = []
+    for line in lines:
+        if is_arabic_text(line):
+            processed_line = fix_arabic_words_for_pdf(line)
+        else:
+            processed_line = line
+        processed_lines.append(processed_line)
+
+    # Background if specified
     if bg_color:
         c.setFillColor(bg_color)
         c.rect(x, y-h, w, h, fill=1)
         c.setFillColor(black)
-    
-    # Draw border
+
+    # Border
     c.setLineWidth(0.5)
     c.rect(x, y-h, w, h, fill=0)
     c.setLineWidth(1)
-    
+
     line_height = font_size + 2
-    total_text_height = len(lines) * line_height
-    
-    # Start drawing from vertical center
+    total_text_height = len(processed_lines) * line_height
     start_y = y - (h/2) + (total_text_height/2) - font_size
-    
-    for i, line in enumerate(lines):
-        # Pick correct font for this line
+
+    for i, line in enumerate(processed_lines):
+        # Choose correct font
         font_name = get_appropriate_font(line, base_font_name)
         c.setFont(font_name, font_size)
-        
+
         text_y = start_y - i * line_height
-        
-        # Alignment
         effective_align = get_text_alignment(line, align)
-        
+
         if effective_align == 'center':
             c.drawCentredString(x + w/2, text_y, line)
         elif effective_align == 'right' or is_arabic_text(line):
@@ -471,7 +515,46 @@ def add_letterhead(c, doc, page_width, page_height, top_margin=20):
     return y_after
 
 
+def fix_arabic_words_for_pdf(text):
+    if not text:
+        return text
+    if '\n' in text:
+        return '\n'.join(fix_arabic_words_for_pdf(line) for line in text.split('\n'))
     
+    # Properly reorder mixed text
+    return get_display(text)
+
+# def fix_arabic_words_for_pdf(text):
+#     """
+#     Reverse only Arabic words, keep English words in original order.
+#     Better for mixed Arabic-English content.
+#     """
+#     if not text:
+#         return text
+    
+#     # Don't process if text contains newlines - handle line by line instead
+#     if '\n' in text:
+#         lines = text.split('\n')
+#         return '\n'.join(fix_arabic_words_for_pdf(line) for line in lines)
+    
+#     words = str(text).split()
+#     fixed_words = []
+#     frappe.throw(str(get_display("Saudi Arabian Oil Co. (ARAMCO)")))
+#     for word in words:
+#         # Check if word contains Arabic characters
+#         has_arabic = any('\u0600' <= char <= '\u06FF' or '\u0750' <= char <= '\u077F' for char in word)
+        
+#         if has_arabic:
+#             # Reverse Arabic words
+#             fixed_words.append(word[::-1])
+#         else:
+#             # Keep English words as-is
+#             fixed_words.append(word)
+    
+#     return ' '.join(fixed_words)
+
+
+
 def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     """Draw the header section including invoice details and QR code."""
     cell_height = 15
@@ -482,8 +565,14 @@ def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     # Invoice title
     c.setFont(font_name, 8)
     c.setFillColor(black)
-    c.drawCentredString(width/2, y, "Tax Invoice - فاتورة ضريبية")
+    arabic_text = fix_arabic_words_for_pdf("فاتورة ضريبية")
+    
+    c.drawCentredString(width/2, y, f"Tax Invoice - {arabic_text}")
+
+    #c.drawCentredString(width/2, y, f"Tax Invoice - 'فاتورة ضريبية'")
+
     y -= 30
+
     
     # Invoice details table (left side) - 6 columns with dynamic height
     col_widths = [70, 90, 80, 80, 70, 80]
@@ -493,12 +582,7 @@ def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     delivery_note = delivery_note if delivery_note else '-'
     supply_date = frappe.utils.get_datetime(frappe.db.get_value('Delivery Note', invoice_doc.items[0].delivery_note, 'posting_date')).strftime("%d-%m-%Y") or '-'
     
-    rows_data = [
-        ["Invoice No:", invoice_doc.name, "رقم الفاتورة", "Issue Date:", str(invoice_doc.posting_date), "تاريخ إصدار الفاتورة"],
-        ["ZATCA Status", getattr(invoice_doc, 'custom_zatca_submit_status', ''), "حالة التخليص", "Due Date:", str(invoice_doc.due_date or ''), "تاريخ الاستحقاق"],
-        ["Delivery Note:", delivery_note, "مذكرة التسليم", "Date of Supply:", supply_date, "تاريخ التوريد"]
-    ]
-    
+    rows_data = [ ["Invoice No:", invoice_doc.name, ":الفاتورة رقم ", "Issue Date:", str(invoice_doc.posting_date), "تاريخ إصدار الفاتورة"], ["ZATCA Status", getattr(invoice_doc, 'custom_zatca_submit_status', ''), "حالة التخليص", "Due Date:", str(invoice_doc.due_date or ''), "تاريخ الاستحقاق"], ["Delivery Note:", delivery_note, "مذكرة التسليم","Date of Supply:", supply_date, "تاريخ التوريد"] ]
     current_y = y
     total_table_height = 0 
     
@@ -556,8 +640,9 @@ def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     
     # Headers
     current_y = y
-    po_headers = ["Vendor Number\nرقم البائع", "PO No\nرقم طلب الشراء", "Purchase Agreement\nرقم العقد", 
+    po_headers = [f"Vendor Number\nرقم البائع", "PO No\nرقم طلب الشراء", "Purchase Agreement\nرقم العقد", 
                   "ASN Number\nرقم أ س ن", "Truck Request No\nرقم طلب الشاحنة", "GR\nجي آر"]
+
     
     for i, header in enumerate(po_headers):
         _draw_table_cell(c, margin_x + i * po_col_width, current_y, po_col_width, 
@@ -664,6 +749,8 @@ def _draw_table_cell_with_wrapping(c, x, y, w, h, text, base_font_name, font_siz
     
     text_str = str(text)
     
+    if is_arabic_text(text_str):
+        text_str = fix_arabic_words_for_pdf(text_str)
     # Calculate available width for text (minus padding)
     text_width = w - 10  # 5px padding on each side
     
@@ -908,7 +995,7 @@ def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
         "Unit Price\nعر الوحدة",
         "Qty\nالكمية",
         "Taxable Amt\nلمبلغ الخاضع للضريبة",
-        "Tax Amt\nبلغ الضريبة",
+"Tax Amt\nمبلغ الضريبة",
         "Subtotal(Inc. VAT)\nلمجموع شامل الضريبة"
     ]
 
@@ -1454,3 +1541,4 @@ def test_pdfa3_assets():
             "status": "error",
             "message": str(e)
         }
+        
