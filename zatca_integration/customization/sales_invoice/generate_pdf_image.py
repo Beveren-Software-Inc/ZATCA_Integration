@@ -28,6 +28,8 @@ from pikepdf import Name, Dictionary, Array, String
 from pathlib import Path
 import arabic_reshaper
 from bidi.algorithm import get_display
+import fitz  # PyMuPDF for PDF to image conversion
+from frappe.utils.pdf import get_pdf
 
 # Configuration paths
 font_dir = Path(frappe.get_app_path("zatca_integration", "public", "fonts"))
@@ -270,7 +272,7 @@ def generate_invoice_content(invoice_doc):
 
 
 def draw_pdf_with_reportlab(temp_pdf_path: str, invoice_doc):
-    """Draw Sales Invoice on canvas with complete layout matching HTML template."""
+    """Draw Sales Invoice using PDF to image conversion approach."""
     
     # Initialize canvas and fonts
     ttf_path = find_ttf_font()
@@ -278,18 +280,137 @@ def draw_pdf_with_reportlab(temp_pdf_path: str, invoice_doc):
     pdfmetrics.registerFont(TTFont(font_name, ttf_path))
 
     c = canvas.Canvas(temp_pdf_path, pagesize=A4, pageCompression=0)
-    width, height = A4  # This returns a tuple (width, height)
+    width, height = A4 
     margin_x = 30
-    y = height - 60  # height is now just the numeric value
+    y = height - 50  # height is now just the numeric value
     
-    # ---------- DRAW INVOICE SECTIONS ----------
-    y = add_letterhead(c, invoice_doc, width, height)
-    y = _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name)
-    y = _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name)
-    y = _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name)
-    y = _draw_totals_section(c, invoice_doc, width, margin_x, y, font_name)
-    y = _draw_tax_summary(c, invoice_doc, width, margin_x, y, font_name)
-    y = _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name)
+    # ---------- GENERATE PDF FROM PRINT FORMAT AND CONVERT TO IMAGE ----------
+    try:
+        # Generate HTML content from print format - without letterhead since we handle it separately
+        html = frappe.get_print(
+            doctype="Sales Invoice",
+            name=invoice_doc.name,
+            print_format="Zatca PDF-A 3B",
+            no_letterhead=1, 
+            letterhead=None,  
+        )
+        
+        # Debug: Log HTML content length
+        frappe.log_error(f"HTML content length: {len(html) if html else 0}", "PDF Generator")
+        
+        # Convert HTML to PDF
+        pdf_content = get_pdf(html)
+        
+        # Debug: Log PDF content length
+        frappe.log_error(f"PDF content length: {len(pdf_content) if pdf_content else 0}", "PDF Generator")
+        
+        # Save PDF to temporary file
+        temp_html_pdf_path = tempfile.mktemp(suffix=".pdf")
+        with open(temp_html_pdf_path, "wb") as f:
+            f.write(pdf_content)
+        
+        try:
+            # Open PDF with PyMuPDF and convert to image
+            doc = fitz.open(temp_html_pdf_path)
+            page = doc[0]  # First page
+            
+            # Convert page to pixmap (image)
+            mat = fitz.Matrix(2.0, 2.0)  # Scale factor for better quality
+            pix = page.get_pixmap(matrix=mat)
+            
+            # Save pixmap to temporary image file
+            temp_image_path = tempfile.mktemp(suffix=".png")
+            pix.save(temp_image_path)
+            
+            # Debug: Check if image file exists and has content
+            if os.path.exists(temp_image_path):
+                file_size = os.path.getsize(temp_image_path)
+                frappe.log_error(f"Image file created - path: {temp_image_path}, size: {file_size} bytes", "PDF Generator")
+                
+                # Try to get image dimensions
+                try:
+                    from PIL import Image
+                    with Image.open(temp_image_path) as img:
+                        img_width, img_height = img.size
+                        frappe.log_error(f"Image dimensions - width: {img_width}, height: {img_height}", "PDF Generator")
+                except Exception as e:
+                    frappe.log_error(f"Error getting image dimensions: {e}", "PDF Generator")
+            else:
+                frappe.log_error(f"Image file not created - path: {temp_image_path}", "PDF Generator")
+            
+            # Draw the image on the canvas - full page coverage
+            img_width = width  # Full page width
+            img_height = height  # Full page height
+            
+            # Debug: Log the positioning values
+            frappe.log_error(f"Image positioning - width: {img_width}, height: {img_height}", "PDF Generator")
+            
+            c.drawImage(
+                temp_image_path,
+                0,  # Start from left edge
+                0,  # Start from bottom edge
+                width=width,  # Full page width
+                height=height,  # Full page height
+                preserveAspectRatio=False,  # Don't preserve aspect ratio to fill space
+                mask='auto'
+            )
+            
+            doc.close()
+            
+            # ---------- DRAW LETTERHEAD ON TOP OF IMAGE ----------
+            y = add_letterhead(c, invoice_doc, width, height)
+            
+            # ---------- DRAW QR CODE ON TOP OF IMAGE (RIGHT SIDE) ----------
+            qr_code_path = getattr(invoice_doc, 'custom_invoice_qr_code', '')
+            if qr_code_path:
+                try:
+                    if qr_code_path.startswith('/files/'):
+                        qr_code_path = qr_code_path.replace('/files/', '')
+                    
+                    full_qr_path = frappe.utils.get_site_path('public', 'files', qr_code_path)
+                    
+                    # QR code dimensions and position
+                    qr_size = 80  # Size of QR code
+                    qr_x = width - qr_size - 50  # Right side with 50px margin (moved 50px left)
+                    qr_y = height - qr_size - 110  # Top with 200px margin (moved 200px down)
+                    
+                    # Draw the QR code image
+                    c.drawImage(full_qr_path, qr_x, qr_y, 
+                            width=qr_size, height=qr_size, 
+                            preserveAspectRatio=True, mask='auto')
+                    
+                    frappe.log_error(f"QR code drawn at position: ({qr_x}, {qr_y}) with size: {qr_size}", "PDF Generator")
+                    
+                except Exception as e:
+                    frappe.log_error(f"Error loading QR code: {e}", "PDF Generator")
+                    # Fallback to text if image can't be loaded
+                    c.drawCentredString(qr_x + qr_size/2, qr_y + qr_size/2, "QR CODE")
+            else:
+                frappe.log_error("No QR code found in invoice document", "PDF Generator")
+            
+        except Exception as e:
+            frappe.log_error(f"Error processing PDF to image: {e}", "PDF Generator")
+            # Fallback: draw simple text if image conversion fails
+            c.setFont(font_name, 12)
+            c.drawString(50, y - 50, f"Invoice: {invoice_doc.name}")
+            c.drawString(50, y - 80, f"Error converting PDF to image")
+            c.drawString(50, y - 110, f"Error details: {str(e)}")
+        
+        finally:
+            # Clean up temporary files
+            if os.path.exists(temp_html_pdf_path):
+                os.remove(temp_html_pdf_path)
+            if os.path.exists(temp_image_path):
+                os.remove(temp_image_path)
+                
+    except Exception as e:
+        frappe.log_error(f"Error generating HTML content: {e}", "PDF Generator")
+        # Fallback: draw simple text if HTML generation fails
+        c.setFont(font_name, 12)
+        c.drawString(50, y - 50, f"Invoice: {invoice_doc.name}")
+        c.drawString(50, y - 80, f"Error generating HTML content")
+    
+    # ---------- DRAW FOOTER ----------
     _draw_footer(c, width, font_name)
     
     c.save()
@@ -377,55 +498,7 @@ def check_page_break(c, y, height, margin_y=100, font_name="Cairo", font_size=9,
 #             c.drawRightString(x + w - 5, text_y, line)
 #         else:
 #             c.drawString(x + 5, text_y, line)
-def _draw_table_cell(c, x, y, w, h, text, base_font_name, font_size=7, align='left', bg_color=None):
-    """
-    Enhanced table cell drawing with bilingual (English/Arabic) font support.
-    Supports multi-line (split by \n) with proper Arabic handling per line.
-    """
-    if not text:
-        text = ""
 
-    text_str = str(text)
-    lines = text_str.split('\n')  # Split first, then process each line
-
-    # Process each line separately for Arabic
-    processed_lines = []
-    for line in lines:
-        if is_arabic_text(line):
-            processed_line = fix_arabic_words_for_pdf(line)
-        else:
-            processed_line = line
-        processed_lines.append(processed_line)
-
-    # Background if specified
-    if bg_color:
-        c.setFillColor(bg_color)
-        c.rect(x, y-h, w, h, fill=1)
-        c.setFillColor(black)
-
-    # Border
-    c.setLineWidth(0.5)
-    c.rect(x, y-h, w, h, fill=0)
-    c.setLineWidth(1)
-
-    line_height = font_size + 2
-    total_text_height = len(processed_lines) * line_height
-    start_y = y - (h/2) + (total_text_height/2) - font_size
-
-    for i, line in enumerate(processed_lines):
-        # Choose correct font
-        font_name = get_appropriate_font(line, base_font_name)
-        c.setFont(font_name, font_size)
-
-        text_y = start_y - i * line_height
-        effective_align = get_text_alignment(line, align)
-
-        if effective_align == 'center':
-            c.drawCentredString(x + w/2, text_y, line)
-        elif effective_align == 'right' or is_arabic_text(line):
-            c.drawRightString(x + w - 5, text_y, line)
-        else:
-            c.drawString(x + 5, text_y, line)
 
 
 def add_letterhead(c, doc, page_width, page_height, top_margin=20):
@@ -460,7 +533,7 @@ def add_letterhead(c, doc, page_width, page_height, top_margin=20):
             file_path = frappe.get_site_path("public", file_url.lstrip("/"))
 
         try:
-            img_height = 60
+            img_height = 45
             img_width = 400
             x = (page_width - img_width) / 2  # center horizontally
             y = page_height - img_height - top_margin
@@ -501,155 +574,6 @@ def add_letterhead(c, doc, page_width, page_height, top_margin=20):
     return y_after
 
 
-def fix_arabic_words_for_pdf(text):
-    if not text:
-        return text
-    if '\n' in text:
-        return '\n'.join(fix_arabic_words_for_pdf(line) for line in text.split('\n'))
-    
-    # Properly reorder mixed text
-    return get_display(text)
-
-# def fix_arabic_words_for_pdf(text):
-#     """
-#     Reverse only Arabic words, keep English words in original order.
-#     Better for mixed Arabic-English content.
-#     """
-#     if not text:
-#         return text
-    
-#     # Don't process if text contains newlines - handle line by line instead
-#     if '\n' in text:
-#         lines = text.split('\n')
-#         return '\n'.join(fix_arabic_words_for_pdf(line) for line in lines)
-    
-#     words = str(text).split()
-#     fixed_words = []
-#     frappe.throw(str(get_display("Saudi Arabian Oil Co. (ARAMCO)")))
-#     for word in words:
-#         # Check if word contains Arabic characters
-#         has_arabic = any('\u0600' <= char <= '\u06FF' or '\u0750' <= char <= '\u077F' for char in word)
-        
-#         if has_arabic:
-#             # Reverse Arabic words
-#             fixed_words.append(word[::-1])
-#         else:
-#             # Keep English words as-is
-#             fixed_words.append(word)
-    
-#     return ' '.join(fixed_words)
-
-
-
-def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
-    """Draw the header section including invoice details and QR code."""
-    cell_height = 15
-    table_width = width - 2 * margin_x  # Full width between margins
-    qr_width = 60
-    y = add_letterhead(c, invoice_doc, width, height)
-    
-    # Invoice title
-    c.setFont(font_name, 8)
-    c.setFillColor(black)
-    arabic_text = fix_arabic_words_for_pdf("فاتورة ضريبية")
-    
-    c.drawCentredString(width/2, y, f"Tax Invoice - {arabic_text}")
-
-    y -= 30
-
-    
-    # Invoice details table (left side) - 6 columns with dynamic height
-    col_widths = [70, 90, 80, 80, 70, 80]
-    
-    # Row data for invoice details
-    delivery_note = getattr(invoice_doc.items[0], 'delivery_note', '') if invoice_doc.items else ''
-    delivery_note = delivery_note if delivery_note else '-'
-    supply_date = frappe.utils.get_datetime(frappe.db.get_value('Delivery Note', invoice_doc.items[0].delivery_note, 'posting_date')).strftime("%d-%m-%Y") or '-'
-    
-    rows_data = [ ["Invoice No:", invoice_doc.name, ":الفاتورة رقم ", "Issue Date:", str(invoice_doc.posting_date), "تاريخ إصدار الفاتورة"], ["ZATCA Status", getattr(invoice_doc, 'custom_zatca_submit_status', ''), "حالة التخليص", "Due Date:", str(invoice_doc.due_date or ''), "تاريخ الاستحقاق"], ["Delivery Note:", delivery_note, "مذكرة التسليم","Date of Supply:", supply_date, "تاريخ التوريد"] ]
-    current_y = y
-    total_table_height = 0 
-    
-    for row_data in rows_data:
-        # Calculate max height needed for this row
-        max_height = cell_height
-        for i, text in enumerate(row_data):
-            text_width = col_widths[i] - 10
-            avg_char_width = stringWidth('A', font_name, 7)
-            chars_per_line = max(1, int(text_width / avg_char_width))
-            lines_needed = len(textwrap.wrap(str(text), width=chars_per_line))
-            content_height = lines_needed * (9 + 2) + 4 
-            max_height = max(max_height, content_height)
-        
-        # Draw the row with consistent height
-        for i, text in enumerate(row_data):
-            align = 'right' if i in [2, 5] else 'left'
-            _draw_table_cell_with_wrapping(
-                c, margin_x + sum(col_widths[:i]), current_y, col_widths[i], 
-                max_height, text, font_name, 7, align, auto_height=True
-            )
-        
-        total_table_height += max_height
-        current_y -= max_height
-    
-    # QR Code (right side) - NO BORDER
-    qr_x = width - margin_x - qr_width
-    
-    # Draw QR code image if available (without border) - height matches table height
-    qr_code_path = getattr(invoice_doc, 'custom_invoice_qr_code', '')
-    if qr_code_path:
-        try:
-            if qr_code_path.startswith('/files/'):
-                qr_code_path = qr_code_path.replace('/files/', '')
-            
-            full_qr_path = frappe.utils.get_site_path('public', 'files', qr_code_path)
-            
-            # Draw the QR code image without border - height matches table height
-            # Position it to the right of the table, not overlapping
-            c.drawImage(full_qr_path, qr_x, y - total_table_height, 
-                    width=qr_width, height=total_table_height, 
-                    preserveAspectRatio=True, mask='auto')
-        except Exception as e:
-            print(f"Error loading QR code: {e}")
-            # Fallback to text if image can't be loaded
-            c.drawCentredString(qr_x + qr_width/2, y - total_table_height/2, "QR CODE")
-    else:
-        c.drawCentredString(qr_x + qr_width/2, y - total_table_height/2, "QR CODE")
-    
-    y = current_y - 20  
-    
-    # Purchase order details table - 6 columns (FULL WIDTH like other tables)
-    po_table_width = table_width  
-    po_col_width = po_table_width / 6
-    
-    # Headers
-    current_y = y
-    po_headers = [f"Vendor Number\nرقم البائع", "PO No\nرقم طلب الشراء", "Purchase Agreement\nرقم العقد", 
-                  "ASN Number\nرقم أ س ن", "Truck Request No\nرقم طلب الشاحنة", "GR\nجي آر"]
-
-    
-    for i, header in enumerate(po_headers):
-        _draw_table_cell(c, margin_x + i * po_col_width, current_y, po_col_width, 
-                        cell_height * 2, header, font_name, 8, 'center', colors.lightgrey)
-    
-    current_y -= cell_height * 2
-    
-    # Data row
-    po_data = [
-        getattr(invoice_doc, 'custom_vendor_number', '') or '-',
-        invoice_doc.po_no or '-',
-        getattr(invoice_doc, 'custom_purchase_agreement', '') or '-',
-        getattr(invoice_doc, 'custom_asn_number', '') or '-',
-        getattr(invoice_doc, 'custom_truck_request_number', '') or '-',
-        getattr(invoice_doc, 'reference_no', '') or '-',
-       
-    ]
-    
-    for i, data in enumerate(po_data):
-        _draw_table_cell(c, margin_x + i * po_col_width, current_y, po_col_width, 
-                        cell_height, data, font_name, 7, 'center')
-    
-    return current_y - cell_height - 20
 
 
 def _draw_table_cell_with_wrapping(c, x, y, w, h, text, base_font_name, font_size=7, align='left', bg_color=None, auto_height=False):
@@ -736,169 +660,6 @@ def safe_get_value(doctype, name, fieldname):
     except Exception:
         return "-"
 
-
-def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
-    """Draw seller and buyer information section with separate tables - seller on top, buyer below."""
-    base_cell_height = 15
-    table_width = width - 2 * margin_x
-    
-    # Both tables use full width for better Arabic text display
-    seller_table_width = table_width
-    buyer_table_width = table_width
-    
-    # Column widths for each table - 15%, 35%, 35%, 15%
-    # Format: Label, Value, Arabic Value, Arabic Label
-    label_width = seller_table_width * 0.15  # 15% for English labels
-    value_width = seller_table_width * 0.35  # 35% for English values
-    arabic_value_width = seller_table_width * 0.35  # 35% for Arabic values
-    arabic_label_width = seller_table_width * 0.15  # 15% for Arabic labels
-    
-    # Start with Seller table at the top
-    current_y = y
-    
-    # Seller header
-    _draw_table_cell_with_wrapping(c, margin_x, current_y, seller_table_width/2, base_cell_height, 
-                    "Seller:", font_name, 8, bg_color=colors.lightgrey)
-    _draw_table_cell_with_wrapping(c, margin_x + seller_table_width/2, current_y, seller_table_width/2, base_cell_height, 
-                    ":المورد", font_name, 8, 'right', colors.lightgrey)
-    
-    current_y -= base_cell_height
-    
-    # Fetch address details from linked Address records
-    company_name_arabic = safe_get_value("Company", invoice_doc.company, "company_name_in_arabic")
-    company_tax_id = safe_get_value("Company", invoice_doc.company, "tax_id")
-    company_cr_number = safe_get_value("Company", invoice_doc.company, "cr_number")
-    
-    # Get company address details
-    company_address_title = safe_get_value('Address', invoice_doc.company_address, 'address_title')
-    company_address_line1 = safe_get_value('Address', invoice_doc.company_address, 'address_line1')
-    company_address_line1_arabic = safe_get_value('Address', invoice_doc.company_address, 'address_line_1_in_arabic')
-    company_address_line2 = safe_get_value('Address', invoice_doc.company_address, 'address_line2')
-    company_address_line2_arabic = safe_get_value('Address', invoice_doc.company_address, 'address_line_2_in_arabic')
-    company_city = safe_get_value('Address', invoice_doc.company_address, 'city')
-    company_city_arabic = safe_get_value('Address', invoice_doc.company_address, 'city_in_arabic')
-    company_country = safe_get_value('Address', invoice_doc.company_address, 'country')
-    company_country_arabic = safe_get_value('Address', invoice_doc.company_address, 'county_in_arabic')
-    company_pincode = safe_get_value('Address', invoice_doc.company_address, 'pincode')
-    company_additional_number = safe_get_value('Address', invoice_doc.company_address, 'additional_number')
-
-    # Get customer address details
-    # customer_name_arabic = getattr(invoice_doc, 'customer_name_in_arabic', invoice_doc.customer_name)
-    # customer_cr = frappe.db.get_value('Customer', invoice_doc.customer, 'cr') if invoice_doc.customer else '-'
-    customer_name_arabic = safe_get_value("Sales Invoice", invoice_doc.name, "customer_name_in_arabic") or invoice_doc.customer_name
-    customer_cr = safe_get_value("Customer", invoice_doc.customer, "cr") if invoice_doc.customer else "-"
-
-    
-    customer_address_title = safe_get_value("Address", invoice_doc.customer_address, "address_title")
-    customer_address_line1 = safe_get_value("Address", invoice_doc.customer_address, "address_line1")
-    customer_address_line1_arabic = safe_get_value("Address", invoice_doc.customer_address, "address_line_1_in_arabic")
-    customer_address_line2 = safe_get_value("Address", invoice_doc.customer_address, "address_line2")
-    customer_address_line2_arabic = safe_get_value("Address", invoice_doc.customer_address, "address_line_2_in_arabic")
-    customer_city = safe_get_value("Address", invoice_doc.customer_address, "city")
-    customer_city_arabic = safe_get_value("Address", invoice_doc.customer_address, "city_in_arabic")
-    customer_country = safe_get_value("Address", invoice_doc.customer_address, "country")
-    customer_country_arabic = safe_get_value("Address", invoice_doc.customer_address, "county_in_arabic")
-    customer_pincode = safe_get_value("Address", invoice_doc.customer_address, "pincode")
-    customer_additional_number = safe_get_value("Address", invoice_doc.customer_address, "additional_number")
-
-
-    # Seller and Buyer details - Format: Label, Value, Arabic Value, Arabic Label
-    details_data = [
-        ("Name:", invoice_doc.company, company_name_arabic or '-', "الاسم"),
-        ("Building No", company_address_title, company_address_title, "رقم المبنى"),
-        ("Street Name", company_address_line1, company_address_line1_arabic, "اسم الشارع"),
-        ("District", company_address_line2, company_address_line2_arabic, "الحي"),
-        ("City", company_city, company_city_arabic, "المدينه"),
-        ("Country", company_country, company_country_arabic, "البلد"),
-        ("Postal Code", company_pincode, company_pincode, "الرمز البريدي"),
-        ("Additional No.", company_additional_number, company_additional_number, "رقم إضافي"),
-        ("VAT Number", company_tax_id or '-', company_tax_id or '-', "الرقم الضريبي"),
-        ("Other ID", company_cr_number or '-', company_cr_number or '-', "معرف آخر")
-    ]
-    
-    buyer_details_data = [
-        ("Name:", invoice_doc.customer_name, customer_name_arabic or '-', "الاسم"),
-        ("Building No", customer_address_title, customer_address_title, "رقم المبنى"),
-        ("Street Name", customer_address_line1, customer_address_line1_arabic, "اسم الشارع"),
-        ("District", customer_address_line2, customer_address_line2_arabic, "الحي"),
-        ("City", customer_city, customer_city_arabic, "المدينه"),
-        ("Country", customer_country, customer_country_arabic, "البلد"),
-        ("Postal Code", customer_pincode, customer_pincode, "الرمز البريدي"),
-        ("Additional No.", customer_additional_number, customer_additional_number, "رقم إضافي"),
-        ("VAT Number", invoice_doc.tax_id or '-', invoice_doc.tax_id or '-', "الرقم الضريبي"),
-        ("Other ID", customer_cr or '-', customer_cr or '-', "معرف آخر")
-    ]
-    
-    # Draw seller table data
-    for i, (label, seller_val, seller_val_arabic, arabic_label) in enumerate(details_data):
-        max_height = base_cell_height
-        
-        # Check each cell content and calculate required height with proper column widths
-        content_widths = [label_width - 10, value_width - 10, arabic_value_width - 10, arabic_label_width - 10]
-        contents = [label, str(seller_val), str(seller_val_arabic), arabic_label]
-        
-        for content, content_width in zip(contents, content_widths):
-            if stringWidth(str(content), font_name, 7) > content_width:
-                avg_char_width = stringWidth('A', font_name, 7)
-                chars_per_line = int(content_width / avg_char_width)
-                lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
-                content_height = lines_needed * 11 + 4  # 9px font + 2px spacing + 4px padding
-                max_height = max(max_height, content_height)
-        
-        # Draw seller table - Format: Label, Value, Arabic Value, Arabic Label
-        _draw_table_cell_with_wrapping(c, margin_x, current_y, label_width, max_height, 
-                        label, font_name, 7)
-        _draw_table_cell_with_wrapping(c, margin_x + label_width, current_y, value_width, max_height, 
-                        str(seller_val), font_name, 7)
-        _draw_table_cell_with_wrapping(c, margin_x + label_width + value_width, current_y, arabic_value_width, max_height, 
-                        str(seller_val_arabic), font_name, 7, 'right') 
-        _draw_table_cell_with_wrapping(c, margin_x + label_width + value_width + arabic_value_width, current_y, arabic_label_width, max_height, 
-                        arabic_label, font_name, 7, 'right')  # Arabic label
-        
-        current_y -= max_height
-    
-    # Add some space between seller and buyer tables
-    current_y -= 20
-    
-    # Buyer header - positioned below seller table
-    buyer_start_x = margin_x  # Same starting position as seller table
-    _draw_table_cell_with_wrapping(c, buyer_start_x, current_y, buyer_table_width/2, base_cell_height, 
-                    "Buyer:", font_name, 8, bg_color=colors.lightgrey)
-    _draw_table_cell_with_wrapping(c, buyer_start_x + buyer_table_width/2, current_y, buyer_table_width/2, base_cell_height, 
-                    ":العميل", font_name, 8, 'right', colors.lightgrey)
-    
-    buyer_current_y = current_y - base_cell_height
-    
-    # Draw buyer table data
-    for i, (label, buyer_val, buyer_val_arabic, arabic_label) in enumerate(buyer_details_data):
-        max_height = base_cell_height
-        
-        # Check each cell content and calculate required height with proper column widths
-        content_widths = [label_width - 10, value_width - 10, arabic_value_width - 10, arabic_label_width - 10]
-        contents = [label, str(buyer_val), str(buyer_val_arabic), arabic_label]
-        
-        for content, content_width in zip(contents, content_widths):
-            if stringWidth(str(content), font_name, 7) > content_width:
-                avg_char_width = stringWidth('A', font_name, 7)
-                chars_per_line = int(content_width / avg_char_width)
-                lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
-                content_height = lines_needed * 11 + 4  # 9px font + 2px spacing + 4px padding
-                max_height = max(max_height, content_height)
-        
-        # Draw buyer table - Format: Label, Value, Arabic Value, Arabic Label
-        _draw_table_cell_with_wrapping(c, buyer_start_x, buyer_current_y, label_width, max_height, 
-                        label, font_name, 7)
-        _draw_table_cell_with_wrapping(c, buyer_start_x + label_width, buyer_current_y, value_width, max_height, 
-                        str(buyer_val), font_name, 7)
-        _draw_table_cell_with_wrapping(c, buyer_start_x + label_width + value_width, buyer_current_y, arabic_value_width, max_height, 
-                        str(buyer_val_arabic), font_name, 7, 'right')
-        _draw_table_cell_with_wrapping(c, buyer_start_x + label_width + value_width + arabic_value_width, buyer_current_y, arabic_label_width, max_height, 
-                        arabic_label, font_name, 7, 'right')
-        
-        buyer_current_y -= max_height
-    
-    # Return the lower of the two table endings
-    return min(current_y, buyer_current_y) - 20
 
 
 def strip_html_tags(text):
