@@ -26,7 +26,7 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 import pikepdf
 from pikepdf import Name, Dictionary, Array, String
 from pathlib import Path
-import arabic_reshaper
+# import arabic_reshaper
 from bidi.algorithm import get_display
 import fitz  # PyMuPDF for PDF to image conversion
 from frappe.utils.pdf import get_pdf
