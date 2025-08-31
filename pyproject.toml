@@ -17,6 +17,7 @@ dependencies = [
      "reportlab",
      "python-bidi",
     "arabic-reshaper",
+    "pymupdf",
 ]
 
 [build-system]
