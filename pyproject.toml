@@ -15,6 +15,9 @@ dependencies = [
     "pillow==10.2.0",
      "pikepdf",
      "reportlab",
+     "python-bidi",
+    "arabic-reshaper",
+    "pymupdf",
 ]
 
 [build-system]
