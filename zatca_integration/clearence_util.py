@@ -5,6 +5,8 @@ import random
 import uuid
 import frappe
 import time as time_module
+from frappe.utils import get_datetime
+
 import requests
 import base64
 from requests.auth import HTTPBasicAuth
@@ -516,28 +518,67 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
     return img_byte_arr
 
 
-def validate_delivery_date(delivery_date, invoice_date, customer_type, posting_time):
-    del_date = datetime.strptime(delivery_date, "%Y-%m-%d")
-    inv_date = datetime.strptime(invoice_date, "%Y-%m-%d")
+# def validate_delivery_date(delivery_date, invoice_date, customer_type, posting_time):
+#     del_date = datetime.strptime(delivery_date, "%Y-%m-%d")
+#     inv_date = datetime.strptime(invoice_date, "%Y-%m-%d")
 
-    # Calculate the end of the month for the delivery date
+#     # Calculate the end of the month for the delivery date
+#     end_of_month = del_date.replace(day=1) + timedelta(days=32)
+#     end_of_month = end_of_month.replace(day=1) - timedelta(days=1)
+
+#     # Calculate the last valid date for issuing the invoice
+#     last_valid_invoice_date = end_of_month + timedelta(days=15)
+
+#     if customer_type == "Company":  # Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the end of the month in which the supply takes place.
+#         if inv_date > last_valid_invoice_date:
+#             frappe.throw("Posting Date is not valid, Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the end of the month in which the supply takes place.")
+#         if del_date > inv_date:
+#             frappe.throw("Delivery Date is not valid, Standard Tax Invoices (B2B) the supply must take place before the invoice date.")
+#     elif customer_type == "Individual":  # Delivery Date must be today, otherwise throw an error
+#         delivery_datetime = datetime.strptime(f"{delivery_date} {posting_time}", "%Y-%m-%d %H:%M:%S")
+#         if datetime.now() > delivery_datetime + timedelta(hours=24):
+#             frappe.throw("Delivery Date is not valid, Simplified Tax Invoices (B2C) must be issued and submitted on the same day of the supply.")
+#     else:
+#         frappe.throw("Customer Type is not Supported")
+
+def validate_delivery_date(delivery_date, invoice_date, customer_type, posting_time):
+    # Convert to timezone-aware datetime
+    del_date = get_datetime(delivery_date)
+    inv_date = get_datetime(invoice_date)
+
+    # Calculate end of month for delivery date
     end_of_month = del_date.replace(day=1) + timedelta(days=32)
     end_of_month = end_of_month.replace(day=1) - timedelta(days=1)
 
-    # Calculate the last valid date for issuing the invoice
+    # Last valid invoice date = 15 days after end of month
     last_valid_invoice_date = end_of_month + timedelta(days=15)
 
-    if customer_type == "Company":  # Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the end of the month in which the supply takes place.
+    if customer_type == "Company":
+        # B2B must be invoiced within 15 days from end of month of supply
         if inv_date > last_valid_invoice_date:
-            frappe.throw("Posting Date is not valid, Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the end of the month in which the supply takes place.")
+            frappe.throw(
+                "Posting Date is not valid. Standard Tax Invoices (B2B) "
+                "must be issued and submitted within 15 days from the end "
+                "of the month in which the supply takes place."
+            )
         if del_date > inv_date:
-            frappe.throw("Delivery Date is not valid, Standard Tax Invoices (B2B) the supply must take place before the invoice date.")
-    elif customer_type == "Individual":  # Delivery Date must be today, otherwise throw an error
-        delivery_datetime = datetime.strptime(f"{delivery_date} {posting_time}", "%Y-%m-%d %H:%M:%S")
-        if datetime.now() > delivery_datetime + timedelta(hours=24):
-            frappe.throw("Delivery Date is not valid, Simplified Tax Invoices (B2C) must be issued and submitted on the same day of the supply.")
+            frappe.throw(
+                "Delivery Date is not valid. For Standard Tax Invoices (B2B), "
+                "the supply must take place before the invoice date."
+            )
+
+    elif customer_type == "Individual":
+        delivery_datetime = get_datetime(f"{delivery_date} {posting_time}")
+        now = get_datetime()
+
+        if now > delivery_datetime + timedelta(hours=24):
+            frappe.throw(
+                "Delivery Date is not valid. Simplified Tax Invoices (B2C) "
+                "must be issued and submitted on the same day of the supply."
+            )
+
     else:
-        frappe.throw("Customer Type is not Supported")
+        frappe.throw("Customer Type is not supported.")
 
 
 def decode_certificate(production_certificate):
