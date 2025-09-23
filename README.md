@@ -68,26 +68,48 @@ Generate Production CSID from validated Compliance CSID.
 ![Production CSID Generation](docs/screenshots/Generate_PSID.png)
 
 ### 2. **Company Configuration**
-- Enable ZATCA e-invoicing phase2 in company master by selecting the Production CSID
-- Check if Date Enforcement is enabled or not (enabling is recommended to avoid ZATCA fines)
+- Enable ZATCA e-invoicing Phase 2 in Company master by selecting the Production CSID
+- Check if Date Enforcement is enabled (enabling is recommended to avoid ZATCA fines)
 
-![Company Configuration](docs/screenshots/step4-company-configuration.png)
+![Company Configuration](docs/screenshots/Company_Settings.png)
 
-### 3. **Sales Taxes and Charges Template**
+### 3. **Sales and Purchase Taxes and Charges Template**
 1. Configure Tax Type: Standard vs Zero or Exempt
-2. For Zero and Exempt rates, choose appropriate reason if you use these tax types
+2. For Zero and Exempt rates, choose the appropriate reason if you use these tax types
+3. This is important for correct VAT report calculation and reporting
 
-![Tax Templates Configuration](docs/screenshots/step5-tax-templates.png)
+![Tax Templates Configuration](docs/screenshots/Salestax_Template.png)
 
 ### 4. **Customer Setup**
-- Customer country and name in Arabic are mandatory
+- Customer Name and Arabic name are mandatory
+- Customer Country is mandatory (defaults to Saudi Arabia)
 - Customer VAT information setup in ZATCA tab
-- Customer must have a valid Primary address
+- Customer must have a valid primary address
 
-![Customer Setup](docs/screenshots/step6-customer-setup.png)
+![Customer Setup](docs/screenshots/Customer_Settings.png)
 
-![Customer ZATCA Tab](docs/screenshots/step6-customer-zatca-tab.png)
+### 5. **Invoice Processing**
+- Now start submitting your invoices and they will be automatically reported to ZATCA
+- Seamless and real-time integration with ZATCA systems
 
+![Invoice Processing](docs/screenshots/Sales_Invoices.png)
+
+### 6. **VAT Reports and Audit Logs**
+- VAT reports will be ready for you to file your taxes in any period - monthly or quarterly
+- All transactions are recorded in the system including error codes that can be navigated from the workspace quickly and easily
+
+![VAT Reports](docs/screenshots/ZATCA_Workspace.png)
+
+## 🛠️ Support & Documentation
+
+### Getting Help
+- **Support Email**: support@beverensoftware.com
+- **Issues**: Report bugs via GitHub issues
+
+### Requirements
+- Valid ZATCA registration and certificates
+- ERPNext system administrator access
+- Basic understanding of Saudi tax regulations
 
 ## 🏢 About Beveren Software
 
