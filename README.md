@@ -82,7 +82,7 @@ In sandbox/testing mode, this field may display **Sandbox**.
 In production, you must configure the official Production CSID to ensure invoices are legally valid.
 
 iv. *Enforce Date Validation* 
-Ensures that invoice dates strictly follow ZATCA’s requirements. Recommended to keep this **enabled** to avoid ZATCA fines caused by incorrect or backdated entries.
+<br/>Ensures that invoice dates strictly follow ZATCA’s requirements. Recommended to keep this **enabled** to avoid ZATCA fines caused by incorrect or backdated entries.
 
 v. *Enable Multi-Sales Invoice on Credit Note*  
 Not directly tied to ZATCA compliance.  
