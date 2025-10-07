@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import random
 import uuid
 import xml.etree.ElementTree as ET
@@ -428,12 +429,12 @@ def additional_reference(invoice, sales_invoice_doc):
 
         # Directly retrieve the PIH data without JSON parsing
 
-        company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
+        # Removed unused variable 'company_doc'
 
         if sales_invoice_doc.custom_is_zatca_test:
             print("Test data")
         else:
-            config = get_zatca_config(company_doc)
+            config = get_zatca_config(frappe.get_doc("Company", sales_invoice_doc.company))
         if sales_invoice_doc.custom_is_zatca_test:
             previous_invoice_hash = str(generate_invoice_hash())
         else:
@@ -474,7 +475,7 @@ def company_data(invoice, sales_invoice_doc):
     and tax information.
     """
     try:
-        company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
+        # Removed unused variable 'company_doc'
         if sales_invoice_doc.custom_is_zatca_test:
             compliance_csid_doc = frappe.get_doc(
                 "Compliance CSID", sales_invoice_doc.custom_compliance
@@ -814,7 +815,7 @@ def add_document_level_discount_with_tax_template(invoice, sales_invoice_doc):
         cac_tax_category = ET.SubElement(cac_allowance_charge, "cac:TaxCategory")
         cbc_id = ET.SubElement(cac_tax_category, CBC_ID)
 
-        vat_category_code = "Standard"
+        # Removed unused variable 'vat_category_code'
         tax_percentage = 0.0
 
         for item in sales_invoice_doc.items:

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import base64
 
 import frappe

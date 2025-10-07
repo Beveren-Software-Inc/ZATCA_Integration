@@ -6,7 +6,7 @@ import json
 import struct
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import frappe
 import qrcode
@@ -343,10 +343,7 @@ def generate_debit_note_xml(
     invoiceCounterValue = int(time.time())
 
     # Invoice Date and Time
-    invoice_date = datetime.strptime(frappe.utils.today(), "%Y-%m-%d").strftime("%Y-%m-%d")
-    invoice_time = datetime.strptime(frappe.utils.now(), "%Y-%m-%d %H:%M:%S.%f").strftime(
-        "%H:%M:%S"
-    )
+    # Removed unused invoice_date and invoice_time variables
 
     # if invoiceType == "standard":
     if invoiceType == "standard":
@@ -382,10 +379,7 @@ def generate_credit_note_xml(
     invoiceCounterValue = int(time.time())
 
     # Invoice Date and Time
-    invoice_date = datetime.strptime(frappe.utils.today(), "%Y-%m-%d").strftime("%Y-%m-%d")
-    invoice_time = datetime.strptime(frappe.utils.now(), "%Y-%m-%d %H:%M:%S.%f").strftime(
-        "%H:%M:%S"
-    )
+    # Removed unused invoice_date and invoice_time variables
 
     if invoiceType == "standard":
         invoice_name = create_standard_return_invoice(compliance_name)
@@ -413,10 +407,7 @@ def generate_tax_invoice_xml(
     invoiceCounterValue = int(time.time())
 
     # Invoice Date and Time
-    invoice_date = datetime.strptime(frappe.utils.today(), "%Y-%m-%d").strftime("%Y-%m-%d")
-    invoice_time = datetime.strptime(frappe.utils.now(), "%Y-%m-%d %H:%M:%S.%f").strftime(
-        "%H:%M:%S"
-    )
+    # Removed unused invoice_date and invoice_time variables
 
     # Invoice Delivery Date
     invoiceDeliveryDate = (

@@ -333,7 +333,7 @@ doc_events = {
 scheduler_events = {
     "weekly": [
         "zatca_integration.saudi_arabia_electronic_invoicing.background_task.notify_expiring_csids",
-        #   "zatca_integration.saudi_arabia_electronic_invoicing.background_task.prod_csid_auto_renew",
+        # "zatca_integration.saudi_arabia_electronic_invoicing.background_task.prod_csid_auto_renew",
     ],
 }
 

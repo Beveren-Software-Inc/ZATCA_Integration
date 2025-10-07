@@ -445,7 +445,7 @@ def get_address(sales_invoice_doc):
     if customer_doc.customer_primary_address:
         address_name = customer_doc.customer_primary_address
     else:
-        # remember to choose customer primary address on Customer doctype for non-individual customers
+        # remember to choose customer primary address
         if customer_doc.customer_type != "Individual":
             frappe.msgprint("Remember to choose customer primary address on Customer doctype")
         # Priority 2: Dynamic Link
@@ -642,7 +642,7 @@ def get_previous_invoice_hash(production_csid):
         return latest_transaction[0].invoice_hash
     else:
         # Return default hash if there are no Zatca Transactions
-        return "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
+        return "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="  # noqa: E501
 
 
 def get_or_create_scheduled_job(
@@ -731,9 +731,6 @@ def get_certificate_and_public_key(binary_security_token, created_on):
         }
     except Exception as e:
         frappe.throw(_("Error extracting certificate and public key: {0}").format(str(e)))
-
-
-import frappe
 
 
 @frappe.whitelist()

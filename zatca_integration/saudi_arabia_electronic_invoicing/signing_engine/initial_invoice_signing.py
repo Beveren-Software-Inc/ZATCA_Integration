@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import base64
 import binascii
 import hashlib
@@ -465,7 +466,7 @@ def structuring_signedxml():
             xml_content = file.readlines()
         indentations = {
             29: [
-                '<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="signature">',
+                '<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="signature">',  # noqa: E501
                 "</xades:QualifyingProperties>",
             ],
             33: [
