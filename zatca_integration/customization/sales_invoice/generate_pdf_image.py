@@ -1,35 +1,30 @@
-
 """
 Generate PDF/A-3A compliant PDF for Frappe Sales Invoice with embedded XML
 This method integrates with ERPNext Sales Invoice to create compliant PDFs
 """
+
 import os
 import re
 import tempfile
-from datetime import datetime, timezone
-import frappe
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.colors import black
-from reportlab.lib import colors
-
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import Image as RLImage
 import textwrap
-from reportlab.pdfbase.pdfmetrics import stringWidth
-
-import pikepdf
-from pikepdf import Name, Dictionary, Array, String
+from datetime import datetime, timezone
 from pathlib import Path
+
 # import arabic_reshaper
-from bidi.algorithm import get_display
 import fitz  # PyMuPDF for PDF to image conversion
+import frappe
+import pikepdf
 from frappe.utils.pdf import get_pdf
+from pikepdf import Array, Dictionary, Name, String
+from reportlab.lib import colors
+from reportlab.lib.colors import black
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
+from reportlab.platypus import Paragraph
 
 # Configuration paths
 font_dir = Path(frappe.get_app_path("zatca_integration", "public", "fonts"))
@@ -59,8 +54,8 @@ EMBEDDED_FONT_TTF = cairo_regular
 
 
 # Register the font files you already placed in zatca_integration/public/fonts
-pdfmetrics.registerFont(TTFont("HelveticaVCA", helvetica))        
-pdfmetrics.registerFont(TTFont("HelveticaVCA-Bold", helvetica_bold))  
+pdfmetrics.registerFont(TTFont("HelveticaVCA", helvetica))
+pdfmetrics.registerFont(TTFont("HelveticaVCA-Bold", helvetica_bold))
 
 pdfmetrics.registerFont(TTFont("Amiri", amiri_regular))
 pdfmetrics.registerFont(TTFont("Amiri-Bold", amiri_bold))
@@ -80,10 +75,10 @@ def is_arabic_text(text):
     """
     if not text:
         return False
-    
+
     text_str = str(text)
     # Arabic Unicode ranges: 0x0600-0x06FF (Arabic), 0x0750-0x077F (Arabic Supplement)
-    arabic_pattern = re.compile(r'[\u0600-\u06FF\u0750-\u077F]')
+    arabic_pattern = re.compile(r"[\u0600-\u06FF\u0750-\u077F]")
     return bool(arabic_pattern.search(text_str))
 
 
@@ -93,11 +88,12 @@ def has_mixed_content(text):
     """
     if not text:
         return False
-    
+
     text_str = str(text)
     has_arabic = is_arabic_text(text_str)
-    has_latin = bool(re.search(r'[a-zA-Z]', text_str))
+    has_latin = bool(re.search(r"[a-zA-Z]", text_str))
     return has_arabic and has_latin
+
 
 def get_appropriate_font(text, base_font_name="EmbeddedTTF", arabic_font_name="Amiri"):
     """
@@ -121,12 +117,12 @@ def process_bidi_text(text):
     """
     if not text or not has_mixed_content(text):
         return str(text)
-    
+
     # Simple approach: reverse Arabic words while keeping English words in order
     text_str = str(text)
     words = text_str.split()
     processed_words = []
-    
+
     for word in words:
         if is_arabic_text(word):
             # For Arabic words, we might need to reverse character order
@@ -134,8 +130,9 @@ def process_bidi_text(text):
             processed_words.append(word)  # Keep as-is for now
         else:
             processed_words.append(word)
-    
-    return ' '.join(processed_words)
+
+    return " ".join(processed_words)
+
 
 def get_text_alignment(text, default_align):
     """
@@ -143,8 +140,9 @@ def get_text_alignment(text, default_align):
     Arabic text should generally be right-aligned.
     """
     if is_arabic_text(text):
-        return 'right'
+        return "right"
     return default_align
+
 
 def wrap_text_with_font(text, max_width, font_name, font_size):
     """
@@ -152,29 +150,29 @@ def wrap_text_with_font(text, max_width, font_name, font_size):
     """
     if not text:
         return [""]
-    
+
     # Check if text fits in one line
     if stringWidth(text, font_name, font_size) <= max_width:
         return [text]
-    
+
     # Calculate approximate characters per line based on font
-    avg_char_width = stringWidth('A', font_name, font_size)  # Use 'A' as average
-    
+    avg_char_width = stringWidth("A", font_name, font_size)  # Use 'A' as average
+
     # For Arabic text, use different character for average width calculation
     if is_arabic_text(text):
         # Use Arabic letter 'alef' as average character width
-        avg_char_width = stringWidth('ا', font_name, font_size)
-    
+        avg_char_width = stringWidth("ا", font_name, font_size)
+
     chars_per_line = max(1, int(max_width / avg_char_width))
-    
+
     # Split text respecting word boundaries
     words = text.split()
     lines = []
     current_line = ""
-    
+
     for word in words:
         test_line = current_line + (" " if current_line else "") + word
-        
+
         if stringWidth(test_line, font_name, font_size) <= max_width:
             current_line = test_line
         else:
@@ -191,11 +189,12 @@ def wrap_text_with_font(text, max_width, font_name, font_size):
                             word = word[i:]
                             break
                 current_line = word
-    
+
     if current_line:
         lines.append(current_line)
-    
+
     return lines if lines else [""]
+
 
 def find_ttf_font() -> str:
     """Return a TTF path to embed. Prefer bundled DejaVuSans.ttf; otherwise try common system fonts."""
@@ -259,7 +258,7 @@ def generate_invoice_content(invoice_doc):
         "",
         f"Grand Total: {invoice_doc.currency} {invoice_doc.grand_total}",
     ]
-    
+
     # Add items
     if invoice_doc.items:
         content_lines.append("")
@@ -267,23 +266,23 @@ def generate_invoice_content(invoice_doc):
         for item in invoice_doc.items:
             content_lines.append(f"- {item.item_code}: {item.description[:50]}...")
             content_lines.append(f"  Qty: {item.qty}, Rate: {invoice_doc.currency} {item.rate}")
-    
+
     return content_lines
 
 
 def draw_pdf_with_reportlab(temp_pdf_path: str, invoice_doc):
     """Draw Sales Invoice using PDF to image conversion approach."""
-    
+
     # Initialize canvas and fonts
     ttf_path = find_ttf_font()
     font_name = "EmbeddedTTF"
     pdfmetrics.registerFont(TTFont(font_name, ttf_path))
 
     c = canvas.Canvas(temp_pdf_path, pagesize=A4, pageCompression=0)
-    width, height = A4 
+    width, height = A4
     margin_x = 30
     y = height - 50  # height is now just the numeric value
-    
+
     # ---------- GENERATE PDF FROM PRINT FORMAT AND CONVERT TO IMAGE ----------
     try:
         # Generate HTML content from print format - without letterhead since we handle it separately
@@ -291,60 +290,73 @@ def draw_pdf_with_reportlab(temp_pdf_path: str, invoice_doc):
             doctype="Sales Invoice",
             name=invoice_doc.name,
             print_format="Zatca PDF-A 3B",
-            no_letterhead=1, 
-            letterhead=None,  
+            no_letterhead=1,
+            letterhead=None,
         )
-        
+
         # Debug: Log HTML content length
         frappe.log_error(f"HTML content length: {len(html) if html else 0}", "PDF Generator")
-        
+
         # Convert HTML to PDF
         pdf_content = get_pdf(html)
-        
+
         # Debug: Log PDF content length
-        frappe.log_error(f"PDF content length: {len(pdf_content) if pdf_content else 0}", "PDF Generator")
-        
+        frappe.log_error(
+            f"PDF content length: {len(pdf_content) if pdf_content else 0}", "PDF Generator"
+        )
+
         # Save PDF to temporary file
         temp_html_pdf_path = tempfile.mktemp(suffix=".pdf")
         with open(temp_html_pdf_path, "wb") as f:
             f.write(pdf_content)
-        
+
         try:
             # Open PDF with PyMuPDF and convert to image
             doc = fitz.open(temp_html_pdf_path)
             page = doc[0]  # First page
-            
+
             # Convert page to pixmap (image)
             mat = fitz.Matrix(2.0, 2.0)  # Scale factor for better quality
             pix = page.get_pixmap(matrix=mat)
-            
+
             # Save pixmap to temporary image file
             temp_image_path = tempfile.mktemp(suffix=".png")
             pix.save(temp_image_path)
-            
+
             # Debug: Check if image file exists and has content
             if os.path.exists(temp_image_path):
                 file_size = os.path.getsize(temp_image_path)
-                frappe.log_error(f"Image file created - path: {temp_image_path}, size: {file_size} bytes", "PDF Generator")
-                
+                frappe.log_error(
+                    f"Image file created - path: {temp_image_path}, size: {file_size} bytes",
+                    "PDF Generator",
+                )
+
                 # Try to get image dimensions
                 try:
                     from PIL import Image
+
                     with Image.open(temp_image_path) as img:
                         img_width, img_height = img.size
-                        frappe.log_error(f"Image dimensions - width: {img_width}, height: {img_height}", "PDF Generator")
+                        frappe.log_error(
+                            f"Image dimensions - width: {img_width}, height: {img_height}",
+                            "PDF Generator",
+                        )
                 except Exception as e:
                     frappe.log_error(f"Error getting image dimensions: {e}", "PDF Generator")
             else:
-                frappe.log_error(f"Image file not created - path: {temp_image_path}", "PDF Generator")
-            
+                frappe.log_error(
+                    f"Image file not created - path: {temp_image_path}", "PDF Generator"
+                )
+
             # Draw the image on the canvas - full page coverage
             img_width = width  # Full page width
             img_height = height  # Full page height
-            
+
             # Debug: Log the positioning values
-            frappe.log_error(f"Image positioning - width: {img_width}, height: {img_height}", "PDF Generator")
-            
+            frappe.log_error(
+                f"Image positioning - width: {img_width}, height: {img_height}", "PDF Generator"
+            )
+
             c.drawImage(
                 temp_image_path,
                 0,  # Start from left edge
@@ -352,84 +364,98 @@ def draw_pdf_with_reportlab(temp_pdf_path: str, invoice_doc):
                 width=width,  # Full page width
                 height=height,  # Full page height
                 preserveAspectRatio=False,  # Don't preserve aspect ratio to fill space
-                mask='auto'
+                mask="auto",
             )
-            
+
             doc.close()
-            
+
             # ---------- DRAW LETTERHEAD ON TOP OF IMAGE ----------
             y = add_letterhead(c, invoice_doc, width, height)
-            
+
             # ---------- DRAW QR CODE ON TOP OF IMAGE (RIGHT SIDE) ----------
-            qr_code_path = getattr(invoice_doc, 'custom_invoice_qr_code', '')
+            qr_code_path = getattr(invoice_doc, "custom_invoice_qr_code", "")
             if qr_code_path:
                 try:
-                    if qr_code_path.startswith('/files/'):
-                        qr_code_path = qr_code_path.replace('/files/', '')
-                    
-                    full_qr_path = frappe.utils.get_site_path('public', 'files', qr_code_path)
-                    
+                    if qr_code_path.startswith("/files/"):
+                        qr_code_path = qr_code_path.replace("/files/", "")
+
+                    full_qr_path = frappe.utils.get_site_path("public", "files", qr_code_path)
+
                     # QR code dimensions and position
                     qr_size = 80  # Size of QR code
                     qr_x = width - qr_size - 50  # Right side with 50px margin (moved 50px left)
                     qr_y = height - qr_size - 110  # Top with 200px margin (moved 200px down)
-                    
+
                     # Draw the QR code image
-                    c.drawImage(full_qr_path, qr_x, qr_y, 
-                            width=qr_size, height=qr_size, 
-                            preserveAspectRatio=True, mask='auto')
-                    
-                    frappe.log_error(f"QR code drawn at position: ({qr_x}, {qr_y}) with size: {qr_size}", "PDF Generator")
-                    
+                    c.drawImage(
+                        full_qr_path,
+                        qr_x,
+                        qr_y,
+                        width=qr_size,
+                        height=qr_size,
+                        preserveAspectRatio=True,
+                        mask="auto",
+                    )
+
+                    frappe.log_error(
+                        f"QR code drawn at position: ({qr_x}, {qr_y}) with size: {qr_size}",
+                        "PDF Generator",
+                    )
+
                 except Exception as e:
                     frappe.log_error(f"Error loading QR code: {e}", "PDF Generator")
                     # Fallback to text if image can't be loaded
-                    c.drawCentredString(qr_x + qr_size/2, qr_y + qr_size/2, "QR CODE")
+                    c.drawCentredString(qr_x + qr_size / 2, qr_y + qr_size / 2, "QR CODE")
             else:
                 frappe.log_error("No QR code found in invoice document", "PDF Generator")
-            
+
         except Exception as e:
             frappe.log_error(f"Error processing PDF to image: {e}", "PDF Generator")
             # Fallback: draw simple text if image conversion fails
             c.setFont(font_name, 12)
             c.drawString(50, y - 50, f"Invoice: {invoice_doc.name}")
-            c.drawString(50, y - 80, f"Error converting PDF to image")
+            c.drawString(50, y - 80, "Error converting PDF to image")
             c.drawString(50, y - 110, f"Error details: {str(e)}")
-        
+
         finally:
             # Clean up temporary files
             if os.path.exists(temp_html_pdf_path):
                 os.remove(temp_html_pdf_path)
             if os.path.exists(temp_image_path):
                 os.remove(temp_image_path)
-                
+
     except Exception as e:
         frappe.log_error(f"Error generating HTML content: {e}", "PDF Generator")
         # Fallback: draw simple text if HTML generation fails
         c.setFont(font_name, 12)
         c.drawString(50, y - 50, f"Invoice: {invoice_doc.name}")
-        c.drawString(50, y - 80, f"Error generating HTML content")
-    
+        c.drawString(50, y - 80, "Error generating HTML content")
+
     # ---------- DRAW FOOTER ----------
     _draw_footer(c, width, font_name)
-    
+
     c.save()
 
-def check_page_break(c, y, height, margin_y=100, font_name="Cairo", font_size=9, debug=False, invoice_doc=None):
+
+def check_page_break(
+    c, y, height, margin_y=100, font_name="Cairo", font_size=9, debug=False, invoice_doc=None
+):
     """
     Check if we need to start a new page. Return reset y if page breaks.
     Added debug parameter to print information about page break decisions.
     """
     # Handle case where height might be a tuple (width, height)
     if isinstance(height, tuple):
-        page_height = height[1] 
+        page_height = height[1]
     else:
         page_height = height
-    
+
     if debug:
-        print(f"DEBUG: Current y={y}, margin_y={margin_y}, page_height={page_height}, page_break_needed={y < margin_y}")
-    
-    if y < margin_y:  
+        print(
+            f"DEBUG: Current y={y}, margin_y={margin_y}, page_height={page_height}, page_break_needed={y < margin_y}"
+        )
+
+    if y < margin_y:
         width = c._pagesize[0]
         c.showPage()
         c.setFont(font_name, font_size)
@@ -441,16 +467,16 @@ def check_page_break(c, y, height, margin_y=100, font_name="Cairo", font_size=9,
         except Exception as e:
             if debug:
                 print(f"DEBUG: Error drawing footer on new page: {e}")
-        
+
         new_y = page_height - 100  # reset y for new page top
         if debug:
             print(f"DEBUG: Returning new y position: {new_y}")
-        
+
         return new_y
-    
+
     if debug:
         print(f"DEBUG: No page break needed. Current y ({y}) is above margin ({margin_y})")
-    
+
     return y
 
 
@@ -500,7 +526,6 @@ def check_page_break(c, y, height, margin_y=100, font_name="Cairo", font_size=9,
 #             c.drawString(x + 5, text_y, line)
 
 
-
 def add_letterhead(c, doc, page_width, page_height, top_margin=20):
     """
     Adds letterhead (image or HTML) directly to the canvas.
@@ -527,7 +552,9 @@ def add_letterhead(c, doc, page_width, page_height, top_margin=20):
         if file_url.startswith("/files/"):  # public file
             file_path = frappe.get_site_path("public", "files", file_url.split("/files/")[1])
         elif file_url.startswith("/private/files/"):  # private file
-            file_path = frappe.get_site_path("private", "files", file_url.split("/private/files/")[1])
+            file_path = frappe.get_site_path(
+                "private", "files", file_url.split("/private/files/")[1]
+            )
         else:
             # fallback: try relative to /public
             file_path = frappe.get_site_path("public", file_url.lstrip("/"))
@@ -545,7 +572,7 @@ def add_letterhead(c, doc, page_width, page_height, top_margin=20):
                 width=img_width,
                 height=img_height,
                 preserveAspectRatio=True,
-                mask="auto"
+                mask="auto",
             )
             y_after = y - 10
         except Exception as e:
@@ -574,31 +601,31 @@ def add_letterhead(c, doc, page_width, page_height, top_margin=20):
     return y_after
 
 
-
-
-def _draw_table_cell_with_wrapping(c, x, y, w, h, text, base_font_name, font_size=7, align='left', bg_color=None, auto_height=False):
+def _draw_table_cell_with_wrapping(
+    c, x, y, w, h, text, base_font_name, font_size=7, align="left", bg_color=None, auto_height=False
+):
     """
     Enhanced table cell drawing with Arabic font support and RTL positioning.
     """
     # Handle empty or None text
     if not text:
         text = ""
-    
+
     text_str = str(text)
-    
+
     if is_arabic_text(text_str):
         text_str = fix_arabic_words_for_pdf(text_str)
     # Calculate available width for text (minus padding)
     text_width = w - 10  # 5px padding on each side
-    
+
     # Split by newlines first to handle explicit line breaks
-    explicit_lines = text_str.split('\n')
+    explicit_lines = text_str.split("\n")
     final_lines = []
-    
+
     # Process each explicit line for wrapping if needed
     for line in explicit_lines:
         processed_line = process_bidi_text(line)
-        
+
         # Check if this line fits
         line_font = get_appropriate_font(processed_line, base_font_name)
         if stringWidth(processed_line, line_font, font_size) <= text_width:
@@ -609,44 +636,47 @@ def _draw_table_cell_with_wrapping(c, x, y, w, h, text, base_font_name, font_siz
             for wrapped_line in wrapped_lines:
                 wrapped_font = get_appropriate_font(wrapped_line, base_font_name)
                 final_lines.append((wrapped_line, wrapped_font))
-    
+
     # Calculate required height if auto_height is True
     line_height = font_size + 2
     required_height = max(h, len(final_lines) * line_height + 4)  # 4px total padding
-    
+
     # Use required height if auto_height, otherwise use provided height
     cell_height = required_height if auto_height else h
-    
+
     # Draw background if specified
     if bg_color:
         c.setFillColor(bg_color)
-        c.rect(x, y-cell_height, w, cell_height, fill=1)
+        c.rect(x, y - cell_height, w, cell_height, fill=1)
         c.setFillColor(black)
-    
+
     # Draw border
     c.setLineWidth(0.5)
-    c.rect(x, y-cell_height, w, cell_height, fill=0)
+    c.rect(x, y - cell_height, w, cell_height, fill=0)
     c.setLineWidth(1)
-    
+
     # Draw text lines with proper alignment for Arabic/RTL content
     for i, (line, line_font) in enumerate(final_lines):
         # Set font for each line individually
         c.setFont(line_font, font_size)
-        
-        text_y = y - cell_height/2 - font_size/2 + (len(final_lines)/2 - i - 0.5) * line_height
-        
+
+        text_y = (
+            y - cell_height / 2 - font_size / 2 + (len(final_lines) / 2 - i - 0.5) * line_height
+        )
+
         # Determine alignment based on text content
         effective_align = get_text_alignment(line, align)
-        
-        if effective_align == 'center':
-            c.drawCentredString(x + w/2, text_y, line)
-        elif effective_align == 'right' or is_arabic_text(line):
+
+        if effective_align == "center":
+            c.drawCentredString(x + w / 2, text_y, line)
+        elif effective_align == "right" or is_arabic_text(line):
             # Arabic text should be right-aligned
             c.drawRightString(x + w - 5, text_y, line)
         else:
             c.drawString(x + 5, text_y, line)
-    
+
     return cell_height
+
 
 def safe_get_value(doctype, name, fieldname):
     try:
@@ -661,23 +691,23 @@ def safe_get_value(doctype, name, fieldname):
         return "-"
 
 
-
 def strip_html_tags(text):
     """Remove HTML tags from text and return plain text."""
     if not text:
         return ""
-    
+
     # Remove HTML tags using regex
-    clean_text = re.sub('<[^<]+?>', '', str(text))
-    
+    clean_text = re.sub("<[^<]+?>", "", str(text))
+
     # Replace HTML entities if needed
-    clean_text = clean_text.replace('&amp;', '&')
-    clean_text = clean_text.replace('&lt;', '<')
-    clean_text = clean_text.replace('&gt;', '>')
-    clean_text = clean_text.replace('&quot;', '"')
-    clean_text = clean_text.replace('&#39;', "'")
-    
+    clean_text = clean_text.replace("&amp;", "&")
+    clean_text = clean_text.replace("&lt;", "<")
+    clean_text = clean_text.replace("&gt;", ">")
+    clean_text = clean_text.replace("&quot;", '"')
+    clean_text = clean_text.replace("&#39;", "'")
+
     return clean_text.strip()
+
 
 def get_first_tax_rate(doc):
     """
@@ -687,11 +717,12 @@ def get_first_tax_rate(doc):
         return doc.taxes[0].rate or 0
     return 0
 
+
 def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
     """Draw items table section with flexible row heights based on content."""
     base_cell_height = 15
     table_width = width - 2 * margin_x  # Full width between margins
-    
+
     # Column widths that add up to table_width
     item_col_widths = [60, 180, 70, 60, 90, 80, 120]
     # Adjust if they don't add up to table_width
@@ -699,9 +730,9 @@ def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
     if total_col_width != table_width:
         scale_factor = table_width / total_col_width
         item_col_widths = [int(w * scale_factor) for w in item_col_widths]
-    
+
     current_y = y
-    
+
     # English and Arabic headers combined
     combined_headers = [
         "PO Item\nبند طلب",
@@ -709,8 +740,8 @@ def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
         "Unit Price\nعر الوحدة",
         "Qty\nالكمية",
         "Taxable Amt\nلمبلغ الخاضع للضريبة",
-"Tax Amt\nمبلغ الضريبة",
-        "Subtotal(Inc. VAT)\nلمجموع شامل الضريبة"
+        "Tax Amt\nمبلغ الضريبة",
+        "Subtotal(Inc. VAT)\nلمجموع شامل الضريبة",
     ]
 
     for i, header in enumerate(combined_headers):
@@ -723,39 +754,43 @@ def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
             header,
             font_name,
             7,  # Consistent font size
-            'center',
-            colors.lightgrey
+            "center",
+            colors.lightgrey,
         )
 
     current_y -= base_cell_height * 2
 
     # Items data with flexible row heights
-    
+
     if invoice_doc.items:
         for item in invoice_doc.items:
             # Calculate maximum height needed for this row
             max_height = base_cell_height
-            
+
             # Prepare item data
-            clean_description = strip_html_tags(item.description or '')
+            clean_description = strip_html_tags(item.description or "")
             item_description = f"{item.item_code}\n{item.item_name}\n{clean_description}"
-            item_tax_amount = get_first_tax_rate(invoice_doc) * item.amount / 100 if get_first_tax_rate(invoice_doc) else 0
+            item_tax_amount = (
+                get_first_tax_rate(invoice_doc) * item.amount / 100
+                if get_first_tax_rate(invoice_doc)
+                else 0
+            )
             item_data = [
-                getattr(item, 'line_item', '') or '',
+                getattr(item, "line_item", "") or "",
                 item_description,
                 format_currency(item.rate, invoice_doc.currency),
                 f"{item.qty}",
                 format_currency(item.amount, invoice_doc.currency),
                 format_currency(item_tax_amount, invoice_doc.currency),
-                format_currency(item.amount + item_tax_amount, invoice_doc.currency)
+                format_currency(item.amount + item_tax_amount, invoice_doc.currency),
             ]
-            
+
             # Calculate required height for each cell
             for i, data in enumerate(item_data):
                 if i == 1:  # Description column needs special handling
                     # Calculate lines needed for description
                     desc_width = item_col_widths[1] - 10  # minus padding
-                    avg_char_width = stringWidth('A', font_name, 7)
+                    avg_char_width = stringWidth("A", font_name, 7)
                     chars_per_line = max(1, int(desc_width / avg_char_width))
                     lines_needed = len(textwrap.wrap(str(data), width=chars_per_line))
                     content_height = lines_needed * (8 + 2) + 4  # font + spacing + padding
@@ -764,19 +799,21 @@ def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
                     # For other columns, check if text fits or needs wrapping
                     text_width = item_col_widths[i] - 10
                     if stringWidth(str(data), font_name, 7) > text_width:
-                        avg_char_width = stringWidth('A', font_name, 7)
+                        avg_char_width = stringWidth("A", font_name, 7)
                         chars_per_line = max(1, int(text_width / avg_char_width))
                         lines_needed = len(textwrap.wrap(str(data), width=chars_per_line))
                         content_height = lines_needed * (8 + 2) + 4
                         max_height = max(max_height, content_height)
-            
+
             # Check page break before drawing the row
-            current_y = check_page_break(c, current_y, height, 100, font_name, 8, False, invoice_doc)
-            
+            current_y = check_page_break(
+                c, current_y, height, 100, font_name, 8, False, invoice_doc
+            )
+
             # Draw each cell with consistent row height
             for i, data in enumerate(item_data):
-                align = 'right' if i in [2, 3, 4, 5, 6] else 'left'
-                
+                align = "right" if i in [2, 3, 4, 5, 6] else "left"
+
                 if i == 1:  # Use wrapping for description column
                     _draw_table_cell_with_wrapping(
                         c,
@@ -788,7 +825,7 @@ def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
                         font_name,
                         7,
                         align,
-                        auto_height=False
+                        auto_height=False,
                     )
                 else:
                     _draw_table_cell(
@@ -800,7 +837,7 @@ def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
                         str(data),
                         font_name,
                         7,
-                        align
+                        align,
                     )
 
             current_y -= max_height
@@ -811,46 +848,109 @@ def _draw_items_section(c, invoice_doc, width, height, margin_x, y, font_name):
 def _draw_totals_section(c, invoice_doc, width, margin_x, y, font_name):
     """Draw totals section with dynamic height expansion."""
     base_cell_height = 15
-    table_width = width - 2 * margin_x  
+    table_width = width - 2 * margin_x
 
     # Total amounts header
     current_y = check_page_break(c, y, height, 150, font_name, 9, False, invoice_doc)
     _draw_table_cell_with_wrapping(
-        c, margin_x, current_y, table_width/2, base_cell_height,
-        "Total Amounts:", font_name, 7, bg_color=colors.lightgrey, auto_height=True
+        c,
+        margin_x,
+        current_y,
+        table_width / 2,
+        base_cell_height,
+        "Total Amounts:",
+        font_name,
+        7,
+        bg_color=colors.lightgrey,
+        auto_height=True,
     )
     _draw_table_cell_with_wrapping(
-        c, margin_x + table_width/2, current_y, table_width/2, base_cell_height,
-        ":اجمالي المبالغ", font_name, 7, 'right', colors.lightgrey, auto_height=True
+        c,
+        margin_x + table_width / 2,
+        current_y,
+        table_width / 2,
+        base_cell_height,
+        ":اجمالي المبالغ",
+        font_name,
+        7,
+        "right",
+        colors.lightgrey,
+        auto_height=True,
     )
     current_y -= base_cell_height
 
     # Totals data
     totals_data = [
-        ("Total Taxable Amount (Excluding VAT)", "الاجمالي الخاضع للضريبة  (غير شامل ضريبة القيمة المضافة)", format_currency(invoice_doc.net_total, invoice_doc.currency)),
-        ("Total VAT", "مجموع ضريبة القيمة المضافة", format_currency(invoice_doc.total_taxes_and_charges, invoice_doc.currency)),
-        ("Total Amount Due", "اجمالي المبلغ المستحق", format_currency(invoice_doc.grand_total, invoice_doc.currency)),
-        ("Total In Words", "", invoice_doc.in_words or "")
+        (
+            "Total Taxable Amount (Excluding VAT)",
+            "الاجمالي الخاضع للضريبة  (غير شامل ضريبة القيمة المضافة)",
+            format_currency(invoice_doc.net_total, invoice_doc.currency),
+        ),
+        (
+            "Total VAT",
+            "مجموع ضريبة القيمة المضافة",
+            format_currency(invoice_doc.total_taxes_and_charges, invoice_doc.currency),
+        ),
+        (
+            "Total Amount Due",
+            "اجمالي المبلغ المستحق",
+            format_currency(invoice_doc.grand_total, invoice_doc.currency),
+        ),
+        ("Total In Words", "", invoice_doc.in_words or ""),
     ]
 
-    col_widths = [table_width/4, table_width/4, table_width/4, table_width/4]
+    col_widths = [table_width / 4, table_width / 4, table_width / 4, table_width / 4]
 
     for english, arabic, amount in totals_data:
         # First pass: calculate required height
         max_height = base_cell_height
-        for content, w in zip(["", english, arabic, amount], col_widths):
+        for content, w in zip(["", english, arabic, amount], col_widths, strict=False):
             content_width = w - 10
-            avg_char_width = stringWidth('A', font_name, 7)
+            avg_char_width = stringWidth("A", font_name, 7)
             chars_per_line = max(1, int(content_width / avg_char_width))
             lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
-            content_height = lines_needed * (9 + 2) + 4 
+            content_height = lines_needed * (9 + 2) + 4
             max_height = max(max_height, content_height)
 
         # Second pass: draw row with dynamic height
-        _draw_table_cell_with_wrapping(c, margin_x, current_y, col_widths[0], max_height, "", font_name, 7, auto_height=True)
-        _draw_table_cell_with_wrapping(c, margin_x + col_widths[0], current_y, col_widths[1], max_height, english, font_name, 7, auto_height=True)
-        _draw_table_cell_with_wrapping(c, margin_x + col_widths[0] + col_widths[1], current_y, col_widths[2], max_height, arabic, font_name, 7, 'right', auto_height=True)
-        _draw_table_cell_with_wrapping(c, margin_x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], max_height, amount, font_name, 7, 'right', auto_height=True)
+        _draw_table_cell_with_wrapping(
+            c, margin_x, current_y, col_widths[0], max_height, "", font_name, 7, auto_height=True
+        )
+        _draw_table_cell_with_wrapping(
+            c,
+            margin_x + col_widths[0],
+            current_y,
+            col_widths[1],
+            max_height,
+            english,
+            font_name,
+            7,
+            auto_height=True,
+        )
+        _draw_table_cell_with_wrapping(
+            c,
+            margin_x + col_widths[0] + col_widths[1],
+            current_y,
+            col_widths[2],
+            max_height,
+            arabic,
+            font_name,
+            7,
+            "right",
+            auto_height=True,
+        )
+        _draw_table_cell_with_wrapping(
+            c,
+            margin_x + col_widths[0] + col_widths[1] + col_widths[2],
+            current_y,
+            col_widths[3],
+            max_height,
+            amount,
+            font_name,
+            7,
+            "right",
+            auto_height=True,
+        )
 
         current_y -= max_height
 
@@ -871,74 +971,129 @@ def _draw_tax_summary(c, invoice_doc, width, margin_x, y, font_name):
     """Draw tax summary section."""
     cell_height = 15
     table_width = width - 2 * margin_x  # Full width between margins
-    conversion_rate = getattr(invoice_doc, 'conversion_rate', 1)
-    current_y = check_page_break(c, y, height, 150, font_name, 7,False, invoice_doc)
-    
+    conversion_rate = getattr(invoice_doc, "conversion_rate", 1)
+    current_y = check_page_break(c, y, height, 150, font_name, 7, False, invoice_doc)
+
     # Tax summary header
-    _draw_table_cell(c, margin_x, current_y, table_width, cell_height, 
-                    f"Tax Summary (1 {invoice_doc.currency} = {conversion_rate} SAR)", 
-                    font_name, 8, bg_color=colors.lightgrey)
+    _draw_table_cell(
+        c,
+        margin_x,
+        current_y,
+        table_width,
+        cell_height,
+        f"Tax Summary (1 {invoice_doc.currency} = {conversion_rate} SAR)",
+        font_name,
+        8,
+        bg_color=colors.lightgrey,
+    )
     current_y -= cell_height
-    
+
     # Tax table headers
-    tax_col_widths = [table_width/2, table_width/4, table_width/4]
+    tax_col_widths = [table_width / 2, table_width / 4, table_width / 4]
     tax_headers = ["Tax Details", "Taxable Amount(SAR)", "Tax Amount(SAR)"]
-    
+
     for i, header in enumerate(tax_headers):
-        align = 'left' if i == 0 else 'right'
-        _draw_table_cell(c, margin_x + sum(tax_col_widths[:i]), current_y, tax_col_widths[i], 
-                        cell_height, header, font_name, 9, align, colors.lightgrey)
-    
+        align = "left" if i == 0 else "right"
+        _draw_table_cell(
+            c,
+            margin_x + sum(tax_col_widths[:i]),
+            current_y,
+            tax_col_widths[i],
+            cell_height,
+            header,
+            font_name,
+            9,
+            align,
+            colors.lightgrey,
+        )
+
     current_y -= cell_height
-    
+
     # Tax data
-    base_net_total = format_currency(getattr(invoice_doc, 'base_net_total', invoice_doc.net_total * conversion_rate), "SAR")
-    base_tax_amount = format_currency(getattr(invoice_doc, 'base_total_taxes_and_charges', invoice_doc.total_taxes_and_charges * conversion_rate), "SAR")
-    
+    base_net_total = format_currency(
+        getattr(invoice_doc, "base_net_total", invoice_doc.net_total * conversion_rate), "SAR"
+    )
+    base_tax_amount = format_currency(
+        getattr(
+            invoice_doc,
+            "base_total_taxes_and_charges",
+            invoice_doc.total_taxes_and_charges * conversion_rate,
+        ),
+        "SAR",
+    )
+
     tax_data = [
-        getattr(invoice_doc, 'taxes_and_charges', 'VAT 15%'),
+        getattr(invoice_doc, "taxes_and_charges", "VAT 15%"),
         f"{base_net_total}",
-        f"{base_tax_amount}"
+        f"{base_tax_amount}",
     ]
-    
+
     for i, data in enumerate(tax_data):
-        align = 'left' if i == 0 else 'right'
-        _draw_table_cell(c, margin_x + sum(tax_col_widths[:i]), current_y, tax_col_widths[i], 
-                        cell_height, data, font_name, 7, align)
-    
+        align = "left" if i == 0 else "right"
+        _draw_table_cell(
+            c,
+            margin_x + sum(tax_col_widths[:i]),
+            current_y,
+            tax_col_widths[i],
+            cell_height,
+            data,
+            font_name,
+            7,
+            align,
+        )
+
     return current_y - cell_height - 20
 
 
 def _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name):
     """Draw bank details section dynamically from Bank Account doctype, only if custom_display_in_pdf is ticked."""
     base_cell_height = 15
-    table_width = width - 2 * margin_x  
+    table_width = width - 2 * margin_x
     current_y = check_page_break(c, y, height, 150, font_name, 9, False, invoice_doc)
 
     # Fetch bank accounts with display flag
     bank_accounts = frappe.get_all(
         "Bank Account",
         filters={"custom_display_in_pdf": 1},
-        fields=["account_name", "custom_account_name_in_arabic", "bank", "iban"]
+        fields=["account_name", "custom_account_name_in_arabic", "bank", "iban"],
     )
 
     if not bank_accounts:
         # No accounts with ticked flag -> skip table
-        return y  
+        return y
 
     # Add swift_number from Bank master
     for ba in bank_accounts:
         ba["swift_number"] = safe_get_value("Bank", ba.bank, "swift_number")
-        ba["custom_bank_name_in_arabic"] = safe_get_value("Bank", ba.bank,"custom_bank_name_in_arabic")
+        ba["custom_bank_name_in_arabic"] = safe_get_value(
+            "Bank", ba.bank, "custom_bank_name_in_arabic"
+        )
 
     # Table header
     _draw_table_cell_with_wrapping(
-        c, margin_x, current_y, table_width/2, base_cell_height,
-        "Bank Details", font_name, 8, bg_color=colors.lightgrey, auto_height=True
+        c,
+        margin_x,
+        current_y,
+        table_width / 2,
+        base_cell_height,
+        "Bank Details",
+        font_name,
+        8,
+        bg_color=colors.lightgrey,
+        auto_height=True,
     )
     _draw_table_cell_with_wrapping(
-        c, margin_x + table_width/2, current_y, table_width/2, base_cell_height,
-        "التفاصيل المصرفية", font_name, 8, 'right', colors.lightgrey, auto_height=True
+        c,
+        margin_x + table_width / 2,
+        current_y,
+        table_width / 2,
+        base_cell_height,
+        "التفاصيل المصرفية",
+        font_name,
+        8,
+        "right",
+        colors.lightgrey,
+        auto_height=True,
     )
     current_y -= base_cell_height
 
@@ -946,52 +1101,97 @@ def _draw_bank_details(c, invoice_doc, width, margin_x, y, font_name):
 
     for ba in bank_accounts:
         bank_details = [
-            ("Account Name", "اسم الحساب المصرفي", ba.account_name, ba.custom_account_name_in_arabic or "-"),
+            (
+                "Account Name",
+                "اسم الحساب المصرفي",
+                ba.account_name,
+                ba.custom_account_name_in_arabic or "-",
+            ),
             ("Bank Name", "اسم البنك", ba.bank or "-", ba.custom_bank_name_in_arabic or "-"),
             ("IBAN", "رقم الآيبان", ba.iban or "-", ba.iban or "-"),
-            ("Swift Code", "رمز السويفت", ba.swift_number or "-", ba.swift_number or "-")
+            ("Swift Code", "رمز السويفت", ba.swift_number or "-", ba.swift_number or "-"),
         ]
 
         for english_label, arabic_label, english_value, arabic_value in bank_details:
             # Calculate dynamic row height
             max_height = base_cell_height
             row_data = [english_label, english_value, arabic_value, arabic_label]
-            for content, w in zip(row_data, [bank_col_width] * 4):
+            for content, w in zip(row_data, [bank_col_width] * 4, strict=False):
                 content_width = w - 10
-                avg_char_width = stringWidth('A', font_name, 7)
+                avg_char_width = stringWidth("A", font_name, 7)
                 chars_per_line = max(1, int(content_width / avg_char_width))
                 lines_needed = len(textwrap.wrap(str(content), width=chars_per_line))
-                content_height = lines_needed * (9 + 2) + 4  
+                content_height = lines_needed * (9 + 2) + 4
                 max_height = max(max_height, content_height)
 
             # Draw the row
-            _draw_table_cell_with_wrapping(c, margin_x, current_y, bank_col_width, max_height,
-                                           english_label, font_name, 7, bg_color=colors.white, auto_height=True)
-            _draw_table_cell_with_wrapping(c, margin_x + bank_col_width, current_y, bank_col_width, max_height,
-                                           english_value, font_name, 7, 'center', auto_height=True)
-            _draw_table_cell_with_wrapping(c, margin_x + 2*bank_col_width, current_y, bank_col_width, max_height,
-                                           arabic_value, font_name, 7, 'center', auto_height=True)
-            _draw_table_cell_with_wrapping(c, margin_x + 3*bank_col_width, current_y, bank_col_width, max_height,
-                                           arabic_label, font_name, 7, 'right', colors.white, auto_height=True)
+            _draw_table_cell_with_wrapping(
+                c,
+                margin_x,
+                current_y,
+                bank_col_width,
+                max_height,
+                english_label,
+                font_name,
+                7,
+                bg_color=colors.white,
+                auto_height=True,
+            )
+            _draw_table_cell_with_wrapping(
+                c,
+                margin_x + bank_col_width,
+                current_y,
+                bank_col_width,
+                max_height,
+                english_value,
+                font_name,
+                7,
+                "center",
+                auto_height=True,
+            )
+            _draw_table_cell_with_wrapping(
+                c,
+                margin_x + 2 * bank_col_width,
+                current_y,
+                bank_col_width,
+                max_height,
+                arabic_value,
+                font_name,
+                7,
+                "center",
+                auto_height=True,
+            )
+            _draw_table_cell_with_wrapping(
+                c,
+                margin_x + 3 * bank_col_width,
+                current_y,
+                bank_col_width,
+                max_height,
+                arabic_label,
+                font_name,
+                7,
+                "right",
+                colors.white,
+                auto_height=True,
+            )
 
             current_y -= max_height
 
     return current_y - 20
 
 
-
 def _draw_footer(c, width, font_name):
     """Draw footer section."""
     c.setFont(font_name, 8)
-    c.drawCentredString(width/2, 30, "This is a PDF/A-3A compliant invoice with embedded XML")
+    c.drawCentredString(width / 2, 30, "This is a PDF/A-3A compliant invoice with embedded XML")
     print("here man")
-    
+
 
 def build_xmp_metadata(invoice_doc) -> bytes:
     """Create XMP packet for PDF/A-3A with invoice info."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    xmp = f'''<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>
+    xmp = f"""<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
     <rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -1021,11 +1221,13 @@ def build_xmp_metadata(invoice_doc) -> bytes:
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>
-<?xpacket end="w"?>'''
+<?xpacket end="w"?>"""
     return xmp.encode("utf-8")
 
 
-def finalize_pdfa(temp_pdf_path: str, final_pdf_path: str, icc_path: str, xml_path: str, invoice_doc):
+def finalize_pdfa(
+    temp_pdf_path: str, final_pdf_path: str, icc_path: str, xml_path: str, invoice_doc
+):
     """Inject OutputIntent and XMP per PDF/A-3A, ensure no encryption and proper Catalog flags."""
     with pikepdf.open(temp_pdf_path, allow_overwriting_input=True) as pdf:
         if pdf.is_encrypted:
@@ -1034,55 +1236,59 @@ def finalize_pdfa(temp_pdf_path: str, final_pdf_path: str, icc_path: str, xml_pa
         # Create and attach XMP metadata
         xmp_bytes = build_xmp_metadata(invoice_doc)
         metadata_stream = pdf.make_stream(xmp_bytes)
-        metadata_stream['/Subtype'] = Name('/XML')
-        metadata_stream['/Type'] = Name('/Metadata')
-        pdf.Root['/Metadata'] = metadata_stream
+        metadata_stream["/Subtype"] = Name("/XML")
+        metadata_stream["/Type"] = Name("/Metadata")
+        pdf.Root["/Metadata"] = metadata_stream
 
         # OutputIntent with sRGB IEC61966-2.1
         with open(icc_path, "rb") as f:
             icc_bytes = f.read()
         icc_stream = pdf.make_stream(icc_bytes)
-        icc_stream['/N'] = 3
+        icc_stream["/N"] = 3
 
-        oi = Dictionary({
-            '/Type': Name('/OutputIntent'),
-            '/S': Name('/GTS_PDFA1'),
-            '/OutputConditionIdentifier': "sRGB",
-            '/OutputCondition': "sRGB IEC61966-2.1",
-            '/Info': "sRGB IEC61966-2.1",
-            '/DestOutputProfile': icc_stream,
-        })
+        oi = Dictionary(
+            {
+                "/Type": Name("/OutputIntent"),
+                "/S": Name("/GTS_PDFA1"),
+                "/OutputConditionIdentifier": "sRGB",
+                "/OutputCondition": "sRGB IEC61966-2.1",
+                "/Info": "sRGB IEC61966-2.1",
+                "/DestOutputProfile": icc_stream,
+            }
+        )
 
-        pdf.Root['/OutputIntents'] = Array([oi])
-        pdf.Root['/Trapped'] = Name('/False')
+        pdf.Root["/OutputIntents"] = Array([oi])
+        pdf.Root["/Trapped"] = Name("/False")
 
         # PDF/A-3A tagging requirements
-        pdf.Root['/Lang'] = String('en-US')
-        pdf.Root['/MarkInfo'] = Dictionary({'/Marked': True})
+        pdf.Root["/Lang"] = String("en-US")
+        pdf.Root["/MarkInfo"] = Dictionary({"/Marked": True})
 
         # Ensure page has StructParents
-        pages = pdf.Root['/Pages']
-        first_page = pages['/Kids'][0]
+        pages = pdf.Root["/Pages"]
+        first_page = pages["/Kids"][0]
         if not first_page.is_indirect:
             first_page = pdf.make_indirect(first_page)
-        first_page['/StructParents'] = 0
+        first_page["/StructParents"] = 0
 
         # Build minimal StructTreeRoot
-        parent_tree = Dictionary({'/Nums': Array()})
-        struct_tree_root = Dictionary({
-            '/Type': Name('/StructTreeRoot'),
-            '/ParentTree': parent_tree,
-            '/ParentTreeNextKey': 1,
-            '/RoleMap': Dictionary()
-        })
+        parent_tree = Dictionary({"/Nums": Array()})
+        struct_tree_root = Dictionary(
+            {
+                "/Type": Name("/StructTreeRoot"),
+                "/ParentTree": parent_tree,
+                "/ParentTreeNextKey": 1,
+                "/RoleMap": Dictionary(),
+            }
+        )
 
         struct_tree_root_ind = pdf.make_indirect(struct_tree_root)
-        pdf.Root['/StructTreeRoot'] = struct_tree_root_ind
+        pdf.Root["/StructTreeRoot"] = struct_tree_root_ind
 
         # ViewerPreferences
-        vp = pdf.Root.get('/ViewerPreferences', Dictionary())
-        vp['/DisplayDocTitle'] = True
-        pdf.Root['/ViewerPreferences'] = vp
+        vp = pdf.Root.get("/ViewerPreferences", Dictionary())
+        vp["/DisplayDocTitle"] = True
+        pdf.Root["/ViewerPreferences"] = vp
 
         # Embed XML file
         if xml_path and os.path.isfile(xml_path):
@@ -1091,41 +1297,43 @@ def finalize_pdfa(temp_pdf_path: str, final_pdf_path: str, icc_path: str, xml_pa
 
             ef_stream = pdf.make_stream(xml_bytes)
             ef_stream["/Type"] = Name("/EmbeddedFile")
-            ef_stream["/Subtype"] = Name('/application/xml')
-            
+            ef_stream["/Subtype"] = Name("/application/xml")
+
             mod_date = datetime.now(timezone.utc).strftime("D:%Y%m%d%H%M%SZ")
-            ef_stream["/Params"] = Dictionary({
-                "/Size": len(xml_bytes), 
-                "/ModDate": String(mod_date)
-            })
+            ef_stream["/Params"] = Dictionary(
+                {"/Size": len(xml_bytes), "/ModDate": String(mod_date)}
+            )
 
             ef_stream_ind = pdf.make_indirect(ef_stream)
 
-            filename = 'invoice.xml'
-            filespec = Dictionary({
-                '/Type': Name('/Filespec'),
-                '/F': String(filename),
-                '/UF': String(filename),
-                '/EF': Dictionary({'/F': ef_stream_ind, '/UF': ef_stream_ind}),
-                '/Desc': String('ZATCA invoice XML'),
-                '/AFRelationship': Name('/Data'),
-            })
+            filename = "invoice.xml"
+            filespec = Dictionary(
+                {
+                    "/Type": Name("/Filespec"),
+                    "/F": String(filename),
+                    "/UF": String(filename),
+                    "/EF": Dictionary({"/F": ef_stream_ind, "/UF": ef_stream_ind}),
+                    "/Desc": String("ZATCA invoice XML"),
+                    "/AFRelationship": Name("/Data"),
+                }
+            )
 
             filespec_ind = pdf.make_indirect(filespec)
 
             # Add to Names -> EmbeddedFiles
-            names_dict = pdf.Root.get('/Names', Dictionary())
-            names_dict['/EmbeddedFiles'] = Dictionary({
-                '/Names': Array([String(filename), filespec_ind])
-            })
-            pdf.Root['/Names'] = names_dict
+            names_dict = pdf.Root.get("/Names", Dictionary())
+            names_dict["/EmbeddedFiles"] = Dictionary(
+                {"/Names": Array([String(filename), filespec_ind])}
+            )
+            pdf.Root["/Names"] = names_dict
 
             # Add to AF array
             af_array = Array([filespec_ind])
-            pdf.Root['/AF'] = af_array
+            pdf.Root["/AF"] = af_array
 
         try:
             from pikepdf import PdfVersion
+
             pdf.save(final_pdf_path, linearize=False, min_version=PdfVersion.v1_7)
         except Exception:
             pdf.save(final_pdf_path, linearize=False)
@@ -1144,20 +1352,18 @@ def zatca_embed_qr_in_pdf(invoice_name):
 
         # Get invoice document
         invoice_doc = frappe.get_doc("Sales Invoice", invoice_name)
-        
+
         # Check if custom_invoice_xml field exists and has value
-        if not hasattr(invoice_doc, 'custom_invoice_xml') or not invoice_doc.custom_invoice_xml:
+        if not hasattr(invoice_doc, "custom_invoice_xml") or not invoice_doc.custom_invoice_xml:
             frappe.throw("No XML file path found in custom_invoice_xml field")
 
         xml_filename = os.path.basename(invoice_doc.custom_invoice_xml)
 
         # Find XML file in attachments
         attachments = frappe.get_all(
-            "File", 
-            filters={"attached_to_name": invoice_name}, 
-            fields=["file_name", "file_url"]
+            "File", filters={"attached_to_name": invoice_name}, fields=["file_name", "file_url"]
         )
-        
+
         xml_file = None
         for attachment in attachments:
             if attachment.file_name == xml_filename:
@@ -1173,7 +1379,7 @@ def zatca_embed_qr_in_pdf(invoice_name):
         icc_path = ensure_assets()
 
         # Create temporary PDF
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_pdf:
             temp_pdf_path = temp_pdf.name
 
         try:
@@ -1181,24 +1387,23 @@ def zatca_embed_qr_in_pdf(invoice_name):
             draw_pdf_with_reportlab(temp_pdf_path, invoice_doc)
 
             # Create final PDF with embedded XML
-            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as final_pdf:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as final_pdf:
                 final_pdf_path = final_pdf.name
 
             finalize_pdfa(temp_pdf_path, final_pdf_path, icc_path, xml_file, invoice_doc)
 
             # Read the generated PDF
-            with open(final_pdf_path, 'rb') as f:
+            with open(final_pdf_path, "rb") as f:
                 pdf_content = f.read()
 
             # Create File document in ERPNext
             pdf_filename = f"{invoice_name}_PDFA3.pdf"
-            
+
             # Check if file already exists
-            existing_file = frappe.db.exists("File", {
-                "attached_to_name": invoice_name,
-                "file_name": pdf_filename
-            })
-            
+            existing_file = frappe.db.exists(
+                "File", {"attached_to_name": invoice_name, "file_name": pdf_filename}
+            )
+
             if existing_file:
                 # Update existing file
                 file_doc = frappe.get_doc("File", existing_file)
@@ -1206,23 +1411,25 @@ def zatca_embed_qr_in_pdf(invoice_name):
                 file_doc.save()
             else:
                 # Create new file
-                file_doc = frappe.get_doc({
-                    "doctype": "File",
-                    "file_name": pdf_filename,
-                    "attached_to_doctype": "Sales Invoice",
-                    "attached_to_name": invoice_name,
-                    "content": pdf_content,
-                    "is_private": 0,
-                })
+                file_doc = frappe.get_doc(
+                    {
+                        "doctype": "File",
+                        "file_name": pdf_filename,
+                        "attached_to_doctype": "Sales Invoice",
+                        "attached_to_name": invoice_name,
+                        "content": pdf_content,
+                        "is_private": 0,
+                    }
+                )
                 file_doc.insert()
 
             frappe.db.commit()
-            
+
             return {
                 "status": "success",
-                "message":file_doc.file_url,
+                "message": file_doc.file_url,
                 "file_url": file_doc.file_url,
-                "file_name": pdf_filename
+                "file_name": pdf_filename,
             }
 
         finally:
@@ -1243,18 +1450,12 @@ def test_pdfa3_assets():
     try:
         icc_path = ensure_assets()
         font_path = find_ttf_font()
-        
+
         return {
             "status": "success",
             "icc_profile": icc_path,
             "font_file": font_path,
-            "message": "All required assets are available"
+            "message": "All required assets are available",
         }
     except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
-        
-        
-   
+        return {"status": "error", "message": str(e)}

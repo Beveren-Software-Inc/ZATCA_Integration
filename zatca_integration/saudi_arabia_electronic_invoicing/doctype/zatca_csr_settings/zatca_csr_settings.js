@@ -4,7 +4,7 @@ frappe.ui.form.on('Zatca CSR Settings', {
     refresh: function(frm) {
         if (!frm.is_new() && frm.doc.zatca_phase === "ZATCA Phase 2") {
 
-            if (!frm.doc.csr_generated) {  
+            if (!frm.doc.csr_generated) {
                 frm.add_custom_button(__('Generate CSR'), function() {
                     frappe.call({
                         method: "zatca_integration.saudi_arabia_electronic_invoicing.utils.generate_csr",

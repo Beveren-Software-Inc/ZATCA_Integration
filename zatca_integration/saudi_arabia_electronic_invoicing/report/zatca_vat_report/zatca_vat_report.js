@@ -3,7 +3,7 @@
 
 frappe.query_reports["Zatca VAT Report"] = {
 	onload() {
-		frappe.breadcrumbs.add('Accounts');	
+		frappe.breadcrumbs.add('Accounts');
 	},
 	"filters": [
 		{

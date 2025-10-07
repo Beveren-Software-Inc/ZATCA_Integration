@@ -8,7 +8,7 @@ frappe.ui.form.on("Compliance CSID", {
             }
             if (!are_all_flags_true(frm) && frm.doc.binary_security_token) {
                 frm.trigger("validate_zatca_compliance_csid");
-                
+
             }
         }
         make_fields_read_only(frm);

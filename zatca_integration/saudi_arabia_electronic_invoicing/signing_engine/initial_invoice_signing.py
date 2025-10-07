@@ -1,19 +1,22 @@
-
-
-import hashlib
 import base64
 import binascii
+import hashlib
 from datetime import datetime
-from lxml import etree
-import lxml.etree as MyTree
-from frappe import _
+
+import asn1
 import frappe
+import lxml.etree as MyTree
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-import asn1
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_pem_details, get_pem_compliance_details
+from frappe import _
+from lxml import etree
+
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
+    get_pem_compliance_details,
+    get_pem_details,
+)
 
 
 def encode_customoid(custom_string):
@@ -24,10 +27,10 @@ def encode_customoid(custom_string):
     encoder.write(custom_string, asn1.Numbers.UTF8String)
     return encoder.output()
 
+
 def removetags(finalzatcaxml):
     """remove the unwanted tags from created xml"""
     try:
-       
         xml_file = MyTree.fromstring(finalzatcaxml)
         xsl_file = MyTree.fromstring(
             """<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
@@ -76,9 +79,7 @@ def getinvoicehash(canonicalized_xml):
         hash_base64 = base64.b64encode(bytes.fromhex(hash_hex)).decode("utf-8")
         return hash_hex, hash_base64
     except Exception as e:
-        raise frappe.ValidationError(
-            f"error occurred while invoice hash {str(e)}"
-        ) from e
+        raise frappe.ValidationError(f"error occurred while invoice hash {str(e)}") from e
 
 
 def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
@@ -87,13 +88,11 @@ def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid
     else:
         pem_details = get_pem_details(sales_invoice_doc)
     private_key_pem = pem_details.get("private_key")
-    
+
     if isinstance(private_key_pem, str):
-        private_key_pem = private_key_pem.encode('utf-8')
+        private_key_pem = private_key_pem.encode("utf-8")
     private_key = serialization.load_pem_private_key(
-        private_key_pem,
-        password=None,
-        backend=default_backend()
+        private_key_pem, password=None, backend=default_backend()
     )
 
     hash_bytes = bytes.fromhex(hash1)
@@ -111,12 +110,11 @@ def extract_certificate_details(sales_invoice_doc, is_zatca_test=0, compliance_c
     """extracting the certificate details from the certificate data"""
     # try:
     certificate_content = certificate_data_str.strip()
-    
+
     # Format the certificate string to PEM format if not already in correct PEM format
     formatted_certificate = "-----BEGIN CERTIFICATE-----\n"
     formatted_certificate += "\n".join(
-        certificate_content[i : i + 64]
-        for i in range(0, len(certificate_content), 64)
+        certificate_content[i : i + 64] for i in range(0, len(certificate_content), 64)
     )
     formatted_certificate += "\n-----END CERTIFICATE-----\n"
     # Load the certificate using cryptography
@@ -132,7 +130,6 @@ def certificate_hash(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """Find the certificate hash and returning the value"""
     try:
         if is_zatca_test:
-
             perm_details = get_pem_compliance_details(compliance_csid)
         else:
             perm_details = get_pem_details(sales_invoice_doc)
@@ -144,22 +141,18 @@ def certificate_hash(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
         certificate_data_bytes = certificate_data.encode("utf-8")
         sha256_hash = hashlib.sha256(certificate_data_bytes).hexdigest()
         # Encode the hash in base64
-        base64_encoded_hash = base64.b64encode(sha256_hash.encode("utf-8")).decode(
-            "utf-8"
-        )
+        base64_encoded_hash = base64.b64encode(sha256_hash.encode("utf-8")).decode("utf-8")
         return base64_encoded_hash
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(
-            _("Error in obtaining certificate hash chcek cert data: " + str(e))
-        )
+        frappe.throw(_("Error in obtaining certificate hash chcek cert data: " + str(e)))
         return None
 
 
 def xml_base64_decode(signed_xmlfile_name):
     """xml base64 decode"""
     try:
-        with open(signed_xmlfile_name, "r", encoding="utf-8") as file:
+        with open(signed_xmlfile_name, encoding="utf-8") as file:
             xml = file.read().lstrip()
             base64_encoded = base64.b64encode(xml.encode("utf-8"))
             base64_decoded = base64_encoded.decode("utf-8")
@@ -171,12 +164,14 @@ def xml_base64_decode(signed_xmlfile_name):
 
 def signxml_modify(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """modify the signed xml by adding the values like signing time,serial number etc"""
-    
-    encoded_certificate_hash = certificate_hash(sales_invoice_doc,is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
-    issuer_name, serial_number = extract_certificate_details(sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
-    original_invoice_xml = etree.parse(
-        frappe.local.site + "/private/files/zatca_invoice_final.xml"
+
+    encoded_certificate_hash = certificate_hash(
+        sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid
     )
+    issuer_name, serial_number = extract_certificate_details(
+        sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid
+    )
+    original_invoice_xml = etree.parse(frappe.local.site + "/private/files/zatca_invoice_final.xml")
     root = original_invoice_xml.getroot()
     namespaces = {
         "ext": "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2",
@@ -206,7 +201,7 @@ def signxml_modify(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
             xml_declaration=True,
         )
     return namespaces, signing_time
-   
+
 
 def generate_signed_properties_hash(
     signing_time, issuer_name, serial_number, encoded_certificate_hash
@@ -240,9 +235,7 @@ def generate_signed_properties_hash(
         utf8_bytes = xml_string_rendered.encode("utf-8")
         hash_object = hashlib.sha256(utf8_bytes)
         hex_sha256 = hash_object.hexdigest()
-        signed_properties_base64 = base64.b64encode(hex_sha256.encode("utf-8")).decode(
-            "utf-8"
-        )
+        signed_properties_base64 = base64.b64encode(hex_sha256.encode("utf-8")).decode("utf-8")
         return signed_properties_base64
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_(" error in generating signed properties hash: " + str(e)))
@@ -256,8 +249,7 @@ def populate_the_ubl_extensions_output(
     encoded_hash,
     sales_invoice_doc,
     is_zatca_test=0,
-    compliance_csid=None
-   
+    compliance_csid=None,
 ):
     """populate the ubl extension output by giving the signature values and digest values"""
     try:
@@ -266,15 +258,12 @@ def populate_the_ubl_extensions_output(
         )
         root3 = updated_invoice_xml.getroot()
         if is_zatca_test:
-
             perm_details = get_pem_compliance_details(compliance_csid)
         else:
             perm_details = get_pem_details(sales_invoice_doc)
-        certificate_data_str=perm_details.get("certificate")
-      
-        content = certificate_data_str.strip()
+        certificate_data_str = perm_details.get("certificate")
 
-       
+        content = certificate_data_str.strip()
 
         xpath_signvalue = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignatureValue"
         xpath_x509certi = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:KeyInfo/ds:X509Data/ds:X509Certificate"
@@ -291,9 +280,7 @@ def populate_the_ubl_extensions_output(
         digestvalue6.text = signed_properties_base64
         digestvalue6_2.text = encoded_hash
 
-        with open(
-            frappe.local.site + "/private/files/final_signed_invoice.xml", "wb"
-        ) as file:
+        with open(frappe.local.site + "/private/files/final_signed_invoice.xml", "wb") as file:
             updated_invoice_xml.write(file, encoding="utf-8", xml_declaration=True)
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
@@ -308,7 +295,7 @@ def extract_public_key_data(sales_invoice_doc, is_zatca_test=0, compliance_csid=
     else:
         pem_details = get_pem_details(sales_invoice_doc)
     # pem_details = get_pem_details(sales_invoice_doc)
-    
+
     key_data = pem_details.get("public_key")
     return key_data
 
@@ -338,7 +325,9 @@ def get_tlv_for_value(tag_num, tag_value):
 def tag8_publickey(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """tag 8 of qr from public key"""
     try:
-        base64_encoded = extract_public_key_data(sales_invoice_doc,is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
+        base64_encoded = extract_public_key_data(
+            sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid
+        )
         byte_data = base64.b64decode(base64_encoded)
         hex_data = binascii.hexlify(byte_data).decode("utf-8")
         chunks = [hex_data[i : i + 2] for i in range(0, len(hex_data), 2)]
@@ -350,28 +339,25 @@ def tag8_publickey(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
         return None
 
 
-def tag9_signature_ecdsa(sales_invoice_doc,is_zatca_test=0,compliance_csid=None):
+def tag9_signature_ecdsa(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """tag 9 of signature"""
     try:
-        
         if is_zatca_test:
-
             perm_details = get_pem_compliance_details(compliance_csid)
         else:
             perm_details = get_pem_details(sales_invoice_doc)
-        certificate_content=perm_details.get("certificate")
-        
+        certificate_content = perm_details.get("certificate")
+
         formatted_certificate = "-----BEGIN CERTIFICATE-----\n"
         formatted_certificate += "\n".join(
-            certificate_content[i : i + 64]
-            for i in range(0, len(certificate_content), 64)
+            certificate_content[i : i + 64] for i in range(0, len(certificate_content), 64)
         )
         formatted_certificate += "\n-----END CERTIFICATE-----\n"
 
         certificate_bytes = formatted_certificate.encode("utf-8")
         cert = x509.load_pem_x509_certificate(certificate_bytes, default_backend())
         signature = cert.signature
-        signature_hex = "".join("{:02x}".format(byte) for byte in signature)
+        signature_hex = "".join(f"{byte:02x}" for byte in signature)
         signature_bytes = bytes.fromhex(signature_hex)
 
         return signature_bytes
@@ -383,9 +369,7 @@ def tag9_signature_ecdsa(sales_invoice_doc,is_zatca_test=0,compliance_csid=None)
 
 def generate_tlv_xml(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     """generate xml by adding the tlv data"""
-    with open(
-        frappe.local.site + "/private/files/final_signed_invoice.xml", "rb"
-    ) as file:
+    with open(frappe.local.site + "/private/files/final_signed_invoice.xml", "rb") as file:
         xml_data = file.read()
     root = etree.fromstring(xml_data)
     namespaces = {
@@ -401,12 +385,8 @@ def generate_tlv_xml(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
     issue_time_xpath = "/ubl:Invoice/cbc:IssueTime"
     issue_date_results = root.xpath(issue_date_xpath, namespaces=namespaces)
     issue_time_results = root.xpath(issue_time_xpath, namespaces=namespaces)
-    issue_date = (
-        issue_date_results[0].text.strip() if issue_date_results else "Missing Data"
-    )
-    issue_time = (
-        issue_time_results[0].text.strip() if issue_time_results else "Missing Data"
-    )
+    issue_date = issue_date_results[0].text.strip() if issue_date_results else "Missing Data"
+    issue_time = issue_time_results[0].text.strip() if issue_time_results else "Missing Data"
     issue_date_time = issue_date + "T" + issue_time
     tags_xpaths = [
         (
@@ -436,24 +416,22 @@ def generate_tlv_xml(sales_invoice_doc, is_zatca_test=0, compliance_csid=None):
         if isinstance(xpath, str):
             elements = root.xpath(xpath, namespaces=namespaces)
             if elements:
-                value = (
-                    elements[0].text
-                    if isinstance(elements[0], etree._Element)
-                    else elements[0]
-                )
+                value = elements[0].text if isinstance(elements[0], etree._Element) else elements[0]
                 result_dict[tag] = value
             else:
                 result_dict[tag] = "Not found"
         else:
             result_dict[tag] = xpath
     result_dict[3] = issue_date_time
-    result_dict[8] = tag8_publickey(sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
-    result_dict[9] = tag9_signature_ecdsa(sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid)
-    result_dict[1] = result_dict[1].encode(
-        "utf-8"
-    )  # Handling Arabic company name in QR Code
+    result_dict[8] = tag8_publickey(
+        sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid
+    )
+    result_dict[9] = tag9_signature_ecdsa(
+        sales_invoice_doc, is_zatca_test=is_zatca_test, compliance_csid=compliance_csid
+    )
+    result_dict[1] = result_dict[1].encode("utf-8")  # Handling Arabic company name in QR Code
     return result_dict
-  
+
 
 def update_qr_toxml(qrcodeb64):
     """updating the  alla values of qr to xml"""
@@ -471,14 +449,10 @@ def update_qr_toxml(qrcodeb64):
         if qr_code_element is not None:
             qr_code_element.text = qrcodeb64
         else:
-            frappe.msgprint(
-                _(f"QR code element not found in the XML for company")
-            )
+            frappe.msgprint(_("QR code element not found in the XML for company"))
         xml_tree.write(xml_file_path, encoding="UTF-8", xml_declaration=True)
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(
-            _(f"Error in saving TLV data to XML for company: " + str(e))
-        )
+        frappe.throw(_("Error in saving TLV data to XML for company: " + str(e)))
 
 
 def structuring_signedxml():
@@ -486,7 +460,6 @@ def structuring_signedxml():
     try:
         with open(
             frappe.local.site + "/private/files/final_signed_invoice.xml",
-            "r",
             encoding="utf-8",
         ) as file:
             xml_content = file.readlines()
@@ -537,9 +510,7 @@ def structuring_signedxml():
             encoding="utf-8",
         ) as file:
             file.writelines(adjusted_xml_content)
-        signed_xmlfile_name = (
-            frappe.local.site + "/private/files/zatca_signed_output.xml"
-        )
+        signed_xmlfile_name = frappe.local.site + "/private/files/zatca_signed_output.xml"
         return signed_xmlfile_name
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_(" error in structuring signed xml: " + str(e)))

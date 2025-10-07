@@ -1,4 +1,4 @@
-# 🇸🇦 ZATCA Integration for ERPNext 
+# 🇸🇦 ZATCA Integration for ERPNext
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) ![ERPNext](https://img.shields.io/badge/ERPNext-Compatible-blue.svg) [![ERPNext](https://img.shields.io/badge/Frappe%20Cloud-Ready-green.svg)](https://frappecloud.com) [![ZATCA Phase 2](https://img.shields.io/badge/ZATCA-Phase%202%20Compliant-red.svg)](https://zatca.gov.sa)
 
@@ -28,7 +28,7 @@ This ERPNext integration provides complete ZATCA (Zakat, Tax and Customs Authori
 - **Real-time and Batch Processing** - Invoice clearance and reporting workflows in real-time, share your invoices with customers instantly
 - **XML & QR Generation** - Automatic generation of compliant XML and QR codes with built-in print formats and email capabilities
 - **Testing Environments** - Support for both ZATCA Simulation and Production portals
-- **Audit Trail** - Complete tracking of all ZATCA requests and responses with detailes Tab in Sales invlice 
+- **Audit Trail** - Complete tracking of all ZATCA requests and responses with detailes Tab in Sales invlice
 
 ### **📊 Tax Compliance**
 - **Standard Rate (15%)** - VAT compliance for standard transactions
@@ -61,7 +61,7 @@ This ERPNext integration provides complete ZATCA (Zakat, Tax and Customs Authori
    ```bash
    # Get the app
    bench get-app https://github.com/beverensoftware/zatca_integration.git
-   
+
    # Install on your site
    bench --site [site-name] install-app zatca_integration
    ```
@@ -92,10 +92,10 @@ This ERPNext integration provides complete ZATCA (Zakat, Tax and Customs Authori
    ```bash
    # Start development server
    bench start
-   
+
    # Run migrations
    bench --site zatca.local migrate
-   
+
    # Clear cache
    bench --site zatca.local clear-cache
    ```
@@ -116,7 +116,7 @@ This ERPNext integration provides complete ZATCA (Zakat, Tax and Customs Authori
 2. For Zero and Exempt rates, choose appropriate reason if you use these tax types
 
 ### 4. **Purchase Taxes and Charges Template**
-1. Configure Tax Type: Standard vs Zero or Exempt  
+1. Configure Tax Type: Standard vs Zero or Exempt
 2. For Zero and Exempt rates, choose appropriate reason if you use these tax types
 
 ### 5. **Customer Setup**
@@ -144,7 +144,7 @@ This ERPNext integration provides complete ZATCA (Zakat, Tax and Customs Authori
 Beveren Software provides ERP solutions and digital transformation services in the Middle East, specializing in:
 
 - ERPNext Implementation & Customization
-- ZATCA Compliance Solutions  
+- ZATCA Compliance Solutions
 - Digital Transformation Consulting
 - Cloud Migration Services
 - Enterprise Integration Solutions

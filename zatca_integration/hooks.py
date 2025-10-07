@@ -30,11 +30,11 @@ app_license = "mit"
 # include js in doctype views
 # doctype_js = {"doctype" : "public/js/doctype.js"}
 doctype_js = {
-    "Sales Invoice" : "public/js/sales_invoice.js",
-    "CSID Transactions": "public/js/csid_transactions_list.js"
+    "Sales Invoice": "public/js/sales_invoice.js",
+    "CSID Transactions": "public/js/csid_transactions_list.js",
 }
 
-doctype_list_js = {"Sales Invoice" : "public/js/sales_invoice_list.js"}
+doctype_list_js = {"Sales Invoice": "public/js/sales_invoice_list.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -47,152 +47,132 @@ doctype_list_js = {"Sales Invoice" : "public/js/sales_invoice_list.js"}
 # bench --site zatca.local export-fixtures
 fixtures = [
     "Zatca Environment",
-    { 
-        "dt": "Print Format",
-        "filters": {
-            "name": "ZATCA"
-        }
-    },
-    {
-        "dt": "Workspace",
-        "filters": {
-            "name": "ZATCA Integrations"
-        }
-    },
-    {
-        "dt": "Print Format",
-        "filters": {
-            "name": "ZATCA"
-        }
-    },
+    {"dt": "Print Format", "filters": {"name": "ZATCA"}},
+    {"dt": "Workspace", "filters": {"name": "ZATCA Integrations"}},
+    {"dt": "Print Format", "filters": {"name": "ZATCA"}},
     # Custom Fields
-    {"doctype": "Custom Field", "filters": [
-        ["name", "in", [
-        # "Address",
-        # "Company",
-        # "Customer",
-        # "Sales Invoice",
-        # "Purchase Taxes and Charges Template",
-        # "Sales Taxes and Charges Template",
-        
-        #Revised company settings
-        "Company-custom_enable_sales_retention",
-        "Company-custom_enable_multisales_invoice_on_credit_note",
-        "Company-custom_column_break_6cz34",
-        "Company-custom_b2c_cron_format",
-        "Company-custom_sales_information_submission_frequency",
-        "Company-custom_b2c_auto_sales_submission_enabled",
-        "Company-custom_submission_frequency_settings",
-        "Company-custom_enforce_date_validation",
-        "Company-custom_company_name_arabic",
-        "Company-custom_section_break_bvo69",
-        "Company-custom_enable_zatca_e_invoicing",
-        "Company-custom_zatca_phase",
-        "Company-custom_column_break_jlryc",
-        "Company-custom_csr_settings",
-        "Company-custom_production_csid",
-        "Company-custom_e_invoice_settings",
-        
-        #Sales Invoice
-        "Sales Invoice-custom_compliance",
-        "Sales Invoice-custom_cn_ref",
-        "Sales Invoice-custom_is_zatca_test",
-        "Sales Invoice-custom_column_break_y4zrs",
-        "Sales Invoice-custom_section_break_c98tv",
-        "Sales Invoice-custom_column_break_9ona2",
-        "Sales Invoice-custom_section_break_s12jg",
-        "Sales Invoice-custom_credit_details",
-        "Sales Invoice-custom_get_all_items",
-        "Sales Invoice-custom_days_count",
-        "Sales Invoice-custom_credit_note_details",
-        "Sales Invoice-custom_has_warnings",
-        "Sales Invoice-custom_base_retention_amount",
-        "Sales Invoice-custom_retention_amount",
-        "Sales Invoice-custom_column_break_lffvn",
-        "Sales Invoice-custom_retention_percentage",
-        "Sales Invoice-custom_column_break_j4evp",
-        "Sales Invoice-custom_retention_account",
-        "Sales Invoice-custom_section_break_pz7hw",
-        # "Sales Invoice-custom_remark",
-        "Sales Invoice-custom_column_break_pj7dp",
-        "Sales Invoice-custom_zatca_phase",
-        "Sales Invoice-custom_enable_zatca_e_invoicing",
-        "Sales Invoice-custom_section_break_mdt22",
-        "Sales Invoice-custom_payment_means",
-        "Sales Invoice-ksa_einv_qr",
-        "Sales Invoice-custom_zatca_submit_time",
-        "Sales Invoice-custom_zatca_submit_status",
-        "Sales Invoice-custom_invoice_type",
-        "Sales Invoice-custom_buyer_address",
-        "Sales Invoice-custom_buyer_vat",
-        "Sales Invoice-custom_buyer_name",
-        "Sales Invoice-custom_column_break_basl2",
-        "Sales Invoice-custom_seller_address",
-        "Sales Invoice-custom_seller_vat",
-        "Sales Invoice-custom_seller_name",
-        "Sales Invoice-custom_section_break_sepgk",
-        "Sales Invoice-custom_invoice_qr_code",
-        "Sales Invoice-custom_section_break_eerov",
-        "Sales Invoice-custom_column_break_7ag35",
-        "Sales Invoice-custom_invoice_xml",
-        "Sales Invoice-custom_invoice_unique_identifier",
-        "Sales Invoice-custom_validation_results",
-        "Sales Invoice-custom_section_break_01u5o",
-        "Sales Invoice-custom_invoice_icv",
-        "Sales Invoice-custom_column_break_s7rfb",
-        "Sales Invoice-custom_invoice_hash",
-        "Sales Invoice-custom_e_invoice_details",
-        "Sales Invoice-custom_delivery_date",
-        "Sales Invoice-custom_credit_shipping_address",
-        "Sales Invoice-custom_credit_customer",
-        "Sales Invoice-custom_section_break_lg3it",
-        "Sales Invoice-custom_column_break_8uadn"
-        
-        
-        #Address
-        "Address-custom_arabic_address",
-        "Address-custom_national_address",
-        
-        #Customer
-        # "Customer-loan_details_tab",
-        # "Customer-is_npa",
-        "Customer-custom_e_invoice_settings",
-        "Customer-custom_column_break_hulau",
-        "Customer-custom_registration_number",
-        "Customer-custom_column_break_6wcii",
-         "Customer-custom_vat_number",
-        #  "Customer-custom_vat_certificate",
-        # "Customer-custom_c_r_certificate",
-        "Customer-custom_registration_scheme",
-        "Customer-custom_registration_information",
-        "Customer-custom_vat_information",
-        "Customer-custom_country",
-        "Customer-customer_name_in_arabic",
-        "Customer-custom_payment_method",
-       
-        "Customer-custom_column_break_uvb47",
-        
-        
-        
-        #Purchase taxes Charges
-        "Purchase Taxes and Charges Template-custom_country",
-        "Purchase Taxes and Charges Template-custom_except_rate_reason",
-        "Purchase Taxes and Charges Template-custom_zero_rate_reason",
-        "Purchase Taxes and Charges Template-custom_tax_type",
-        
-        #Sales taxes Charges
-        "Sales Taxes and Charges Template-custom_country",
-        "Sales Taxes and Charges Template-custom_except_rate_reason",
-        "Sales Taxes and Charges Template-custom_zero_rate_reason",
-        "Sales Taxes and Charges Template-custom_tax_type",
-        
-        #Bank and Bank account
-        "Bank-custom_bank_name_in_arabic",
-        "Bank Account-custom_display_in_pdf",
-        "Bank Account-custom_account_name_in_arabic"
-        
-]]]},
-
+    {
+        "doctype": "Custom Field",
+        "filters": [
+            [
+                "name",
+                "in",
+                [
+                    # "Address",
+                    # "Company",
+                    # "Customer",
+                    # "Sales Invoice",
+                    # "Purchase Taxes and Charges Template",
+                    # "Sales Taxes and Charges Template",
+                    # Revised company settings
+                    "Company-custom_enable_sales_retention",
+                    "Company-custom_enable_multisales_invoice_on_credit_note",
+                    "Company-custom_column_break_6cz34",
+                    "Company-custom_b2c_cron_format",
+                    "Company-custom_sales_information_submission_frequency",
+                    "Company-custom_b2c_auto_sales_submission_enabled",
+                    "Company-custom_submission_frequency_settings",
+                    "Company-custom_enforce_date_validation",
+                    "Company-custom_company_name_arabic",
+                    "Company-custom_section_break_bvo69",
+                    "Company-custom_enable_zatca_e_invoicing",
+                    "Company-custom_zatca_phase",
+                    "Company-custom_column_break_jlryc",
+                    "Company-custom_csr_settings",
+                    "Company-custom_production_csid",
+                    "Company-custom_e_invoice_settings",
+                    # Sales Invoice
+                    "Sales Invoice-custom_compliance",
+                    "Sales Invoice-custom_cn_ref",
+                    "Sales Invoice-custom_is_zatca_test",
+                    "Sales Invoice-custom_column_break_y4zrs",
+                    "Sales Invoice-custom_section_break_c98tv",
+                    "Sales Invoice-custom_column_break_9ona2",
+                    "Sales Invoice-custom_section_break_s12jg",
+                    "Sales Invoice-custom_credit_details",
+                    "Sales Invoice-custom_get_all_items",
+                    "Sales Invoice-custom_days_count",
+                    "Sales Invoice-custom_credit_note_details",
+                    "Sales Invoice-custom_has_warnings",
+                    "Sales Invoice-custom_base_retention_amount",
+                    "Sales Invoice-custom_retention_amount",
+                    "Sales Invoice-custom_column_break_lffvn",
+                    "Sales Invoice-custom_retention_percentage",
+                    "Sales Invoice-custom_column_break_j4evp",
+                    "Sales Invoice-custom_retention_account",
+                    "Sales Invoice-custom_section_break_pz7hw",
+                    # "Sales Invoice-custom_remark",
+                    "Sales Invoice-custom_column_break_pj7dp",
+                    "Sales Invoice-custom_zatca_phase",
+                    "Sales Invoice-custom_enable_zatca_e_invoicing",
+                    "Sales Invoice-custom_section_break_mdt22",
+                    "Sales Invoice-custom_payment_means",
+                    "Sales Invoice-ksa_einv_qr",
+                    "Sales Invoice-custom_zatca_submit_time",
+                    "Sales Invoice-custom_zatca_submit_status",
+                    "Sales Invoice-custom_invoice_type",
+                    "Sales Invoice-custom_buyer_address",
+                    "Sales Invoice-custom_buyer_vat",
+                    "Sales Invoice-custom_buyer_name",
+                    "Sales Invoice-custom_column_break_basl2",
+                    "Sales Invoice-custom_seller_address",
+                    "Sales Invoice-custom_seller_vat",
+                    "Sales Invoice-custom_seller_name",
+                    "Sales Invoice-custom_section_break_sepgk",
+                    "Sales Invoice-custom_invoice_qr_code",
+                    "Sales Invoice-custom_section_break_eerov",
+                    "Sales Invoice-custom_column_break_7ag35",
+                    "Sales Invoice-custom_invoice_xml",
+                    "Sales Invoice-custom_invoice_unique_identifier",
+                    "Sales Invoice-custom_validation_results",
+                    "Sales Invoice-custom_section_break_01u5o",
+                    "Sales Invoice-custom_invoice_icv",
+                    "Sales Invoice-custom_column_break_s7rfb",
+                    "Sales Invoice-custom_invoice_hash",
+                    "Sales Invoice-custom_e_invoice_details",
+                    "Sales Invoice-custom_delivery_date",
+                    "Sales Invoice-custom_credit_shipping_address",
+                    "Sales Invoice-custom_credit_customer",
+                    "Sales Invoice-custom_section_break_lg3it",
+                    "Sales Invoice-custom_column_break_8uadn"
+                    # Address
+                    "Address-custom_arabic_address",
+                    "Address-custom_national_address",
+                    # Customer
+                    # "Customer-loan_details_tab",
+                    # "Customer-is_npa",
+                    "Customer-custom_e_invoice_settings",
+                    "Customer-custom_column_break_hulau",
+                    "Customer-custom_registration_number",
+                    "Customer-custom_column_break_6wcii",
+                    "Customer-custom_vat_number",
+                    #  "Customer-custom_vat_certificate",
+                    # "Customer-custom_c_r_certificate",
+                    "Customer-custom_registration_scheme",
+                    "Customer-custom_registration_information",
+                    "Customer-custom_vat_information",
+                    "Customer-custom_country",
+                    "Customer-customer_name_in_arabic",
+                    "Customer-custom_payment_method",
+                    "Customer-custom_column_break_uvb47",
+                    # Purchase taxes Charges
+                    "Purchase Taxes and Charges Template-custom_country",
+                    "Purchase Taxes and Charges Template-custom_except_rate_reason",
+                    "Purchase Taxes and Charges Template-custom_zero_rate_reason",
+                    "Purchase Taxes and Charges Template-custom_tax_type",
+                    # Sales taxes Charges
+                    "Sales Taxes and Charges Template-custom_country",
+                    "Sales Taxes and Charges Template-custom_except_rate_reason",
+                    "Sales Taxes and Charges Template-custom_zero_rate_reason",
+                    "Sales Taxes and Charges Template-custom_tax_type",
+                    # Bank and Bank account
+                    "Bank-custom_bank_name_in_arabic",
+                    "Bank Account-custom_display_in_pdf",
+                    "Bank Account-custom_account_name_in_arabic",
+                ],
+            ]
+        ],
+    },
     # Property Setters
     # {"doctype": "Property Setter", "filters": [["doc_type", "in", [
     #     "Address",
@@ -202,21 +182,25 @@ fixtures = [
     #     "Purchase Taxes and Charges Template",
     #     "Sales Taxes and Charges Template"
     # ]]]},
-    
-    {"doctype": "Custom HTML Block", "filters": [["name", "in", [
-        "Line Separator"]]]},
-    
-    {"doctype": "Property Setter", "filters": [
-        ["name", "in", [
-            "Address-county-reqd",
-            "Address-county-label",
-            "Address-city-label",
-            "Address-address_line2-reqd",
-            "Address-address_line2-label",
-            "Address-address_line1-label",
-            "Address-pincode-reqd",
-            
-        ]]]},
+    {"doctype": "Custom HTML Block", "filters": [["name", "in", ["Line Separator"]]]},
+    {
+        "doctype": "Property Setter",
+        "filters": [
+            [
+                "name",
+                "in",
+                [
+                    "Address-county-reqd",
+                    "Address-county-label",
+                    "Address-city-label",
+                    "Address-address_line2-reqd",
+                    "Address-address_line2-label",
+                    "Address-address_line1-label",
+                    "Address-pincode-reqd",
+                ],
+            ]
+        ],
+    },
 ]
 
 
@@ -228,7 +212,7 @@ fixtures = [
 
 # website user home page (by Role)
 # role_home_page = {
-#	"Role": "home_page"
+# "Role": "home_page"
 # }
 
 # Generators
@@ -242,8 +226,8 @@ fixtures = [
 
 # add methods and filters to jinja environment
 # jinja = {
-#	"methods": "zatca_integration.utils.jinja_methods",
-#	"filters": "zatca_integration.utils.jinja_filters"
+# "methods": "zatca_integration.utils.jinja_methods",
+# "filters": "zatca_integration.utils.jinja_filters"
 # }
 
 # Installation
@@ -286,11 +270,11 @@ after_app_install = "zatca_integration.saudi_arabia_electronic_invoicing.phase_o
 # Permissions evaluated in scripted ways
 
 # permission_query_conditions = {
-#	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
+# "Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
 # }
 #
 # has_permission = {
-#	"Event": "frappe.desk.doctype.event.event.has_permission",
+# "Event": "frappe.desk.doctype.event.event.has_permission",
 # }
 
 # DocType Class
@@ -298,54 +282,58 @@ after_app_install = "zatca_integration.saudi_arabia_electronic_invoicing.phase_o
 # Override standard doctype classes
 
 # override_doctype_class = {
-#	"ToDo": "custom_app.overrides.CustomToDo"
+# "ToDo": "custom_app.overrides.CustomToDo"
 # }
 
 override_doctype_class = {
-	"Sales Invoice": "zatca_integration.overrides.sales_invoice.CustomSalesInvoice",
+    "Sales Invoice": "zatca_integration.overrides.sales_invoice.CustomSalesInvoice",
 }
 
 # Document Events
 # ---------------
 # Hook on document methods and events
 doc_events = {
-	"Sales Invoice": {
+    "Sales Invoice": {
         "validate": [
             "zatca_integration.common_util.validate_pos_invoice",
             # "zatca_integration.common_util.update_delivery_date",
             "zatca_integration.customization.sales_invoice.sales_invoice.set_base_retention_amount",
             "zatca_integration.customization.sales_invoice.sales_invoice.set_grand_total_with_retention",
-
         ],
         "before_submit": [
             "zatca_integration.common_util.validate_sales_invoice",
-            "zatca_integration.clearence_util.generate_einvoice_on_submit"
+            "zatca_integration.clearence_util.generate_einvoice_on_submit",
         ],
         "on_submit": [
             "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code",
         ],
-		"on_cancel": [
-			"zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.delete_qr_code_file"
+        "on_cancel": [
+            "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.delete_qr_code_file"
+        ],
+    },
+    "POS Invoice": {
+        "on_submit": [
+            "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code"
         ]
-	},
-    "POS Invoice": {"on_submit": ["zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code"]},
-    "Company":{
-        "on_update":"zatca_integration.saudi_arabia_electronic_invoicing.background_task.on_update"
-    }
+    },
+    "Company": {
+        "on_update": "zatca_integration.saudi_arabia_electronic_invoicing.background_task.on_update"
+    },
 }
 
 # doc_events = {
-#	"*": {
-#		"on_update": "method",
-#		"on_cancel": "method",
-#		"on_trash": "method"
-#	}
+# "*": {
+# "on_update": "method",
+# "on_cancel": "method",
+# "on_trash": "method"
+# }
 # }
 
-#TODO: Uncomment when going to simulation or production
+# TODO: Uncomment when going to simulation or production
 scheduler_events = {
-    "weekly":["zatca_integration.saudi_arabia_electronic_invoicing.background_task.notify_expiring_csids",
-            #   "zatca_integration.saudi_arabia_electronic_invoicing.background_task.prod_csid_auto_renew",
+    "weekly": [
+        "zatca_integration.saudi_arabia_electronic_invoicing.background_task.notify_expiring_csids",
+        #   "zatca_integration.saudi_arabia_electronic_invoicing.background_task.prod_csid_auto_renew",
     ],
 }
 
@@ -353,21 +341,21 @@ scheduler_events = {
 # ---------------
 
 # scheduler_events = {
-#	"all": [
-#		"zatca_integration.tasks.all"
-#	],
-#	"daily": [
-#		"zatca_integration.tasks.daily"
-#	],
-#	"hourly": [
-#		"zatca_integration.tasks.hourly"
-#	],
-#	"weekly": [
-#		"zatca_integration.tasks.weekly"
-#	],
-#	"monthly": [
-#		"zatca_integration.tasks.monthly"
-#	],
+# "all": [
+# "zatca_integration.tasks.all"
+# ],
+# "daily": [
+# "zatca_integration.tasks.daily"
+# ],
+# "hourly": [
+# "zatca_integration.tasks.hourly"
+# ],
+# "weekly": [
+# "zatca_integration.tasks.weekly"
+# ],
+# "monthly": [
+# "zatca_integration.tasks.monthly"
+# ],
 # }
 
 # Testing
@@ -379,14 +367,14 @@ scheduler_events = {
 # ------------------------------
 #
 # override_whitelisted_methods = {
-#	"frappe.desk.doctype.event.event.get_events": "zatca_integration.event.get_events"
+# "frappe.desk.doctype.event.event.get_events": "zatca_integration.event.get_events"
 # }
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
 # override_doctype_dashboards = {
-#	"Task": "zatca_integration.task.get_dashboard_data"
+# "Task": "zatca_integration.task.get_dashboard_data"
 # }
 
 # exempt linked doctypes from being automatically cancelled
@@ -412,37 +400,36 @@ scheduler_events = {
 # --------------------
 
 # user_data_fields = [
-#	{
-#		"doctype": "{doctype_1}",
-#		"filter_by": "{filter_by}",
-#		"redact_fields": ["{field_1}", "{field_2}"],
-#		"partial": 1,
-#	},
-#	{
-#		"doctype": "{doctype_2}",
-#		"filter_by": "{filter_by}",
-#		"partial": 1,
-#	},
-#	{
-#		"doctype": "{doctype_3}",
-#		"strict": False,
-#	},
-#	{
-#		"doctype": "{doctype_4}"
-#	}
+# {
+# "doctype": "{doctype_1}",
+# "filter_by": "{filter_by}",
+# "redact_fields": ["{field_1}", "{field_2}"],
+# "partial": 1,
+# },
+# {
+# "doctype": "{doctype_2}",
+# "filter_by": "{filter_by}",
+# "partial": 1,
+# },
+# {
+# "doctype": "{doctype_3}",
+# "strict": False,
+# },
+# {
+# "doctype": "{doctype_4}"
+# }
 # ]
 
 # Authentication and authorization
 # --------------------------------
 
 # auth_hooks = [
-#	"zatca_integration.auth.validate"
+# "zatca_integration.auth.validate"
 # ]
 
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True
 
 # default_log_clearing_doctypes = {
-#	"Logging DocType Name": 30  # days to retain logs
+# "Logging DocType Name": 30  # days to retain logs
 # }
-

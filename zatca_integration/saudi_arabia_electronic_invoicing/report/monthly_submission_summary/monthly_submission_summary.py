@@ -3,8 +3,7 @@
 
 
 import frappe
-from frappe.utils import now_datetime, add_days
-from frappe.utils import now_datetime, add_days, get_first_day, get_datetime, getdate
+from frappe.utils import add_days, get_first_day, getdate, now_datetime
 
 
 def execute(filters=None):
@@ -22,13 +21,17 @@ def execute(filters=None):
 
     counters = {key: 0 for key in ["REPORTED", "CLEARED", "FAILED", "DRAFT", "TOTAL"]}
 
-    results = frappe.db.sql("""
+    results = frappe.db.sql(
+        """
         SELECT custom_zatca_submit_status, COUNT(*) AS total
         FROM `tabSales Invoice`
         WHERE custom_zatca_submit_status IS NOT NULL
           AND creation >= %s
         GROUP BY custom_zatca_submit_status
-    """, (start_date,), as_dict=True)
+    """,
+        (start_date,),
+        as_dict=True,
+    )
 
     for row in results:
         status = row["custom_zatca_submit_status"]
@@ -48,16 +51,19 @@ def execute(filters=None):
         {"fieldname": "total", "label": "TOTAL", "fieldtype": "Int", "width": 100},
     ]
 
-    data = [{
-        "doctype": "Sales Invoice",
-        "reported": counters["REPORTED"],
-        "cleared": counters["CLEARED"],
-        "failed": counters["FAILED"],
-        "draft": counters["DRAFT"],
-        "total": counters["TOTAL"],
-    }]
+    data = [
+        {
+            "doctype": "Sales Invoice",
+            "reported": counters["REPORTED"],
+            "cleared": counters["CLEARED"],
+            "failed": counters["FAILED"],
+            "draft": counters["DRAFT"],
+            "total": counters["TOTAL"],
+        }
+    ]
 
     return columns, data
+
 
 def get_start_date_from_timespan(timespan):
     now = now_datetime()

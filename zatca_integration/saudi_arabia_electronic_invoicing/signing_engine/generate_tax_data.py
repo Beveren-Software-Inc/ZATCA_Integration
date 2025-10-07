@@ -1,17 +1,18 @@
-
-
 import json
 import xml.etree.ElementTree as ET
-from frappe import _
+from decimal import ROUND_HALF_UP, Decimal
+
 import frappe
-from decimal import Decimal, ROUND_HALF_UP
+from frappe import _
+
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_tax_category_details
+
 
 def extract_tax_details_for_item(full_string, item):
     """
     Extracts the tax amount and tax percentage for a specific item from a JSON-encoded string.
     """
-    try: 
+    try:
         data = json.loads(full_string)
         tax_percentage = data.get(item, [0, 0])[0]
         tax_amount = data.get(item, [0, 0])[1]
@@ -47,15 +48,11 @@ def calculate_total_item_tax(sales_invoice_doc):
         )
         return None
     except KeyError as e:
-        frappe.throw(
-            _(f"KeyError in get_tax_total_from_items: {str(e)}", TAX_ERROR_MESSAGE)
-        )
+        frappe.throw(_(f"KeyError in get_tax_total_from_items: {str(e)}", TAX_ERROR_MESSAGE))
 
         return None
     except TypeError as e:
-        frappe.throw(
-            _(f"KeyError in get_tax_total_from_items: {str(e)}", TAX_ERROR_MESSAGE)
-        )
+        frappe.throw(_(f"KeyError in get_tax_total_from_items: {str(e)}", TAX_ERROR_MESSAGE))
 
         return None
 
@@ -95,7 +92,7 @@ def calculate_total_item_tax(sales_invoice_doc):
 #         taxamount.text = str(tax_amount)
 
 #         # Tax Subtotal
-        
+
 #         tax_subtotal = ET.SubElement(taxtotal, "cac:TaxSubtotal")
 #         taxable_amt_elem = ET.SubElement(tax_subtotal, "cbc:TaxableAmount")
 #         taxable_amt_elem.set("currencyID", sales_invoice_doc.currency)
@@ -112,7 +109,7 @@ def calculate_total_item_tax(sales_invoice_doc):
 
 #         tax_percent = ET.SubElement(tax_category, "cbc:Percent")
 #         tax_percent.text = f"{float(details['rate']):.2f}"
-        
+
 #         if details["category"] != "Standard Rate":
 #             exemption_code = ET.SubElement(tax_category, "cbc:TaxExemptionReasonCode")
 #             exemption_code.text = details["exemption_reason_code"]
@@ -159,7 +156,6 @@ def calculate_total_item_tax(sales_invoice_doc):
 #         return None
 
 
-
 def build_zatca_tax_section(invoice, sales_invoice_doc):
     """Extract ZATCA-compliant tax data into UBL XML format"""
     try:
@@ -172,9 +168,13 @@ def build_zatca_tax_section(invoice, sales_invoice_doc):
 
         # Calculate taxable amount (net of discounts)
         if sales_invoice_doc.taxes[0].included_in_print_rate == 0:
-            taxable_amount = Decimal(str(sales_invoice_doc.total)) - Decimal(str(sales_invoice_doc.get("discount_amount", 0.0)))
+            taxable_amount = Decimal(str(sales_invoice_doc.total)) - Decimal(
+                str(sales_invoice_doc.get("discount_amount", 0.0))
+            )
         else:
-            taxable_amount = Decimal(str(sales_invoice_doc.net_total)) - Decimal(str(sales_invoice_doc.get("discount_amount", 0.0)))
+            taxable_amount = Decimal(str(sales_invoice_doc.net_total)) - Decimal(
+                str(sales_invoice_doc.get("discount_amount", 0.0))
+            )
 
         # Document currency code (BT-5)
         doc_currency = sales_invoice_doc.currency
@@ -215,15 +215,19 @@ def build_zatca_tax_section(invoice, sales_invoice_doc):
         tax_scheme_id.text = "VAT"
 
         # --- VAT accounting currency (SAR) total (BT-111) ---
-        #Check o this
+        # Check o this
         if doc_currency != "SDAR":
             sar_taxtotal = ET.SubElement(invoice, "cac:TaxTotal")
             sar_taxamount = ET.SubElement(sar_taxtotal, "cbc:TaxAmount")
             sar_taxamount.set("currencyID", "SAR")
 
             # Convert VAT to SAR using conversion_rate from invoice
-            conversion_rate = Decimal(str(sales_invoice_doc.get("conversion_rate", 1))) or Decimal("1")
-            sar_vat_amount = (tax_amount * conversion_rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            conversion_rate = Decimal(str(sales_invoice_doc.get("conversion_rate", 1))) or Decimal(
+                "1"
+            )
+            sar_vat_amount = (tax_amount * conversion_rate).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
             sar_taxamount.text = str(sar_vat_amount)
 
         # --- Legal Monetary Total ---
@@ -231,10 +235,16 @@ def build_zatca_tax_section(invoice, sales_invoice_doc):
 
         line_ext_amt = ET.SubElement(legal_total, "cbc:LineExtensionAmount")
         line_ext_amt.set("currencyID", doc_currency)
-        line_ext_amt.text = str(round(
-            abs(sales_invoice_doc.total if sales_invoice_doc.taxes[0].included_in_print_rate == 0 else sales_invoice_doc.net_total),
-            2
-        ))
+        line_ext_amt.text = str(
+            round(
+                abs(
+                    sales_invoice_doc.total
+                    if sales_invoice_doc.taxes[0].included_in_print_rate == 0
+                    else sales_invoice_doc.net_total
+                ),
+                2,
+            )
+        )
 
         tax_exclusive = ET.SubElement(legal_total, "cbc:TaxExclusiveAmount")
         tax_exclusive.set("currencyID", doc_currency)
@@ -261,14 +271,11 @@ def build_zatca_tax_section(invoice, sales_invoice_doc):
         return None
 
 
-from decimal import Decimal, ROUND_HALF_UP
-
 def fix_tax_amounts(sales_invoice_doc, taxable_amount):
     """Ensure TaxExclusiveAmount, LineExtensionAmount, and TaxableAmount are aligned."""
     # Sum of all line extension amounts
     line_sum = sum(
-        Decimal(str(item.get("amount", 0.0)))
-        for item in sales_invoice_doc.items
+        Decimal(str(item.get("amount", 0.0))) for item in sales_invoice_doc.items
     ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     taxable_amount = Decimal(str(taxable_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -315,7 +322,7 @@ def fix_tax_amounts(sales_invoice_doc, taxable_amount):
 #         taxamount.text = str(tax_amount)
 
 #         # Tax Subtotal
-        
+
 #         if sales_invoice_doc.tax_currency != "SAR" or sales_invoice_doc.tax_currency == sales_invoice_doc.currency:
 #             tax_subtotal = ET.SubElement(taxtotal, "cac:TaxSubtotal")
 #             taxable_amt_elem = ET.SubElement(tax_subtotal, "cbc:TaxableAmount")
@@ -333,7 +340,7 @@ def fix_tax_amounts(sales_invoice_doc, taxable_amount):
 
 #         tax_percent = ET.SubElement(tax_category, "cbc:Percent")
 #         tax_percent.text = f"{float(details['rate']):.2f}"
-        
+
 #         if details["category"] != "Standard Rate":
 #             exemption_code = ET.SubElement(tax_category, "cbc:TaxExemptionReasonCode")
 #             exemption_code.text = details["exemption_reason_code"]
@@ -378,4 +385,3 @@ def fix_tax_amounts(sales_invoice_doc, taxable_amount):
 #     except Exception as e:
 #         frappe.throw(_("Data processing error in tax_data: {0}").format(str(e)))
 #         return None
-
