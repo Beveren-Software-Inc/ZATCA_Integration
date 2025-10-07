@@ -1,8 +1,8 @@
 app_name = "zatca_integration"
 app_title = "Saudi Arabia Electronic Invoicing"
-app_publisher = "Shakir PM"
+app_publisher = "Beveren Software"
 app_description = "Saudi Arabia Electronic Invoicing Phase 2"
-app_email = "shakir@beverensoftware.com"
+app_email = "info@beverensoftware.com"
 app_license = "mit"
 # required_apps = []
 
