@@ -1,7 +1,8 @@
 [project]
 name = "zatca_integration"
 authors = [
-    { name = "Shakir PM", email = "shakir@beverensoftware.com"}
+    { name = "Shakir PM", email = "shakir@beverensoftware.com"},
+    { name = "Josep Mania", email = "mania@beverensoftware.com"}
 ]
 description = "Saudi Arabia Electronic Invoicing Phase 2"
 requires-python = ">=3.10"

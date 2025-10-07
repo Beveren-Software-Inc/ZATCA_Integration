@@ -1,12 +1,10 @@
 # 🇸🇦 ZATCA Integration for ERPNext
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) ![ERPNext](https://img.shields.io/badge/ERPNext-Compatible-blue.svg) [![ERPNext](https://img.shields.io/badge/Frappe%20Cloud-Ready-green.svg)](https://frappecloud.com) [![ZATCA Phase 2](https://img.shields.io/badge/ZATCA-Phase%202%20Compliant-red.svg)](https://zatca.gov.sa)
-
-A comprehensive ZATCA Phase 2 e-invoicing solution for ERPNext. Simple to install, powerful in functionality, and ready for production in minutes with full compliance to Saudi Arabia's electronic invoicing regulations.
-
 ## Overview
 
-This ERPNext integration provides complete ZATCA (Zakat, Tax and Customs Authority) Phase 2 compliance for businesses operating in Saudi Arabia. The solution streamlines electronic invoicing with automated B2B clearance and B2C reporting workflows, multi-currency support, and comprehensive audit trails. From installation to go-live, businesses can achieve full ZATCA compliance quickly and efficiently.
+This app delivers clean, powerful features that are simple to install and configure for Saudi Arabia's ZATCA e-invoicing compliance. Streamline your B2B clearance and B2C reporting workflows with automated XML generation, digital signing, and real-time ZATCA integration.
+
+**Perfect for SMBs and enterprises** looking for reliable, easy-to-use ZATCA compliance without the complexity. No SDK downloads or complex setup required - just install, configure, and go live with foolproof ZATCA integration trusted by many enterprises and SMBs across the Kingdom.
 
 ## Key Features
 
@@ -103,41 +101,97 @@ This ERPNext integration provides complete ZATCA (Zakat, Tax and Customs Authori
 ## ⚙️ Configuration Guide
 
 ### 1. **Generate Production CSID**
-1. **Provide Company Information** - Enter your company registration details, tax information, and VAT number, then create CSR
-2. **Create Compliance CSID** - From CSR, create Compliance CSID using OTP and validate CSID
-3. **Generate Production CSID** - Generate Production CSID from validated Compliance CSID
+
+#### Step 1.1: Provide Company Information (Generate CSR)
+Enter your company registration details, tax information, and VAT number, then generate CSR.
+
+![Company Information](docs/screenshots/Generate_CSR.png)
+
+#### Step 1.2: Create Compliance CSID  
+From CSR, create Compliance CSID using OTP and validate CSID.
+
+![Compliance CSID Creation](docs/screenshots/Generate_CSID.png)
+
+#### Step 1.3: Generate Production CSID
+Generate Production CSID from validated Compliance CSID.
+
+![Production CSID Generation](docs/screenshots/Generate_PSID.png)
 
 ### 2. **Company Configuration**
-- Enable ZATCA e-invoicing phase2 in company master by selecting the Production CSID
-- Check if Date Enforcement is enabled or not (enabling is recommended to avoid ZATCA fines)
 
-### 3. **Sales Taxes and Charges Template**
+  i. *Enable ZATCA E-Invoicing*  
+Activates ZATCA Phase 2 integration for the company.  
+Once enabled, all invoices will be validated according to ZATCA’s e-invoicing rules.
+
+ii. *ZATCA Phase*  
+Select which ZATCA Phase applies to your company. For ongoing compliance, choose **ZATCA Phase 2**.
+
+iii. *Production CSID (Phase 2 Only)*
+<br/>Enter the **Production CSID** that contains your ZATCA certificate.  
+In sandbox/testing mode, this field may display **Sandbox**.  
+In production, you must configure the official Production CSID to ensure invoices are legally valid.
+
+iv. *Enforce Date Validation* 
+<br/>Ensures that invoice dates strictly follow ZATCA’s requirements. Recommended to keep this **enabled** to avoid ZATCA fines caused by incorrect or backdated entries.
+
+v. *Enable Multi-Sales Invoice on Credit Note*  
+Not directly tied to ZATCA compliance.  
+Useful if you want to issue a **single credit note** that applies to multiple sales invoices.  
+Example: If a customer returns goods from different invoices, you can generate one consolidated credit note.
+
+vi. *Enable Sales Retention*  
+Designed for project-based billing.  
+Example: You bill 75% now and retain 25% until project completion.  
+With this option enabled, ERPNext allows entry of **retention amounts** in sales invoices.  
+**Note for ZATCA:** The retention is still included in the invoice total sent to ZATCA, assuming the full project value is invoiced.
+
+vii *B2C Auto Sales Submission + Submission Frequency*  
+-   **B2C Auto Sales Submission Enabled:** Switches from real-time submission to batch submission for high-volume retail invoices.
+    
+-   **Sales Information Submission Frequency:** Appears only when auto submission is enabled; sets how often invoices are submitted in bulk (e.g., every 2 hours, daily).
+
+![Company Configuration](docs/screenshots/Company_Settings.png)
+
+### 3. **Sales and Purchase Taxes and Charges Template**
 1. Configure Tax Type: Standard vs Zero or Exempt
-2. For Zero and Exempt rates, choose appropriate reason if you use these tax types
+2. For Zero and Exempt rates, choose the appropriate reason if you use these tax types
+3. This is important for correct VAT report calculation and reporting
 
 ### 4. **Purchase Taxes and Charges Template**
 1. Configure Tax Type: Standard vs Zero or Exempt
 2. For Zero and Exempt rates, choose appropriate reason if you use these tax types
+![Tax Templates Configuration](docs/screenshots/Salestax_Template.png)
 
-### 5. **Customer Setup**
-- Customer country and name in Arabic are mandatory
+### 4. **Customer Setup**
+- Customer Name and Arabic name are mandatory
+- Customer Country is mandatory (defaults to Saudi Arabia)
 - Customer VAT information setup in ZATCA tab
-- Customer must have a valid Primary address
+- Customer must have a valid primary address
 
+![Customer Setup](docs/screenshots/Customer_Settings.png)
 
+### 5. **Invoice Processing**
+- Now start submitting your invoices and they will be automatically reported to ZATCA
+- Seamless and real-time integration with ZATCA systems
 
-## 🧪 Testing & Validation
+![Invoice Processing](docs/screenshots/Sales_Invoices.png)
 
-### Progressive Testing Approach
-1. **Simulation Environment** - Test with ZATCA Simulation environment first for all validation. Once validated, enable production mode and go live.
+### 6. **VAT Reports and Audit Logs**
+- VAT reports will be ready for you to file your taxes in any period - monthly or quarterly
+- All transactions are recorded in the system including error codes that can be navigated from the workspace quickly and easily
 
-### Validation Features
-1. **Automatic Processing** - Upon submission, details are automatically sent to ZATCA once enabled
-2. **XML and QR Validation** - Validate the XML and QR code after invoice submission
-3. **Status Monitoring** - List view will show ZATCA status: cleared, reported, or error if any
-4. **Detailed E-Invoice Tab** - A detailed E-Invoice Details tab with all ZATCA information will be available
-5. **Transaction Records** - All transactions to ZATCA are recorded in ZATCA Transactions for review
+![VAT Reports](docs/screenshots/ZATCA_Workspace.png)
 
+## 🛠️ Support & Documentation
+
+### Getting Help
+- **Support Email**: support@beverensoftware.com
+- **Issues**: Report bugs via GitHub issues
+
+### Requirements
+- Valid ZATCA registration and certificates
+- ERPNext system administrator access
+- Basic understanding of Saudi tax regulations
 
 ## 🏢 About Beveren Software
 
