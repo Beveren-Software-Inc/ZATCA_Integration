@@ -107,7 +107,7 @@ Enter your company registration details, tax information, and VAT number, then g
 
 ![Company Information](docs/screenshots/Generate_CSR.png)
 
-#### Step 1.2: Create Compliance CSID  
+#### Step 1.2: Create Compliance CSID
 From CSR, create Compliance CSID using OTP and validate CSID.
 
 ![Compliance CSID Creation](docs/screenshots/Generate_CSID.png)
@@ -119,35 +119,35 @@ Generate Production CSID from validated Compliance CSID.
 
 ### 2. **Company Configuration**
 
-  i. *Enable ZATCA E-Invoicing*  
-Activates ZATCA Phase 2 integration for the company.  
+  i. *Enable ZATCA E-Invoicing*
+Activates ZATCA Phase 2 integration for the company.
 Once enabled, all invoices will be validated according to ZATCA’s e-invoicing rules.
 
-ii. *ZATCA Phase*  
+ii. *ZATCA Phase*
 Select which ZATCA Phase applies to your company. For ongoing compliance, choose **ZATCA Phase 2**.
 
 iii. *Production CSID (Phase 2 Only)*
-<br/>Enter the **Production CSID** that contains your ZATCA certificate.  
-In sandbox/testing mode, this field may display **Sandbox**.  
+<br/>Enter the **Production CSID** that contains your ZATCA certificate.
+In sandbox/testing mode, this field may display **Sandbox**.
 In production, you must configure the official Production CSID to ensure invoices are legally valid.
 
-iv. *Enforce Date Validation* 
+iv. *Enforce Date Validation*
 <br/>Ensures that invoice dates strictly follow ZATCA’s requirements. Recommended to keep this **enabled** to avoid ZATCA fines caused by incorrect or backdated entries.
 
-v. *Enable Multi-Sales Invoice on Credit Note*  
-Not directly tied to ZATCA compliance.  
-Useful if you want to issue a **single credit note** that applies to multiple sales invoices.  
+v. *Enable Multi-Sales Invoice on Credit Note*
+Not directly tied to ZATCA compliance.
+Useful if you want to issue a **single credit note** that applies to multiple sales invoices.
 Example: If a customer returns goods from different invoices, you can generate one consolidated credit note.
 
-vi. *Enable Sales Retention*  
-Designed for project-based billing.  
-Example: You bill 75% now and retain 25% until project completion.  
-With this option enabled, ERPNext allows entry of **retention amounts** in sales invoices.  
+vi. *Enable Sales Retention*
+Designed for project-based billing.
+Example: You bill 75% now and retain 25% until project completion.
+With this option enabled, ERPNext allows entry of **retention amounts** in sales invoices.
 **Note for ZATCA:** The retention is still included in the invoice total sent to ZATCA, assuming the full project value is invoiced.
 
-vii *B2C Auto Sales Submission + Submission Frequency*  
+vii *B2C Auto Sales Submission + Submission Frequency*
 -   **B2C Auto Sales Submission Enabled:** Switches from real-time submission to batch submission for high-volume retail invoices.
-    
+
 -   **Sales Information Submission Frequency:** Appears only when auto submission is enabled; sets how often invoices are submitted in bulk (e.g., every 2 hours, daily).
 
 ![Company Configuration](docs/screenshots/Company_Settings.png)

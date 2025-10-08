@@ -1,3 +1,5 @@
+# ruff: noqa: E501
+
 """
 Generate PDF/A-3A compliant PDF for Frappe Sales Invoice with embedded XML
 This method integrates with ERPNext Sales Invoice to create compliant PDFs
@@ -104,7 +106,7 @@ def get_appropriate_font(text, base_font_name="EmbeddedTTF", arabic_font_name="A
         try:
             pdfmetrics.getFont(arabic_font_name)
             return arabic_font_name
-        except:
+        except Exception:
             # Fallback to base font if Amiri not available
             return base_font_name
     return base_font_name
@@ -163,7 +165,7 @@ def wrap_text_with_font(text, max_width, font_name, font_size):
         # Use Arabic letter 'alef' as average character width
         avg_char_width = stringWidth("ا", font_name, font_size)
 
-    chars_per_line = max(1, int(max_width / avg_char_width))
+    _chars_per_line = max(1, int(max_width / avg_char_width))
 
     # Split text respecting word boundaries
     words = text.split()
@@ -197,7 +199,8 @@ def wrap_text_with_font(text, max_width, font_name, font_size):
 
 
 def find_ttf_font() -> str:
-    """Return a TTF path to embed. Prefer bundled DejaVuSans.ttf; otherwise try common system fonts."""
+    """Return a TTF path to embed. Prefer bundled DejaVuSans.ttf; 
+    otherwise try common system fonts."""
     if os.path.isfile(EMBEDDED_FONT_TTF):
         return EMBEDDED_FONT_TTF
 
@@ -217,7 +220,8 @@ def find_ttf_font() -> str:
             return p
 
     raise FileNotFoundError(
-        "No embeddable TTF font found. Place DejaVuSans.ttf in assets/ or ensure a system TTF like Arial.ttf exists."
+        "No embeddable TTF font found. "
+        "Place DejaVuSans.ttf in assets/ or ensure a system TTF like Arial.ttf exists."
     )
 
 
@@ -242,7 +246,8 @@ def ensure_assets():
             return p
 
     raise FileNotFoundError(
-        "sRGB ICC profile not found. Place 'sRGB_IEC61966-2-1.icc' under assets/ or install a system sRGB profile."
+        "sRGB ICC profile not found." 
+        "Place 'sRGB_IEC61966-2-1.icc' under assets/ or install a system sRGB profile."
     )
 
 
@@ -311,7 +316,7 @@ def check_page_break(
 
     if debug:
         print(
-            f"DEBUG: Current y={y}, margin_y={margin_y}, page_height={page_height}, page_break_needed={y < margin_y}"
+            f"DEBUG: Current y={y}, margin_y={margin_y}, page_height={page_height}, page_break_needed={y < margin_y}"   # noqa: E501
         )
 
     if y < margin_y:

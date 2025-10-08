@@ -1,3 +1,5 @@
+# ruff: noqa: E501
+
 """
 Generate PDF/A-3A compliant PDF for Frappe Sales Invoice with embedded XML
 This method integrates with ERPNext Sales Invoice to create compliant PDFs

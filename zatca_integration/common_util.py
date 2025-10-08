@@ -34,11 +34,13 @@ def get_buyer_information(customer_name):
         # Either VAT or Registration Scheme and Registration Number are required
         if not customer.custom_vat_number and not customer.custom_registration_scheme:
             frappe.throw(
-                "Either VAT Number or Registration Scheme and Registration Number are required for Company"
+                "Either VAT Number or Registration Scheme and Registration Number "
+                "are required for Company"
             )
         if not customer.custom_vat_number and not customer.custom_registration_number:
             frappe.throw(
-                "Either VAT Number or Registration Scheme and Registration Number are required for Company "
+                "Either VAT Number or Registration Scheme and Registration Number "
+                "are required for Company "
             )
 
         # ZATCA Address Validation

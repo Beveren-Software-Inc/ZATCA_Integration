@@ -19,7 +19,7 @@ from zatca_integration.common_util import (
     get_buyer_information,
     get_seller_information,
 )
-from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import (
+from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import ( # noqa: E501
     process_invoice_for_zatca_submission,
     xml_base64_decode,
 )
@@ -554,30 +554,6 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
     img_byte_arr = img_byte_arr.getvalue()
 
     return img_byte_arr
-
-
-# def validate_delivery_date(delivery_date, invoice_date, customer_type, posting_time):
-#     del_date = datetime.strptime(delivery_date, "%Y-%m-%d")
-#     inv_date = datetime.strptime(invoice_date, "%Y-%m-%d")
-
-#     # Calculate the end of the month for the delivery date
-#     end_of_month = del_date.replace(day=1) + timedelta(days=32)
-#     end_of_month = end_of_month.replace(day=1) - timedelta(days=1)
-
-#     # Calculate the last valid date for issuing the invoice
-#     last_valid_invoice_date = end_of_month + timedelta(days=15)
-
-#     if customer_type == "Company":  # Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the end of the month in which the supply takes place.
-#         if inv_date > last_valid_invoice_date:
-#             frappe.throw("Posting Date is not valid, Standard Tax Invoices (B2B) must be issued and submitted within 15 days from the end of the month in which the supply takes place.")
-#         if del_date > inv_date:
-#             frappe.throw("Delivery Date is not valid, Standard Tax Invoices (B2B) the supply must take place before the invoice date.")
-#     elif customer_type == "Individual":  # Delivery Date must be today, otherwise throw an error
-#         delivery_datetime = datetime.strptime(f"{delivery_date} {posting_time}", "%Y-%m-%d %H:%M:%S")
-#         if datetime.now() > delivery_datetime + timedelta(hours=24):
-#             frappe.throw("Delivery Date is not valid, Simplified Tax Invoices (B2C) must be issued and submitted on the same day of the supply.")
-#     else:
-#         frappe.throw("Customer Type is not Supported")
 
 
 def validate_delivery_date(delivery_date, invoice_date, customer_type, posting_time):
