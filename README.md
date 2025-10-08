@@ -1,5 +1,7 @@
 # 🇸🇦 ZATCA Integration for ERPNext 
 
+[![CI](https://github.com/Beveren-Software-Inc/zatca_integration/actions/workflows/ci.yml/badge.svg)](https://github.com/Beveren-Software-Inc/zatca_integration/actions/workflows/ci.yml)
+
 ## Overview
 
 This app delivers clean, powerful features that are simple to install and configure for Saudi Arabia's ZATCA e-invoicing compliance. Streamline your B2B clearance and B2C reporting workflows with automated XML generation, digital signing, and real-time ZATCA integration.
