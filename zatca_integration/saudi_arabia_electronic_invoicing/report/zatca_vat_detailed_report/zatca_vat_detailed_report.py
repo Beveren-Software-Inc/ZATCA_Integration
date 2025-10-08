@@ -1,5 +1,6 @@
 # Copyright (c) 2024, Beveren Software Inc and contributors
 # For license information, please see license.txt
+# ruff: noqa: E501
 
 import frappe
 from frappe import _

@@ -8,7 +8,7 @@ from frappe.utils import add_to_date, nowdate
 TEST_ITEM_DATA = {
     "item_code": "Test Item 1",
     "item_name": "Test Item 1",
-    "description": "Barcode, Self-Adhesive, 3in Wide x 1in Height x 2mm Thick, White, Polyethylene, Roll of 2000, For Intermec Easy Coder PM4iLABEL:Barcode,Self-Adh,3in Wx1in Hx2mm",
+    "description": "Barcode, Self-Adhesive, 3in Wide x 1in Height x 2mm Thick",
     "item_group": "All Item Groups",
     "qty": 16,
     "uom": "Nos",

@@ -199,7 +199,7 @@ def wrap_text_with_font(text, max_width, font_name, font_size):
 
 
 def find_ttf_font() -> str:
-    """Return a TTF path to embed. Prefer bundled DejaVuSans.ttf; 
+    """Return a TTF path to embed. Prefer bundled DejaVuSans.ttf;
     otherwise try common system fonts."""
     if os.path.isfile(EMBEDDED_FONT_TTF):
         return EMBEDDED_FONT_TTF
@@ -246,7 +246,7 @@ def ensure_assets():
             return p
 
     raise FileNotFoundError(
-        "sRGB ICC profile not found." 
+        "sRGB ICC profile not found."
         "Place 'sRGB_IEC61966-2-1.icc' under assets/ or install a system sRGB profile."
     )
 
@@ -316,7 +316,7 @@ def check_page_break(
 
     if debug:
         print(
-            f"DEBUG: Current y={y}, margin_y={margin_y}, page_height={page_height}, page_break_needed={y < margin_y}"   # noqa: E501
+            f"DEBUG: Current y={y}, margin_y={margin_y}, page_height={page_height}, page_break_needed={y < margin_y}"  # noqa: E501
         )
 
     if y < margin_y:
@@ -959,7 +959,7 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     ]
 
     # Draw seller table data
-    for i, (label, seller_val, seller_val_arabic, arabic_label) in enumerate(details_data):
+    for _i, (label, seller_val, seller_val_arabic, arabic_label) in enumerate(details_data):
         max_height = base_cell_height
 
         # Check each cell content and calculate required height with proper column widths
@@ -1050,7 +1050,7 @@ def _draw_seller_buyer_section(c, invoice_doc, width, margin_x, y, font_name):
     buyer_current_y = current_y - base_cell_height
 
     # Draw buyer table data
-    for i, (label, buyer_val, buyer_val_arabic, arabic_label) in enumerate(buyer_details_data):
+    for _i, (label, buyer_val, buyer_val_arabic, arabic_label) in enumerate(buyer_details_data):
         max_height = base_cell_height
 
         # Check each cell content and calculate required height with proper column widths

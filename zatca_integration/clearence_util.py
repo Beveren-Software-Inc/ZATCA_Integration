@@ -19,7 +19,7 @@ from zatca_integration.common_util import (
     get_buyer_information,
     get_seller_information,
 )
-from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import ( # noqa: E501
+from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import (  # noqa: E501
     process_invoice_for_zatca_submission,
     xml_base64_decode,
 )
@@ -531,7 +531,7 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
 
     if qr_code_data is not None:
         try:
-            qr_code_text = base64.b64decode(qr_code_text).decode("utf-8")
+            qr_code_text = base64.b64decode(qr_code_data).decode("utf-8")
         except Exception:
             # If there's an error in decoding, use the original data
             qr_code_text = qr_code_data

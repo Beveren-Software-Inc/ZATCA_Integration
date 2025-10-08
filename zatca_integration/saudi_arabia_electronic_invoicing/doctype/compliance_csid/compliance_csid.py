@@ -137,7 +137,8 @@ class ComplianceCSID(Document):
                 self.save()
                 frappe.db.commit()
                 frappe.throw(
-                    f"Failed to Validate Compliance CSID for: {', '.join(failed)}. Review CSID TRANSACTIONS for more details."
+                    f"Failed to Validate Compliance CSID for: {', '.join(failed)}. "
+                    "Review CSID TRANSACTIONS for more details."
                 )
         elif csr_settings.csrinvoicetype == "1000":
             self.invoke_complaince_check("standard", csr_settings, seller, buyer)

@@ -1,3 +1,5 @@
+# ruff: noqa: E501
+
 import xml.etree.ElementTree as ET
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from xml.dom import minidom
@@ -233,7 +235,7 @@ def item_data(invoice, sales_invoice_doc):
     """
     try:
         tax_details = get_zatca_tax_category_details(sales_invoice_doc)
-        rate = Decimal(str(tax_details["rate"]))
+        _rate = Decimal(str(tax_details["rate"]))
         code = tax_details["code"]
 
         for item in sales_invoice_doc.items:
@@ -372,7 +374,7 @@ def get_time_string(posting_time):
     """get time string"""
     try:
         return get_time(posting_time).strftime("%H:%M:%S")
-    except:
+    except Exception:
         return "00:00:00"
 
 

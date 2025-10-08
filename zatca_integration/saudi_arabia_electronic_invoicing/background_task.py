@@ -29,48 +29,6 @@ def is_zatca_compliance_ready(company_name):
     return compliance_doc, None
 
 
-# def send_multiple_signed_compliance_invoices_to_zatca():
-
-#     """
-#     Automatically send all signed B2C invoices (not yet reported) to ZATCA compliance API.
-#     """
-#     results = []
-
-#     companies = frappe.get_all(
-#         "Company",
-#         filters={"custom_enable_zatca_e_invoicing": 1},
-#         fields=["name"]
-#     )
-
-#     for company in companies:
-#         is_zatca_compliance_ready(company.name)
-#         delete_zatca_test_invoices_and_related_docs()
-#         # Only include invoices posted in the last 24 hours
-#         # cutoff_time = add_to_date(now_datetime(), hours=-24)
-#         cutoff_time = add_to_date(now_datetime(), months=-1)
-
-#         invoices = frappe.get_all(
-#             "Sales Invoice",
-#             filters={
-#                 "company": company.name,
-#                 "custom_zatca_submit_status": ["not in", ["REPORTED", "CLEARED"]],
-#                 "docstatus": 1,
-#                 "posting_date": [">=", cutoff_time.date()],
-#                 "custom_is_zatca_test":0,
-#             },
-#             fields=["name"]
-#         )
-#         for invoice_data in invoices:
-
-#             try:
-#                 invoice = frappe.get_doc("Sales Invoice", invoice_data.name)
-#                 bg_generate_einvoice(invoice)
-#             except Exception as e:
-#                 frappe.log_error(f"Error generating einvoice for {invoice_data.name}: {str(e)}")
-#                 continue
-
-
-#     return results
 def send_multiple_signed_compliance_invoices_to_zatca():
     """
     Automatically send all signed B2C invoices (not yet reported) to ZATCA compliance API.
@@ -143,7 +101,8 @@ def send_csid_expiry_email(csid_name, expiry_date):
     message = f"""
         <p><b>Compliance CSID:</b> {csid_name}</p>
         <p><b>Expiry Date:</b> {expiry_date.strftime('%d-%m-%Y')}</p>
-        <p>Please renew your ZATCA Production CSID before it expires to ensure uninterrupted compliance.</p>
+        <p><span>Please renew your ZATCA Production CSID before it expires</span>
+        <span>to ensure uninterrupted compliance.</span></p>
     """
 
     recipients = get_emails_for_roles(["System Manager", "Sales User"])
@@ -161,38 +120,6 @@ def get_emails_for_roles(roles):
             if user_email:
                 emails.add(user_email)
     return list(emails)
-
-
-# def prod_csid_auto_renew():
-#     companies = frappe.get_all("Company", filters={"custom_enable_zatca_e_invoicing": 1}, fields=["name"])
-#     today = now_datetime()
-
-#     results = []
-
-#     for company in companies:
-#         try:
-#             company_doc = frappe.get_doc("Company", company.name)
-
-#             if not company_doc.custom_allow_auto_renewal_production_csid:
-#                 continue
-
-#             # fallback to 30 days if not set
-#             custom_days = company_doc.custom_how_many_days_before_renewal or 30
-#             expiry_threshold = add_days(today, custom_days)
-
-#             prod_csid = frappe.get_doc("Production CSID", company_doc.custom_production_csid)
-#             expiry_date = get_datetime(prod_csid.expiry_date)
-
-#             if expiry_date <= expiry_threshold:
-#                 result = prod_csid.renew_zatca_production_csid()
-#                 results.append((company.name, "Success", result))
-#             else:
-#                 results.append((company.name, "Skipped", f"Expiry date {expiry_date} > threshold {expiry_threshold}"))
-
-#         except Exception as e:
-#             results.append((company.name, "Failed", str(e)))
-
-#     return results
 
 
 def on_update(doc, method=None):

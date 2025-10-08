@@ -31,7 +31,8 @@ class ProductionCSID(Document):
                 and compliance_csid.simplified_credit_note
             ):
                 frappe.throw(
-                    "All standard and simplified invoices, debit notes, and credit notes must be validated for type 1100."
+                    "All standard and simplified invoices, "
+                    "debit notes, and credit notes must be validated for type 1100."
                 )
         elif csr_settings.csrinvoicetype == "1000":
             if not (
@@ -40,7 +41,8 @@ class ProductionCSID(Document):
                 and compliance_csid.standard_credit_note
             ):
                 frappe.throw(
-                    "All standard invoices, debit notes, and credit notes must be validated for type 1000."
+                    "All standard invoices, debit notes, "
+                    "and credit notes must be validated for type 1000."
                 )
         elif csr_settings.csrinvoicetype == "0100":
             if not (
@@ -49,7 +51,8 @@ class ProductionCSID(Document):
                 and compliance_csid.simplified_credit_note
             ):
                 frappe.throw(
-                    "All simplified invoices, debit notes, and credit notes must be validated for type 0100."
+                    "All simplified invoices, debit notes, "
+                    "and credit notes must be validated for type 0100."
                 )
         else:
             frappe.throw(
