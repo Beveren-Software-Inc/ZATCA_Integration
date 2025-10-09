@@ -1,5 +1,6 @@
 import frappe
 
+
 def execute():
     # List of tuples: (DocType, fieldname)
     custom_fields = [
@@ -11,7 +12,7 @@ def execute():
         ("Sales Invoice", "custom_shipping_address"),
         ("Sales Invoice", "custom_days_count"),
         ("Sales Invoice", "custom_get_all_items"),
-        ("Sales Invoice", "custom_cn_ref")
+        ("Sales Invoice", "custom_cn_ref"),
     ]
 
     for doctype, fieldname in custom_fields:
@@ -26,9 +27,7 @@ def execute():
 
         # If not found by ID, try finding by dt + fieldname
         cf_name = frappe.db.get_value(
-            "Custom Field",
-            {"dt": doctype, "fieldname": fieldname},
-            "name"
+            "Custom Field", {"dt": doctype, "fieldname": fieldname}, "name"
         )
         if cf_name:
             frappe.delete_doc("Custom Field", cf_name, force=True)

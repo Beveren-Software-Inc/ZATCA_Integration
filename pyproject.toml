@@ -13,7 +13,7 @@ dependencies = [
     "qrcode~=7.4.2",
     "asn1~=2.7.0",
     "numpy==2.2.4",
-    "pillow==10.3.0",
+    "pillow>=10.3.0",
      "pikepdf",
      "reportlab",
      "python-bidi",
@@ -28,3 +28,24 @@ build-backend = "flit_core.buildapi"
 # These dependencies are only installed when developer mode is enabled
 [tool.bench.dev-dependencies]
 # package_name = "~=1.1.0"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E203",  # whitespace before ':' (black compatibility)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

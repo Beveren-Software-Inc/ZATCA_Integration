@@ -13,7 +13,7 @@ frappe.ui.form.on("Production CSID", {
             if (!frm.doc.is_active) {
                 frm.trigger("genereate_zatca_production_csid");
             }
-            
+
             if(frm.doc.binary_security_token && (!frm.doc.certificate || !frm.doc.public_key)) {
                 frm.trigger("re_build_production_csid");
             }

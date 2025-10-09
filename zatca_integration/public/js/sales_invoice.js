@@ -25,7 +25,7 @@ frappe.ui.form.on('Sales Invoice', {
             frm.toggle_display("custom_zatca_submit_status", enabled);
             frm.toggle_display("custom_zatca_submit_time", enabled);
             frm.trigger('add_submit_button');
-        }); 
+        });
 
         check_multi_sales_invoice_enabled(frm, (enabled) => {
         frm.zatca_enabled = enabled;
@@ -51,13 +51,13 @@ frappe.ui.form.on('Sales Invoice', {
     validate: frm => {
         if (frm.is_new() && frm.doc.custom_retention_account && frm.doc.custom_retention_amount) {
             frm.set_value(
-                'grand_total', 
+                'grand_total',
                 (frm.doc.net_total + frm.doc.total_taxes_and_charges - frm.doc.custom_retention_amount)            );
             frm.refresh_field('grand_total');
             console.log('Retention amount deducted from grand total');
         }
         create_missing_cn_reference(frm);
-        
+
 
     },
 
@@ -101,8 +101,8 @@ frappe.ui.form.on('Sales Invoice', {
         }
     },
     set_retention_amount: frm => {
-        let retention = frm.doc.custom_retention_percentage 
-            ? (frm.doc.net_total * frm.doc.custom_retention_percentage / 100) 
+        let retention = frm.doc.custom_retention_percentage
+            ? (frm.doc.net_total * frm.doc.custom_retention_percentage / 100)
             : frm.doc.custom_retention_amount;
 
         frm.set_value('custom_retention_amount', retention);
@@ -171,7 +171,7 @@ frappe.ui.form.on('Sales Invoice', {
             frm.doc.custom_zatca_submit_status !== 'REPORTED' &&
             frm.doc.custom_zatca_submit_status !== 'CLEARED'
         ){
-            
+
         frm.add_custom_button(__('Report'), () => {
                 // Custom loader
                 const loader = frappe.msgprint({
@@ -184,7 +184,7 @@ frappe.ui.form.on('Sales Invoice', {
                     wide: true,
                     hide_on_page_change: true,
                 });
-            
+
                 frappe.call({
                     method: 'zatca_integration.clearence_util.resend_einvoice',
                     args: {
@@ -202,14 +202,14 @@ frappe.ui.form.on('Sales Invoice', {
                     }
                 });
             }, __('ZATCA Actions'));
-            
+
         }
-        
+
     },
 
        map_items_to_credit_details: frm => {
         const existing_qtr_map = {};
-    
+
         if (frm.doc.custom_credit_details) {
             frm.doc.custom_credit_details.forEach(row => {
                 if (!existing_qtr_map[row.item]) {
@@ -225,9 +225,9 @@ frappe.ui.form.on('Sales Invoice', {
             console.log("Printing here",item.sales_invoice)
             if (Math.abs(remaining_qty) > 0) {
                 let new_row = frm.add_child("custom_credit_details");
-                new_row.sales_invoice = item.sales_invoice || '';  
+                new_row.sales_invoice = item.sales_invoice || '';
                 new_row.item = item.item_code;
-                new_row.qtr = remaining_qty;  
+                new_row.qtr = remaining_qty;
             }
         });
         frm.refresh_field('custom_credit_details');
@@ -250,7 +250,7 @@ frappe.ui.form.on('Sales Invoice', {
         };
     };
     }
-       
+
 });
 
 function check_sales_retention_enabled(frm, callback) {
@@ -331,23 +331,23 @@ function check_multi_sales_invoice_enabled(frm, callback) {
 // New feature from al-kneel
 frappe.ui.form.on("Credit Details", {
     sales_invoice(frm, cdt, cdn) {
-        fetch_sold_qty(frm, cdt, cdn);  
-        fetch_returned_qty(frm, cdt, cdn);  
-        fetch_available_qty(frm, cdt, cdn);  
+        fetch_sold_qty(frm, cdt, cdn);
+        fetch_returned_qty(frm, cdt, cdn);
+        fetch_available_qty(frm, cdt, cdn);
     },
     already_returned_qty(frm, cdt, cdn) {
-        fetch_available_qty(frm, cdt, cdn);  
+        fetch_available_qty(frm, cdt, cdn);
     },
     item(frm, cdt, cdn) {
-        let row = frappe.get_doc(cdt, cdn); 
-        
+        let row = frappe.get_doc(cdt, cdn);
+
         if (frm.doc.custom_credit_details) {
-            frappe.model.set_value(cdt, cdn, 'qtr', -Math.abs(row.qtr)); 
+            frappe.model.set_value(cdt, cdn, 'qtr', -Math.abs(row.qtr));
         }
     },
     qtr(frm, cdt, cdn) {
         let row = frappe.get_doc(cdt, cdn);
-        
+
         if (frm.doc.custom_credit_details) {
             frappe.model.set_value(cdt, cdn, 'qtr', -Math.abs(row.qtr));
         }
@@ -412,7 +412,7 @@ function fetch_available_qty(frm, cdt, cdn) {
                         if (
                             child_row.sales_invoice === row.sales_invoice &&
                             child_row.item === row.item &&
-                            child_row.name !== row.name 
+                            child_row.name !== row.name
                         ) {
                             total_qtr += child_row.qtr || 0;
                         }
@@ -476,7 +476,7 @@ function zatca_embed_qr_in_pdf(frm) {
                         default: "Zatca PDF-A 3A",
                         read_only: 1,
                     },
-                   
+
                 ],
                 primary_action_label: __("Generate PDF"),
                 primary_action(values) {
@@ -487,7 +487,7 @@ function zatca_embed_qr_in_pdf(frm) {
                         args: {
                             invoice_name: frm.doc.name,
                             print_format: values.print_format,
-                            
+
                         },
                         callback: function(r) {
                             if (r.message) {

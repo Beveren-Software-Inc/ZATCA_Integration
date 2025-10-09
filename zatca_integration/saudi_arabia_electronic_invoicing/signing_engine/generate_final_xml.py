@@ -1,16 +1,18 @@
+# ruff: noqa: E501
 
-
-from decimal import Decimal, ROUND_DOWN
 import xml.etree.ElementTree as ET
+from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from xml.dom import minidom
-from frappe.utils.data import get_time
-from decimal import Decimal, ROUND_HALF_UP
+
 import frappe
 from frappe import _
-
 from frappe.utils import flt
-from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_tax_category_details, get_exemption_reason_map
+from frappe.utils.data import get_time
 
+from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
+    get_exemption_reason_map,
+    get_zatca_tax_category_details,
+)
 
 ITEM_TAX_TEMPLATE = "Item Tax Template"
 CAC_TAX_TOTAL = "cac:TaxTotal"
@@ -24,7 +26,6 @@ OUTSIDE_SCOPE = "Services outside scope of tax / Not subject to VAT"
 def tax_data_nominal(invoice, sales_invoice_doc):
     """Generate ZATCA-compliant tax data for nominal invoices."""
     try:
-
         tax_category_totals = {}
         total_line_extension = 0
 
@@ -77,9 +78,7 @@ def tax_data_nominal(invoice, sales_invoice_doc):
                 }
 
             tax_category_totals[tax_type]["taxable_amount"] += flt(taxable_base)
-            tax_category_totals[tax_type]["tax_amount"] += (
-                flt(taxable_base) * flt(tax.rate) / 100
-            )
+            tax_category_totals[tax_type]["tax_amount"] += flt(taxable_base) * flt(tax.rate) / 100
 
         # === Tax Total (SAR required by ZATCA) ===
         cac_taxtotal_sar = ET.SubElement(invoice, CAC_TAX_TOTAL)
@@ -133,7 +132,7 @@ def tax_data_nominal(invoice, sales_invoice_doc):
             cac_taxscheme = ET.SubElement(cac_taxcategory, "cac:TaxScheme")
             cbc_taxscheme_id = ET.SubElement(cac_taxscheme, "cbc:ID")
             cbc_taxscheme_id.text = "VAT"
-       
+
         # === Out-of-Scope Placeholder Subtotal ===
         cac_taxsubtotal_2 = ET.SubElement(cac_taxtotal_currency, CAC_TAX_SUBTOTAL)
         cbc_taxableamount_2 = ET.SubElement(cac_taxsubtotal_2, CBC_TAXABLE_AMOUNT)
@@ -164,26 +163,18 @@ def tax_data_nominal(invoice, sales_invoice_doc):
         # === Legal Monetary Total ===
         cac_legalmonetarytotal = ET.SubElement(invoice, "cac:LegalMonetaryTotal")
 
-        cbc_lineextensionamount = ET.SubElement(
-            cac_legalmonetarytotal, "cbc:LineExtensionAmount"
-        )
+        cbc_lineextensionamount = ET.SubElement(cac_legalmonetarytotal, "cbc:LineExtensionAmount")
         cbc_lineextensionamount.set("currencyID", sales_invoice_doc.currency)
         cbc_lineextensionamount.text = f"{round(taxable_base, 2):.2f}"
 
-        cbc_taxexclusiveamount = ET.SubElement(
-            cac_legalmonetarytotal, "cbc:TaxExclusiveAmount"
-        )
+        cbc_taxexclusiveamount = ET.SubElement(cac_legalmonetarytotal, "cbc:TaxExclusiveAmount")
         cbc_taxexclusiveamount.set("currencyID", sales_invoice_doc.currency)
         cbc_taxexclusiveamount.text = f"{round(taxable_base, 2):.2f}"
 
-        cbc_taxinclusiveamount = ET.SubElement(
-            cac_legalmonetarytotal, "cbc:TaxInclusiveAmount"
-        )
+        cbc_taxinclusiveamount = ET.SubElement(cac_legalmonetarytotal, "cbc:TaxInclusiveAmount")
         cbc_taxinclusiveamount.set("currencyID", sales_invoice_doc.currency)
         cbc_taxinclusiveamount.text = f"{abs(round(sales_invoice_doc.grand_total, 2)):.2f}"
-        cbc_allowancetotalamount = ET.SubElement(
-            cac_legalmonetarytotal, "cbc:AllowanceTotalAmount"
-        )
+        cbc_allowancetotalamount = ET.SubElement(cac_legalmonetarytotal, "cbc:AllowanceTotalAmount")
         cbc_allowancetotalamount.set("currencyID", sales_invoice_doc.currency)
         cbc_allowancetotalamount.text = f"{round(discount_amount, 2):.2f}"
 
@@ -197,6 +188,7 @@ def tax_data_nominal(invoice, sales_invoice_doc):
         frappe.throw(_("Error in nominal tax data: {0}").format(e))
         return None
 
+
 def add_line_item_discount(cac_price, single_item, sales_invoice_doc):
     """
     Adds a line item discount and related details to the XML structure.
@@ -204,9 +196,7 @@ def add_line_item_discount(cac_price, single_item, sales_invoice_doc):
     try:
         cac_allowance_charge = ET.SubElement(cac_price, "cac:AllowanceCharge")
 
-        cbc_charge_indicator = ET.SubElement(
-            cac_allowance_charge, "cbc:ChargeIndicator"
-        )
+        cbc_charge_indicator = ET.SubElement(cac_allowance_charge, "cbc:ChargeIndicator")
         cbc_charge_indicator.text = "false"  # Indicates a discount
 
         cbc_allowance_charge_reason_code = ET.SubElement(
@@ -229,9 +219,7 @@ def add_line_item_discount(cac_price, single_item, sales_invoice_doc):
             "cbc:BaseAmount",
             currencyID=sales_invoice_doc.currency,
         )
-        cbc_base_amount.text = str(
-            abs(single_item.rate) + abs(single_item.discount_amount)
-        )
+        cbc_base_amount.text = str(abs(single_item.rate) + abs(single_item.discount_amount))
 
         return cac_price
 
@@ -247,7 +235,7 @@ def item_data(invoice, sales_invoice_doc):
     """
     try:
         tax_details = get_zatca_tax_category_details(sales_invoice_doc)
-        rate = Decimal(str(tax_details["rate"]))
+        _rate = Decimal(str(tax_details["rate"]))
         code = tax_details["code"]
 
         for item in sales_invoice_doc.items:
@@ -285,8 +273,9 @@ def item_data(invoice, sales_invoice_doc):
             else:
                 tax_amount = item_amount * tax_rate / Decimal("100")
 
-
-            tax_amount_elem.text = str(abs(Decimal(tax_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)))
+            tax_amount_elem.text = str(
+                abs(Decimal(tax_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            )
 
             # Optional Rounding Amount
             rounding = ET.SubElement(cac_taxtotal, "cbc:RoundingAmount")
@@ -324,17 +313,16 @@ def item_data(invoice, sales_invoice_doc):
 
             price_amt.text = str(round(abs(rate_to_use), 2))
 
-            base_quantity = ET.SubElement(
-                cac_price, "cbc:BaseQuantity", unitCode=str(item.uom)
-            )
+            base_quantity = ET.SubElement(cac_price, "cbc:BaseQuantity", unitCode=str(item.uom))
             base_quantity.text = "1"
-        #I just added this
+        # I just added this
         # invoice = adjust_line_extension_totals(invoice, sales_invoice_doc)
         return invoice
 
     except Exception as e:
         frappe.throw(_("Error occurred in item data processing: {0}").format(str(e)))
         return None
+
 
 def adjust_line_extension_totals(invoice, sales_invoice_doc):
     """
@@ -344,12 +332,7 @@ def adjust_line_extension_totals(invoice, sales_invoice_doc):
 
     # The expected total based on ERPNext doc
     expected_total = round(
-        abs(
-            sales_invoice_doc.total
-            if included == 0
-            else sales_invoice_doc.base_net_total
-        ),
-        2
+        abs(sales_invoice_doc.total if included == 0 else sales_invoice_doc.base_net_total), 2
     )
 
     # Find all line extension amounts from XML using iter()
@@ -367,16 +350,17 @@ def adjust_line_extension_totals(invoice, sales_invoice_doc):
 
     # If totals differ, adjust the last item's amount
     difference = round(expected_total - current_total, 2)
-    
+
     # Remove this debug line once working:
     frappe.throw(f"Expected: {expected_total}, Current: {current_total}, Difference: {difference}")
-    
+
     if difference != 0:
         last_elem = line_ext_elems[-1]
         last_value = round(float(last_elem.text) + difference, 2)
         last_elem.text = str(last_value)
 
     return invoice
+
 
 # --- Helper Function ---
 def get_tax_code(category):
@@ -390,7 +374,7 @@ def get_time_string(posting_time):
     """get time string"""
     try:
         return get_time(posting_time).strftime("%H:%M:%S")
-    except:
+    except Exception:
         return "00:00:00"
 
 
@@ -406,27 +390,25 @@ def custom_round(value):
     if third_digit > 5:
         return float(decimal_value.quantize(Decimal("0.01")))
     elif third_digit == 5:
-
         return float(decimal_value.quantize(Decimal("0.01"), rounding=ROUND_DOWN))
     else:
         return float(decimal_value.quantize(Decimal("0.01"), rounding=ROUND_DOWN))
-   
+
 
 def save_formatted_zatca_xml(invoice):
     """
     Xml structuring and final saving of the xml into private files
     """
     try:
-
         tree = ET.ElementTree(invoice)
         xml_file_path = frappe.local.site + "/private/files/xml_files.xml"
-        
+
         # Save the XML tree to a file
         with open(xml_file_path, "wb") as file:
             tree.write(file, encoding="utf-8", xml_declaration=True)
-        
+
         # Read the XML file and format it
-        with open(xml_file_path, "r", encoding="utf-8") as file:
+        with open(xml_file_path, encoding="utf-8") as file:
             xml_string = file.read()
         # Format the XML string to make it pretty
         xml_dom = minidom.parseString(xml_string)
@@ -438,7 +420,7 @@ def save_formatted_zatca_xml(invoice):
         with open(final_xml_path, "w", encoding="utf-8") as file:
             file.write(pretty_xml_string)
 
-    except (FileNotFoundError, IOError):
+    except (OSError, FileNotFoundError):
         frappe.throw(
             _(
                 "File operation error occurred while structuring the XML. "

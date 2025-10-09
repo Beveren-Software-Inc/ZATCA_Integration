@@ -3,16 +3,14 @@ import os
 from base64 import b64encode
 
 import frappe
+from erpnext import get_region
 from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.utils.data import add_to_date, get_time, getdate
 from pyqrcode import create as qr_create
 
-from erpnext import get_region
-
 
 def create_qr_code(doc, method=None):
-    
     company = frappe.get_doc("Company", doc.company)
 
     # Check if Company is a Saudi Arabia based company
@@ -22,12 +20,15 @@ def create_qr_code(doc, method=None):
     # Check if ZATCA E-Invoicing is enabled
     if not company.custom_enable_zatca_e_invoicing == 1:
         return
-    
-    # Check if the active Zacta Phase is Phase 1
-    if not company.custom_zatca_phase == "ZATCA Phase 1" and company.custom_production_csid is not None:
-        return 
 
-	# if QR Code field not present, create it. Invoices without QR are invalid as per law.
+    # Check if the active Zacta Phase is Phase 1
+    if (
+        not company.custom_zatca_phase == "ZATCA Phase 1"
+        and company.custom_production_csid is not None
+    ):
+        return
+
+    # if QR Code field not present, create it. Invoices without QR are invalid as per law.
     if not hasattr(doc, ""):
         create_custom_fields(
             {
@@ -44,7 +45,7 @@ def create_qr_code(doc, method=None):
             }
         )
 
-	# Don't create QR Code if it already exists
+    # Don't create QR Code if it already exists
     qr_code = doc.get("ksa_einv_qr")
     if qr_code and frappe.db.exists({"doctype": "File", "file_url": qr_code}):
         return
@@ -67,7 +68,11 @@ def create_qr_code(doc, method=None):
         seller_name = organization_settings.organization_name_arabic
 
         if not seller_name:
-            frappe.throw(_("Arabic name missing for {} in Zatca CSR Settings").format(organization_settings.csrorganizationname))
+            frappe.throw(
+                _("Arabic name missing for {} in Zatca CSR Settings").format(
+                    organization_settings.csrorganizationname
+                )
+            )
 
         tag = bytes([1]).hex()
         length = bytes([len(seller_name.encode("utf-8"))]).hex()
@@ -77,7 +82,11 @@ def create_qr_code(doc, method=None):
         # VAT Number
         tax_id = organization_settings.csrorganizationidentifier
         if not tax_id:
-            frappe.throw(_("Tax ID missing for {} in Zatca CSR Settings").format(organization_settings.csrorganizationidentifier))
+            frappe.throw(
+                _("Tax ID missing for {} in Zatca CSR Settings").format(
+                    organization_settings.csrorganizationidentifier
+                )
+            )
 
         tag = bytes([2]).hex()
         length = bytes([len(tax_id)]).hex()
@@ -142,29 +151,30 @@ def create_qr_code(doc, method=None):
             # assigning to document
             doc.db_set("ksa_einv_qr", _file.file_url)
             doc.notify_update()
-        
+
 
 def delete_qr_code_file(doc, method=None):
-	region = get_region(doc.company)
-	if region not in ["Saudi Arabia"]:
-		return
+    region = get_region(doc.company)
+    if region not in ["Saudi Arabia"]:
+        return
 
-	if hasattr(doc, "ksa_einv_qr"):
-		if doc.get("ksa_einv_qr"):
-			file_doc = frappe.get_list("File", {"file_url": doc.get("ksa_einv_qr")})
-			if len(file_doc):
-				frappe.delete_doc("File", file_doc[0].name)
+    if hasattr(doc, "ksa_einv_qr"):
+        if doc.get("ksa_einv_qr"):
+            file_doc = frappe.get_list("File", {"file_url": doc.get("ksa_einv_qr")})
+            if len(file_doc):
+                frappe.delete_doc("File", file_doc[0].name)
 
 
 def delete_csr_settings_for_company(doc, method=None):
-    '''
+    """
     When a company is deleted, delete the corresponding CSR Settings
-    '''
+    """
     if doc.country != "Saudi Arabia":
         return
 
     if frappe.db.exists("Zatca CSR Settings", doc.name):
         frappe.delete_doc("Zatca CSR Settings", doc.name)
+
 
 def setup(company=None, patch=True):
     # Create Phase 1 QRCode field in Sales Invoice during app installation
