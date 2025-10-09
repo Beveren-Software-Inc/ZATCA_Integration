@@ -1,14 +1,12 @@
-import unittest
-from datetime import datetime, timedelta, time
 import base64
+from datetime import datetime, time, timedelta
 
-import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
-    time_formatter,
-    get_tax_exemption_code,
     bytes_to_base64_string,
+    get_tax_exemption_code,
+    time_formatter,
 )
 
 
@@ -52,28 +50,30 @@ class TestUtils(FrappeTestCase):
 
     def test_time_formatter_invalid_type(self):
         """Test time_formatter with invalid type raises exception"""
-        with self.assertRaises(Exception):
+        with self.assertRaises(TypeError):
             time_formatter(123)  # Integer should raise exception
 
     def test_get_tax_exemption_code_valid_format(self):
         """Test get_tax_exemption_code with valid format"""
-        reason_text, reason_code = get_tax_exemption_code("Financial services (VATEX-SA-29)")
+        reason_text, reason_code = get_tax_exemption_code("Financial services (VATEX-SA-29)")  # noqa: E501
         self.assertEqual(reason_text, "Financial services")
         self.assertEqual(reason_code, "VATEX-SA-29")
 
     def test_get_tax_exemption_code_with_spaces(self):
         """Test get_tax_exemption_code with extra spaces"""
-        reason_text, reason_code = get_tax_exemption_code("  Export of goods  (  VATEX-SA-32  )")
+        reason_text, reason_code = get_tax_exemption_code("  Export of goods  (  VATEX-SA-32  )")  # noqa: E501
         self.assertEqual(reason_text, "Export of goods")
         self.assertEqual(reason_code, "VATEX-SA-32")
 
     def test_get_tax_exemption_code_multiple_parentheses(self):
-        """Test get_tax_exemption_code with multiple parentheses (should only split on first)"""
-        reason_text, reason_code = get_tax_exemption_code("Complex reason (VATEX-SA-29) (extra info)")
+        """Test get_tax_exemption_code with multiple parentheses"""  # noqa: E501
+        reason_text, reason_code = get_tax_exemption_code(
+            "Complex reason (VATEX-SA-29) (extra info)"
+        )
         self.assertEqual(reason_text, "Complex reason")
         self.assertEqual(reason_code, "VATEX-SA-29) (extra info")
 
-    #Mania: This test is failing i will have to recheck the function
+    # Mania: This test is failing i will have to recheck the original function
     # def test_get_tax_exemption_code_no_parentheses(self):
     #     """Test get_tax_exemption_code without parentheses"""
     #     reason_text, reason_code = get_tax_exemption_code("Simple reason")
@@ -96,7 +96,7 @@ class TestUtils(FrappeTestCase):
 
     def test_bytes_to_base64_string_unicode_bytes(self):
         """Test bytes_to_base64_string with unicode bytes"""
-        test_bytes = "مرحبا بالعالم".encode("utf-8")
+        test_bytes = "مرحبا بالعالم".encode()
         result = bytes_to_base64_string(test_bytes)
         expected = base64.b64encode(test_bytes).decode("utf-8")
         self.assertEqual(result, expected)
@@ -107,6 +107,3 @@ class TestUtils(FrappeTestCase):
         result = bytes_to_base64_string(test_bytes)
         expected = base64.b64encode(test_bytes).decode("utf-8")
         self.assertEqual(result, expected)
-
-
-
