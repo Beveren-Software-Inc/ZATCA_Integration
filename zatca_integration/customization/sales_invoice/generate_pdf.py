@@ -525,35 +525,6 @@ def fix_arabic_words_for_pdf(text):
     return get_display(text)
 
 
-# def fix_arabic_words_for_pdf(text):
-#     """
-#     Reverse only Arabic words, keep English words in original order.
-#     Better for mixed Arabic-English content.
-#     """
-#     if not text:
-#         return text
-
-#     # Don't process if text contains newlines - handle line by line instead
-#     if '\n' in text:
-#         lines = text.split('\n')
-#         return '\n'.join(fix_arabic_words_for_pdf(line) for line in lines)
-
-#     words = str(text).split()
-#     fixed_words = []
-#     frappe.throw(str(get_display("Saudi Arabian Oil Co. (ARAMCO)")))
-#     for word in words:
-#         # Check if word contains Arabic characters
-#         has_arabic = any('\u0600' <= char <= '\u06FF' or '\u0750' <= char <= '\u077F' for char in word)
-
-#         if has_arabic:
-#             # Reverse Arabic words
-#             fixed_words.append(word[::-1])
-#         else:
-#             # Keep English words as-is
-#             fixed_words.append(word)
-
-#     return ' '.join(fixed_words)
-
 
 def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     """Draw the header section including invoice details and QR code."""

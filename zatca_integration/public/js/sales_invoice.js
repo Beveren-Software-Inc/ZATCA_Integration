@@ -483,7 +483,7 @@ function zatca_embed_qr_in_pdf(frm) {
                     d.hide();
 
                     frappe.call({
-                        method: "zatca_integration.customization.sales_invoice.generate_pdf_image.zatca_embed_qr_in_pdf",
+                        method: "zatca_integration.customization.sales_invoice.generate_pdf_3a.generate_pdf3a_with_xml",
                         args: {
                             invoice_name: frm.doc.name,
                             print_format: values.print_format,

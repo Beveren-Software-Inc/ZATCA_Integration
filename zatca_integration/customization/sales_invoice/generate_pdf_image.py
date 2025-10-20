@@ -622,7 +622,7 @@ def zatca_embed_qr_in_pdf(invoice_name):
             existing_file = frappe.db.exists(
                 "File", {"attached_to_name": invoice_name, "file_name": pdf_filename}
             )
-
+            
             if existing_file:
                 # Update existing file
                 file_doc = frappe.get_doc("File", existing_file)
