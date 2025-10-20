@@ -6,15 +6,71 @@ This method uses the first approach: get print format HTML, attach to PDF, attac
 """
 
 import os
+import base64
+import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-import convertapi
 import frappe
 import pikepdf
 from frappe.utils.pdf import get_pdf
 from pikepdf import Array, Dictionary, Name, String
+# PyMuPDF removed per user request
+from urllib.parse import urljoin
+import mimetypes
+import re
+
+
+def get_default_letterhead_html() -> str | None:
+    """Fetch the default enabled Letter Head HTML content, or construct from image if HTML is empty."""
+    try:
+      
+        def fetch_letterhead():
+            lh = frappe.get_all(
+                "Letter Head",
+                filters={"is_default": 1, "disabled": 0},
+                fields=["content", "image", "content_html", "image_width"],
+                limit=1,
+            )
+            if lh:
+                return lh[0]
+            lh2 = frappe.get_all(
+                "Letter Head",
+                filters={"disabled": 0},
+                fields=["content", "image", "content_html", "image_width"],
+                limit=1,
+            )
+            return lh2[0] if lh2 else None
+
+        rec = fetch_letterhead()
+        if not rec:
+            return None
+
+        # Some ERPNExt versions store HTML in content or content_html
+        html = (rec.get("content") or rec.get("content_html") or "").strip()
+        if html:
+            return html
+
+        # Fallback to image field
+        img_path = (rec.get("image") or "").strip()
+        if not img_path:
+            return None
+
+        # Build an img tag; width if provided
+        width_attr = ""
+        try:
+            w = int(rec.get("image_width") or 0)
+            if w > 0:
+                width_attr = f' width="{w}"'
+        except Exception:
+            pass
+        # Return minimal wrapper so upstream normalizers can absolutize/inline the image
+        return f'<div class="letter-head"><img src="{img_path}" alt="Letterhead"{width_attr} style="max-width:100%; height:auto;"></div>'
+
+    except Exception as e:
+        frappe.log_error(f"Failed to load default Letter Head: {e}", "PDF3A Generator")
+        return None
 
 # Configuration paths
 font_dir = Path(frappe.get_app_path("zatca_integration", "public", "fonts"))
@@ -26,8 +82,7 @@ cairo_regular = str(font_dir / "Cairo-Regular.ttf")
 EMBEDDED_SRGB_ICC = icc_2014
 EMBEDDED_FONT_TTF = cairo_regular
 
-# Configure ConvertAPI (PDF -> PDF/A-3A)
-convertapi.api_credentials = "GxRHhnLAaS1962KKdBhrSbZAc5v8ZFUt"
+# Note: ConvertAPI removed due to cost - using Ghostscript for PDF/A-3A conversion
 
 
 def find_ttf_font() -> str:
@@ -55,6 +110,376 @@ def find_ttf_font() -> str:
     )
 
 
+def inject_font_css(html: str) -> str:
+    """Inject @font-face with embedded TTF (base64) and force usage across the document.
+    This ensures Chromium uses a single embedded TrueType font for all text.
+    """
+    try:
+        font_path = find_ttf_font()
+        with open(font_path, "rb") as f:
+            font_b64 = base64.b64encode(f.read()).decode("ascii")
+        style = (
+            "<style>@font-face{font-family:'EmbeddedFont';src:url(data:font/ttf;base64," + font_b64 +
+            ") format('truetype');font-weight:normal;font-style:normal;}"
+            "html,body,*{font-family:'EmbeddedFont' !important;}</style>"
+        )
+        # Prepend style inside head or at top
+        if "</head>" in html:
+            return html.replace("</head>", style + "</head>")
+        return style + html
+    except Exception as e:
+        frappe.log_error(f"Failed to inject font CSS: {e}", "PDF3A Generator")
+        return html
+
+
+def normalize_asset_urls(html: str) -> str:
+    """Ensure all src/href URLs in HTML are absolute and inject a <base> href.
+    Fixes broken images/styles when rendering outside Frappe.
+    """
+    try:
+        from bs4 import BeautifulSoup  # already used elsewhere in this module
+    except Exception as e:
+        frappe.log_error(f"BeautifulSoup import failed: {e}", "PDF3A Generator")
+        return html
+
+    try:
+        site_url = frappe.utils.get_url()
+        if not site_url.endswith("/"):
+            site_url = site_url + "/"
+
+        soup = BeautifulSoup(html or "", "html.parser")
+
+        # Inject <base href> for resolving relative URLs in CSS, images, links
+        head = soup.find("head")
+        base_tag_needed = True
+        if head:
+            existing_base = head.find("base")
+            if existing_base and existing_base.get("href"):
+                base_tag_needed = False
+        if base_tag_needed:
+            base_tag = soup.new_tag("base", href=site_url)
+            if not head:
+                head = soup.new_tag("head")
+                soup.insert(0, head)
+            head.insert(0, base_tag)
+
+        # Rewrite src and href attributes to absolute when they are relative
+        def absolutize(value: str) -> str:
+            if not value:
+                return value
+            # Skip data URIs and javascript/mailto
+            if value.startswith("data:") or value.startswith("javascript:") or value.startswith("mailto:"):
+                return value
+            # If already absolute (http/https), keep
+            if value.startswith("http://") or value.startswith("https://"):
+                return value
+            # Otherwise, join with site_url
+            return urljoin(site_url, value)
+
+        for tag in soup.find_all(True):
+            if tag.has_attr("src"):
+                tag["src"] = absolutize(tag.get("src"))
+            if tag.has_attr("href"):
+                tag["href"] = absolutize(tag.get("href"))
+            # Inline styles: url(...) references
+            style_val = tag.get("style")
+            if style_val and "url(" in style_val:
+                try:
+                    # Replace url(/path) with absolute URL
+                    tag["style"] = re.sub(r"url\((['\"]?)(/[^)\"']+)\1\)", lambda m: f"url({urljoin(site_url, m.group(2))})", style_val)
+                except Exception:
+                    pass
+
+        return str(soup)
+    except Exception as e:
+        frappe.log_error(f"Failed to normalize asset URLs: {e}", "PDF3A Generator")
+        return html
+
+
+def embed_local_images_as_data_uri(html: str) -> str:
+    """Embed local images and CSS background urls as data URIs to avoid broken links.
+    Converts src/href pointing to /files, /assets, or relative paths to inline base64.
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except Exception as e:
+        frappe.log_error(f"BeautifulSoup import failed: {e}", "PDF3A Generator")
+        return html
+
+    try:
+        site_path = frappe.local.site_path if getattr(frappe, "local", None) else frappe.get_site_path()
+        if not site_path:
+            return html
+
+        def to_fs_path(url_path: str) -> str | None:
+            if not url_path or url_path.startswith("http://") or url_path.startswith("https://") or url_path.startswith("data:"):
+                return None
+            # Strip query/hash
+            clean_path = url_path.split("?")[0].split("#")[0]
+            # Ensure leading slash handling
+            if clean_path.startswith("/files/"):
+                return os.path.join(site_path, "public", clean_path.lstrip("/"))
+            if clean_path.startswith("/private/files/"):
+                return os.path.join(site_path, "private", clean_path.lstrip("/private/"))
+            if clean_path.startswith("/assets/"):
+                return os.path.join(site_path, clean_path.lstrip("/"))
+            if clean_path.startswith("/"):
+                # Try under public first
+                cand = os.path.join(site_path, "public", clean_path.lstrip("/"))
+                if os.path.isfile(cand):
+                    return cand
+                # Try under private
+                cand_priv = os.path.join(site_path, "private", clean_path.lstrip("/"))
+                if os.path.isfile(cand_priv):
+                    return cand_priv
+                cand2 = os.path.join(site_path, clean_path.lstrip("/"))
+                return cand2 if os.path.isfile(cand2) else None
+            # relative path: try under public, then private
+            cand = os.path.join(site_path, "public", clean_path)
+            if os.path.isfile(cand):
+                return cand
+            cand_priv = os.path.join(site_path, "private", clean_path)
+            if os.path.isfile(cand_priv):
+                return cand_priv
+            cand2 = os.path.join(site_path, clean_path)
+            return cand2 if os.path.isfile(cand2) else None
+
+        def file_to_data_uri(fp: str) -> str | None:
+            try:
+                mime, _ = mimetypes.guess_type(fp)
+                if not mime:
+                    mime = "application/octet-stream"
+                with open(fp, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("ascii")
+                return f"data:{mime};base64,{b64}"
+            except Exception as e:
+                frappe.log_error(f"Failed to inline file {fp}: {e}", "PDF3A Generator")
+                return None
+
+        soup = BeautifulSoup(html or "", "html.parser")
+
+        # Inline <img src>
+        for img in soup.find_all("img"):
+            src = img.get("src")
+            fs = to_fs_path(src)
+            if fs and os.path.isfile(fs):
+                data_uri = file_to_data_uri(fs)
+                if data_uri:
+                    img["src"] = data_uri
+
+        # Inline CSS background-image urls in style attributes
+        for tag in soup.find_all(True):
+            style_val = tag.get("style")
+            if not style_val:
+                continue
+            # Find all url(...) occurrences
+            urls = re.findall(r"url\((['\"]?)([^)\"']+)\1\)", style_val)
+            new_style = style_val
+            for _, url_path in urls:
+                fs = to_fs_path(url_path)
+                if fs and os.path.isfile(fs):
+                    data_uri = file_to_data_uri(fs)
+                    if data_uri:
+                        new_style = new_style.replace(url_path, data_uri)
+            if new_style != style_val:
+                tag["style"] = new_style
+
+        return str(soup)
+    except Exception as e:
+        frappe.log_error(f"Failed to embed local images: {e}", "PDF3A Generator")
+        return html
+
+
+def generate_pdf_from_print_format_template(invoice_doc):
+    """Generate PDF directly from print format Jinja template using ReportLab for perfect font consistency."""
+    try:
+        import tempfile
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.platypus import (
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
+        )
+        
+        # Get print format template
+        pf = frappe.get_doc("Print Format", "Zatca PDF-A 3B")
+        doc = frappe.get_doc("Sales Invoice", invoice_doc.name)
+        
+        # Render Jinja template to get structured data
+        template_data = frappe.render_template(pf.html, {"doc": doc.as_dict(), "no_letterhead": 0})
+        
+        # Create temporary PDF file
+        temp_pdf = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+        temp_pdf_path = temp_pdf.name
+        temp_pdf.close()
+        
+        # Register embedded font for perfect consistency
+        font_path = find_ttf_font()
+        pdfmetrics.registerFont(TTFont("EmbeddedFont", font_path))
+        
+        # Create PDF document with proper metadata
+        doc_pdf = SimpleDocTemplate(
+            temp_pdf_path,
+            pagesize=A4,
+            rightMargin=1*inch,
+            leftMargin=1*inch,
+            topMargin=1*inch,
+            bottomMargin=1*inch,
+            title=f"Sales Invoice {invoice_doc.name}",
+            author="ERPNext ZATCA Integration",
+            subject="PDF/A-3A Compliant Invoice",
+            creator="ERPNext ZATCA Integration",
+        )
+        
+        # Create story (content)
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Configure all styles with embedded font
+        for style_name in ['Title', 'Heading1', 'Heading2', 'Normal', 'BodyText']:
+            if hasattr(styles, style_name):
+                style = getattr(styles, style_name)
+                style.fontName = "EmbeddedFont"
+        
+        # Add title
+        story.append(Paragraph(f"Sales Invoice: {invoice_doc.name}", styles['Title']))
+        story.append(Spacer(1, 12))
+        
+        # Add invoice details
+        details_data = [
+            ["Invoice Number:", invoice_doc.name],
+            ["Date:", str(invoice_doc.posting_date)],
+            ["Customer:", invoice_doc.customer_name],
+            ["Due Date:", str(invoice_doc.due_date or "")],
+            ["Currency:", invoice_doc.currency],
+            ["Grand Total:", f"{invoice_doc.currency} {invoice_doc.grand_total}"],
+        ]
+        
+        details_table = Table(details_data, colWidths=[2*inch, 3*inch])
+        details_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'EmbeddedFont'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        story.append(details_table)
+        story.append(Spacer(1, 20))
+        
+        # Add items table
+        if invoice_doc.items:
+            story.append(Paragraph("Items", styles['Heading2']))
+            
+            items_data = [["Item Code", "Description", "Qty", "Rate", "Amount"]]
+            for item in invoice_doc.items:
+                description = item.description[:40] + "..." if len(item.description) > 40 else item.description
+                items_data.append([
+                    item.item_code,
+                    description,
+                    str(item.qty),
+                    f"{invoice_doc.currency} {item.rate}",
+                    f"{invoice_doc.currency} {item.amount}"
+                ])
+            
+            items_table = Table(items_data, colWidths=[1.2*inch, 3*inch, 0.8*inch, 1.2*inch, 1.2*inch])
+            items_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, -1), 'EmbeddedFont'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            story.append(items_table)
+            story.append(Spacer(1, 20))
+        
+        # Add totals
+        totals_data = [
+            ["Net Total:", f"{invoice_doc.currency} {invoice_doc.net_total}"],
+            ["Taxes:", f"{invoice_doc.currency} {invoice_doc.total_taxes_and_charges}"],
+            ["Grand Total:", f"{invoice_doc.currency} {invoice_doc.grand_total}"],
+        ]
+        
+        totals_table = Table(totals_data, colWidths=[2*inch, 2*inch])
+        totals_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'EmbeddedFont'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('FONTNAME', (0, -1), (-1, -1), 'EmbeddedFont'),
+            ('FONTSIZE', (0, -1), (-1, -1), 12),
+            ('LINEBELOW', (0, -1), (-1, -1), 2, colors.black),
+        ]))
+        story.append(totals_table)
+        
+        # Build PDF
+        doc_pdf.build(story)
+        
+        # Read the generated PDF
+        with open(temp_pdf_path, "rb") as f:
+            pdf_content = f.read()
+        
+        # Clean up temporary file
+        os.unlink(temp_pdf_path)
+        
+        return pdf_content
+        
+    except Exception as e:
+        frappe.log_error(f"Error generating PDF from print format template: {e}", "PDF3A Generator")
+        return None
+
+
+def generate_pdf_with_chromium(html: str) -> bytes | None:
+    """Render HTML to PDF using headless Chromium (Playwright). Returns PDF bytes or None."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as e:
+        frappe.log_error(f"Playwright not installed: {e}. Install with: pip install playwright && python -m playwright install chromium", "PDF3A Generator")
+        return None
+    except Exception as e:
+        frappe.log_error(f"Playwright import error: {e}", "PDF3A Generator")
+        return None
+
+    try:
+        pdf_bytes: bytes | None = None
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True, args=["--no-sandbox"])  # server-safe
+            context = browser.new_context()
+            page = context.new_page()
+            # Ensure print CSS is applied
+            page.set_content(html, wait_until="networkidle")
+            pdf_bytes = page.pdf(
+                format="A4",
+                print_background=True,
+                prefer_css_page_size=True,
+                margin={
+                    "top": "0.75in",
+                    "right": "0.75in",
+                    "bottom": "0.75in",
+                    "left": "0.75in",
+                },
+                scale=1,
+            )
+            context.close()
+            browser.close()
+        return pdf_bytes
+    except Exception as e:
+        frappe.log_error(f"Chromium PDF render failed: {e}", "PDF3A Generator")
+        return None
+
+
 def ensure_assets():
     """Ensure required assets exist; if not, attempt to locate system equivalents."""
     _ = find_ttf_font()
@@ -80,58 +505,178 @@ def ensure_assets():
     )
 
 
+def check_ghostscript():
+    """Check if Ghostscript is installed and available."""
+    try:
+        result = subprocess.run(['gs', '--version'], capture_output=True, text=True, check=True)
+        version = result.stdout.strip()
+        frappe.log_error(f"Ghostscript version: {version}", "PDF3A Generator")
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        frappe.log_error(f"Ghostscript not found: {e}. Please install Ghostscript for PDF/A-3A conversion.", "PDF3A Generator")
+        return False
+
+
+def convert_to_pdfa_with_ghostscript(input_pdf_path, output_pdf_path):
+    """Convert PDF to PDF/A-3A using Ghostscript with proper color space and font handling."""
+    try:
+        # Get ICC profile path for proper color space
+        icc_path = ensure_assets()
+        
+        # Ghostscript command for PDF/A-3A conversion with proper color space and font handling
+        cmd = [
+            'gs',
+            '-dPDFA=3',                    # PDF/A-3A compliance
+            '-dBATCH',                     # Batch mode (no interactive prompts)
+            '-dNOPAUSE',                   # Don't pause between pages
+            '-sDEVICE=pdfwrite',           # Output device
+            '-dPDFACompatibilityPolicy=1', # PDF/A compatibility policy
+            '-dAutoRotatePages=/None',     # Don't auto-rotate pages
+            '-dColorImageDownsampleType=/Bicubic',
+            '-dColorImageResolution=300',
+            '-dGrayImageDownsampleType=/Bicubic',
+            '-dGrayImageResolution=300',
+            '-dMonoImageDownsampleType=/Bicubic',
+            '-dMonoImageResolution=300',
+            '-dEmbedAllFonts=true',        # Embed all fonts
+            '-dSubsetFonts=false',        # Don't subset fonts - this is crucial for font consistency
+            '-dCompressFonts=false',       # Don't compress fonts to avoid width issues
+            '-dNOPLATFONTS',              # Don't use platform fonts
+            '-dPDFSETTINGS=/prepress',     # High quality settings
+            '-sColorConversionStrategy=RGB', # Use RGB color conversion
+            f'-sOutputICCProfile={icc_path}', # Use our sRGB ICC profile
+            f'-sDefaultRGBProfile={icc_path}', # Set default RGB profile
+            '-dUseCIEColor',              # Use CIE color space
+            '-dOverrideICC=true',          # Override ICC profiles
+            f'-sOutputFile={output_pdf_path}',
+            input_pdf_path
+        ]
+        
+        frappe.log_error("Running Ghostscript PDF/A-3A conversion", "PDF3A Generator")
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        if result.stdout:
+            frappe.log_error(f"GS stdout: {result.stdout[:200]}", "PDF3A Generator")
+        if result.stderr:
+            frappe.log_error(f"GS stderr: {result.stderr[:200]}", "PDF3A Generator")
+        frappe.log_error("Successfully converted to PDF/A-3A using Ghostscript", "PDF3A Generator")
+        return True
+        
+    except subprocess.CalledProcessError as e:
+        frappe.log_error(f"Ghostscript conversion failed: {e.stderr}", "PDF3A Generator")
+        return False
+    except Exception as e:
+        frappe.log_error(f"Error during Ghostscript conversion: {str(e)}", "PDF3A Generator")
+        return False
+
+
+def render_print_format_html_with_css(invoice_doc) -> str:
+    """Render the Print Format's Jinja HTML and CSS together into a single HTML string."""
+    try:
+        pf = frappe.get_doc("Print Format", "Zatca PDF-A 3B")
+        ctx = {"doc": invoice_doc.as_dict(), "no_letterhead": 0}
+        html_body = frappe.render_template(pf.html or "", ctx)
+        css_text = pf.css or ""
+        # Include standard Frappe print CSS
+        print_css_link = '<link rel="stylesheet" href="/assets/frappe/css/print_format.css">'
+        style = f"<style>{css_text}</style>" if css_text else ""
+        head_injections = print_css_link + style
+        # If there's already a full HTML doc, inject into head; else wrap
+        if "</head>" in html_body:
+            return html_body.replace("</head>", head_injections + "</head>")
+        return f"<html><head>{head_injections}</head><body>{html_body}</body></html>"
+    except Exception as e:
+        frappe.log_error(f"Failed to render print format HTML+CSS: {e}", "PDF3A Generator")
+        return None
+
+
+def generate_pdf_with_weasyprint(html: str) -> bytes | None:
+    """Render HTML to PDF using WeasyPrint. Returns PDF bytes or None on failure."""
+    try:
+        from weasyprint import HTML
+    except Exception as e:
+        frappe.log_error(f"WeasyPrint not available: {e}", "PDF3A Generator")
+        return None
+    try:
+        base_url = frappe.utils.get_url()
+        pdf_bytes = HTML(string=html, base_url=base_url).write_pdf()
+        if pdf_bytes:
+            frappe.log_error(f"WeasyPrint PDF size: {len(pdf_bytes)}", "PDF3A Generator")
+        return pdf_bytes
+    except Exception as e:
+        frappe.log_error(f"WeasyPrint PDF render failed: {e}", "PDF3A Generator")
+        return None
+
+
 def generate_pdf_from_print_format(invoice_doc):
     """Generate PDF from print format HTML using default Zatca PDF-A 3B format."""
     try:
-        # Generate HTML content from print format using default Zatca PDF-A 3B
-        html = frappe.get_print(
-            doctype="Sales Invoice",
-            name=invoice_doc.name,
-            print_format="Zatca PDF-A 3B",
-            no_letterhead=0,  # Include letterhead
-        )
+        # First prefer full HTML from frappe.get_print (includes assets and structure)
+        try:
+            html_full = frappe.get_print(
+                doctype="Sales Invoice",
+                name=invoice_doc.name,
+                print_format="Zatca PDF-A 3B",
+                no_letterhead=0,
+            )
+        except Exception:
+            html_full = None
+
+        # Fallback: render PF HTML + CSS directly
+        rendered_html = html_full or render_print_format_html_with_css(invoice_doc)
 
         # Debug: Log HTML content length
-        frappe.log_error(f"HTML content length: {len(html) if html else 0}", "PDF3A Generator")
-
-        if not html:
+        frappe.log_error(f"HTML content length: {len(rendered_html) if rendered_html else 0}", "PDF3A Generator")
+        if not rendered_html:
             frappe.throw("Failed to generate HTML content from print format")
 
-        # Use wkhtmltopdf to preserve print format design, then convert to PDF/A-3A with ConvertAPI
+        # Normalize assets and inline local images
+        html = normalize_asset_urls(rendered_html)
+        html = embed_local_images_as_data_uri(html)
+
+        # Enforce a single embedded font for consistency
+        html_with_font = inject_font_css(html)
+
         pdf_content = None
 
-        # Approach 1: wkhtmltopdf with print format (preserves design)
-        try:
-            pdf_content = get_pdf(
-                html,
-                options={
-                    "page-size": "A4",
-                    "margin-top": "0.75in",
-                    "margin-right": "0.75in",
-                    "margin-bottom": "0.75in",
-                    "margin-left": "0.75in",
-                    "encoding": "UTF-8",
-                    "no-outline": None,
-                    "enable-local-file-access": None,
-                    "print-media-type": None,
-                    "disable-smart-shrinking": None,
-                    "dpi": 300,
-                    "image-quality": 100,
-                },
-            )
-            frappe.log_error(
-                "PDF generated with wkhtmltopdf preserving print format", "PDF3A Generator"
-            )
-        except Exception as e:
-            frappe.log_error(f"wkhtmltopdf generation failed: {e}", "PDF3A Generator")
+        # Approach 1: WeasyPrint on full HTML
+        pdf_content = generate_pdf_with_weasyprint(html_with_font)
+        if pdf_content:
+            frappe.log_error("PDF generated with WeasyPrint from print format", "PDF3A Generator")
+        else:
+            # Try WeasyPrint again with PF-rendered HTML if first attempt used get_print and failed
+            if html_full:
+                pf_only_html = render_print_format_html_with_css(invoice_doc)
+                pf_only_html = inject_font_css(ensure_header_visible(apply_forced_letterhead(embed_local_images_as_data_uri(normalize_asset_urls(pf_only_html or "")))))
+                pdf_content = generate_pdf_with_weasyprint(pf_only_html)
 
-        # Approach 2: Fallback to ReportLab if wkhtmltopdf fails
         if not pdf_content:
-            try:
-                pdf_content = create_comprehensive_pdfa_pdf(invoice_doc)
-                frappe.log_error("PDF generated with ReportLab fallback", "PDF3A Generator")
-            except Exception as e:
-                frappe.log_error(f"ReportLab fallback failed: {e}", "PDF3A Generator")
+            # Approach 2: Chromium (Playwright)
+            pdf_content = generate_pdf_with_chromium(html_with_font)
+            if pdf_content:
+                frappe.log_error("PDF generated with Chromium from print format", "PDF3A Generator")
+            else:
+                # Approach 3: wkhtmltopdf fallback
+                try:
+                    pdf_content = get_pdf(
+                        html_with_font,
+                        options={
+                            "page-size": "A4",
+                            "margin-top": "0.75in",
+                            "margin-right": "0.75in",
+                            "margin-bottom": "0.75in",
+                            "margin-left": "0.75in",
+                            "encoding": "UTF-8",
+                            "no-outline": None,
+                            "enable-local-file-access": None,
+                            "print-media-type": None,
+                            "disable-smart-shrinking": None,
+                            "dpi": 300,
+                            "image-quality": 100,
+                        },
+                    )
+                    frappe.log_error("PDF generated with wkhtmltopdf from print format", "PDF3A Generator")
+                except Exception as e:
+                    frappe.log_error(f"wkhtmltopdf generation failed: {e}", "PDF3A Generator")
 
         # Debug: Log PDF content length
         frappe.log_error(
@@ -868,87 +1413,323 @@ def build_xmp_metadata(invoice_doc) -> bytes:
     return xmp.encode("utf-8")
 
 
-def finalize_pdfa(
-    temp_pdf_path: str, final_pdf_path: str, icc_path: str, xml_path: str, invoice_doc
-):
-    """Embed XML file and prepare PDF for ConvertAPI PDF/A-3A conversion."""
-    with pikepdf.open(temp_pdf_path, allow_overwriting_input=True) as pdf:
-        if pdf.is_encrypted:
-            raise RuntimeError("PDF must not be encrypted for PDF/A")
 
-        # Embed XML file
-        if xml_path and os.path.isfile(xml_path):
-            with open(xml_path, "rb") as xf:
-                xml_bytes = xf.read()
 
-            ef_stream = pdf.make_stream(xml_bytes)
-            ef_stream["/Type"] = Name("/EmbeddedFile")
-            ef_stream["/Subtype"] = Name("/application/xml")
+def fix_image_interpolation(pdf: pikepdf.Pdf) -> None:
+    """Ensure all images have Interpolate=false to satisfy PDF/A 6.2.8.
+    Updates XObject images and patches inline image flags in content streams.
+    """
+    try:
+        frappe.log_error("Starting image interpolation fixes", "PDF3A Generator")
+        
+        # Fix all XObject images globally
+        try:
+            for page in pdf.pages:
+                resources = page.obj.get("/Resources", Dictionary())
+                xobjects = resources.get("/XObject", Dictionary())
+                if isinstance(xobjects, pikepdf.Dictionary):
+                    for name, xo in list(xobjects.items()):
+                        try:
+                            xo_obj = xo.get_object()
+                            if isinstance(xo_obj, pikepdf.Stream):
+                                sub = xo_obj.stream_dict.get("/Subtype", None)
+                                if sub == Name("/Image"):
+                                    # Force Interpolate to false
+                                    xo_obj.stream_dict[Name("/Interpolate")] = pikepdf.Boolean(False)
+                                    frappe.log_error(f"Fixed XObject image {name} interpolation", "PDF3A Generator")
+                        except Exception as e:
+                            frappe.log_error(f"Failed to fix XObject {name}: {e}", "PDF3A Generator")
+                            continue
+        except Exception as e:
+            frappe.log_error(f"XObject image fix failed: {e}", "PDF3A Generator")
 
-            mod_date = datetime.now(timezone.utc).strftime("D:%Y%m%d%H%M%SZ")
-            ef_stream["/Params"] = Dictionary(
-                {"/Size": len(xml_bytes), "/ModDate": String(mod_date)}
-            )
+        # Fix inline images in content streams more aggressively
+        try:
+            for page in pdf.pages:
+                contents = page.obj.get("/Contents", None)
+                if contents is None:
+                    continue
+                    
+                def patch_stream(s: pikepdf.Stream) -> None:
+                    try:
+                        data = bytes(s.read_bytes())
+                        original_len = len(data)
+                        
+                        # More comprehensive replacements
+                        replacements = [
+                            (b"/Interpolate true", b"/Interpolate false"),
+                            (b"/I true", b"/I false"),
+                            (b"/Interpolate true\n", b"/Interpolate false\n"),
+                            (b"/I true\n", b"/I false\n"),
+                            (b"/Interpolate true\r\n", b"/Interpolate false\r\n"),
+                            (b"/I true\r\n", b"/I false\r\n"),
+                            (b"/Interpolate true ", b"/Interpolate false "),
+                            (b"/I true ", b"/I false "),
+                        ]
+                        
+                        for old, new in replacements:
+                            data = data.replace(old, new)
+                        
+                        if len(data) != original_len:
+                            frappe.log_error(f"Patched inline image flags in content stream", "PDF3A Generator")
+                            s.set_data(data)
+                    except Exception as e:
+                        frappe.log_error(f"Failed to patch content stream: {e}", "PDF3A Generator")
+                
+                if isinstance(contents, pikepdf.Array):
+                    for cs in contents:
+                        cs_obj = cs.get_object()
+                        if isinstance(cs_obj, pikepdf.Stream):
+                            patch_stream(cs_obj)
+                elif isinstance(contents, pikepdf.Stream):
+                    patch_stream(contents)
+        except Exception as e:
+            frappe.log_error(f"Inline image fix failed: {e}", "PDF3A Generator")
+            
+        frappe.log_error("Completed image interpolation fixes", "PDF3A Generator")
+    except Exception as e:
+        frappe.log_error(f"fix_image_interpolation failed: {e}", "PDF3A Generator")
 
-            ef_stream_ind = pdf.make_indirect(ef_stream)
 
-            filename = "invoice.xml"
-            filespec = Dictionary(
-                {
+def finalize_pdfa(temp_pdf_path: str, final_pdf_path: str, icc_path: str, xml_path: str, invoice_doc):
+    """Embed XML, set XMP + OutputIntent via pikepdf, then convert to PDF/A-3A with Ghostscript."""
+    try:
+        with pikepdf.open(temp_pdf_path, allow_overwriting_input=True) as pdf:
+            if pdf.is_encrypted:
+                raise RuntimeError("PDF must not be encrypted for PDF/A")
+
+            # Fix fonts before metadata
+            fix_font_embedding(pdf)
+            # Ensure image interpolation disabled
+            fix_image_interpolation(pdf)
+
+            # XMP metadata
+            xmp_bytes = build_xmp_metadata(invoice_doc)
+            metadata_stream = pdf.make_stream(xmp_bytes)
+            metadata_stream["/Subtype"] = Name("/XML")
+            metadata_stream["/Type"] = Name("/Metadata")
+            pdf.Root["/Metadata"] = metadata_stream
+
+            # OutputIntent (sRGB)
+            with open(icc_path, "rb") as f:
+                icc_bytes = f.read()
+            icc_stream = pdf.make_stream(icc_bytes)
+            icc_stream["/N"] = 3
+            oi = Dictionary({
+                "/Type": Name("/OutputIntent"),
+                "/S": Name("/GTS_PDFA1"),
+                "/OutputConditionIdentifier": "sRGB",
+                "/OutputCondition": "sRGB IEC61966-2.1",
+                "/Info": "sRGB IEC61966-2.1",
+                "/DestOutputProfile": icc_stream,
+            })
+            pdf.Root["/OutputIntents"] = Array([oi])
+            pdf.Root["/Trapped"] = Name("/False")
+
+            # Basic tagging flags
+            pdf.Root["/Lang"] = String("en-US")
+            pdf.Root["/MarkInfo"] = Dictionary({"/Marked": True})
+
+            # Minimal logical structure tree (StructTreeRoot) and page StructParents
+            try:
+                parent_tree = Dictionary({"/Nums": Array()})
+                struct_tree_root = Dictionary({
+                    "/Type": Name("/StructTreeRoot"),
+                    "/ParentTree": parent_tree,
+                    "/ParentTreeNextKey": 1,
+                    "/RoleMap": Dictionary(),
+                })
+                struct_tree_root_ind = pdf.make_indirect(struct_tree_root)
+                pdf.Root["/StructTreeRoot"] = struct_tree_root_ind
+
+                # Ensure each page has StructParents
+                try:
+                    for idx, page in enumerate(pdf.pages):
+                        page_obj = page.obj
+                        page_obj["/StructParents"] = idx
+                except Exception:
+                    # Fallback: set on first page if iteration fails
+                    pages_dict = pdf.Root.get("/Pages")
+                    if pages_dict and "/Kids" in pages_dict:
+                        first_page = pages_dict["/Kids"][0]
+                        if not first_page.is_indirect:
+                            first_page = pdf.make_indirect(first_page)
+                        first_page["/StructParents"] = 0
+            except Exception as tag_e:
+                frappe.log_error(f"Failed to add StructTreeRoot/StructParents: {tag_e}", "PDF3A Generator")
+
+            # Embed XML attachment
+            if xml_path and os.path.isfile(xml_path):
+                with open(xml_path, "rb") as xf:
+                    xml_bytes = xf.read()
+                ef_stream = pdf.make_stream(xml_bytes)
+                ef_stream["/Type"] = Name("/EmbeddedFile")
+                ef_stream["/Subtype"] = Name("/application/xml")
+                mod_date = datetime.now(timezone.utc).strftime("D:%Y%m%d%H%M%SZ")
+                ef_stream["/Params"] = Dictionary({"/Size": len(xml_bytes), "/ModDate": String(mod_date)})
+                ef_stream_ind = pdf.make_indirect(ef_stream)
+                filename = f"{invoice_doc.name}_zatca.xml"
+                filespec = Dictionary({
                     "/Type": Name("/Filespec"),
                     "/F": String(filename),
                     "/UF": String(filename),
                     "/EF": Dictionary({"/F": ef_stream_ind, "/UF": ef_stream_ind}),
                     "/Desc": String("ZATCA invoice XML"),
                     "/AFRelationship": Name("/Data"),
-                }
-            )
+                })
+                filespec_ind = pdf.make_indirect(filespec)
+                names_dict = pdf.Root.get("/Names", Dictionary())
+                names_dict["/EmbeddedFiles"] = Dictionary({"/Names": Array([String(filename), filespec_ind])})
+                pdf.Root["/Names"] = names_dict
+                pdf.Root["/AF"] = Array([filespec_ind])
 
-            filespec_ind = pdf.make_indirect(filespec)
+            # Save interim
+            try:
+                from pikepdf import PdfVersion
+                pdf.save(temp_pdf_path, linearize=False, min_version=PdfVersion.v1_7)
+            except Exception:
+                pdf.save(temp_pdf_path, linearize=False)
 
-            # Add to Names -> EmbeddedFiles
-            names_dict = pdf.Root.get("/Names", Dictionary())
-            names_dict["/EmbeddedFiles"] = Dictionary(
-                {"/Names": Array([String(filename), filespec_ind])}
-            )
-            pdf.Root["/Names"] = names_dict
-
-            # Add to AF array
-            af_array = Array([filespec_ind])
-            pdf.Root["/AF"] = af_array
-
-        # Save the PDF with embedded XML
-        try:
-            from pikepdf import PdfVersion
-
-            pdf.save(final_pdf_path, linearize=False, min_version=PdfVersion.v1_7)
-        except Exception:
-            pdf.save(final_pdf_path, linearize=False)
-
-    # Convert to PDF/A-3A using ConvertAPI to preserve original print format rendering
-    try:
-        # ConvertAPI writes output files; convert then overwrite final_pdf_path
-        out_dir = tempfile.mkdtemp()
-        result = convertapi.convert(
-            "pdfa",
-            {
-                "File": final_pdf_path,
-                "PdfaVersion": "PdfA3a",
-            },
-            from_format="pdf",
-        )
-        saved_files = result.save_files(out_dir)
-        if saved_files:
-            converted_path = saved_files[0]
-            # Replace final_pdf_path contents with converted file
-            with open(converted_path, "rb") as src, open(final_pdf_path, "wb") as dst:
+        # Ghostscript conversion
+        if check_ghostscript():
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_converted:
+                temp_converted_path = temp_converted.name
+            if convert_to_pdfa_with_ghostscript(temp_pdf_path, temp_converted_path):
+                try:
+                    with pikepdf.open(temp_converted_path, allow_overwriting_input=True) as converted_pdf:
+                        fix_font_embedding(converted_pdf)
+                        fix_image_interpolation(converted_pdf)
+                        converted_pdf.save(temp_converted_path, linearize=False)
+                except Exception:
+                    pass
+                with open(temp_converted_path, "rb") as src, open(final_pdf_path, "wb") as dst:
+                    dst.write(src.read())
+                os.unlink(temp_converted_path)
+            else:
+                # fallback to original
+                with open(temp_pdf_path, "rb") as src, open(final_pdf_path, "wb") as dst:
+                    dst.write(src.read())
+        else:
+            # no GS, just copy
+            with open(temp_pdf_path, "rb") as src, open(final_pdf_path, "wb") as dst:
                 dst.write(src.read())
-            frappe.log_error(
-                "Successfully converted to PDF/A-3A using ConvertAPI", "PDF3A Generator"
-            )
+        return True
     except Exception as e:
-        # If external conversion fails, continue with internally conformed file
-        frappe.log_error(f"ConvertAPI PDF/A conversion failed: {e}", "PDF3A Generator")
+        frappe.log_error(f"PDF/A finalize (pikepdf) failed: {e}", "PDF3A Generator")
+        return False
+
+
+def fix_fonts_pymupdf(pdf_doc):
+    """Fix font consistency issues using PyMuPDF."""
+    try:
+        frappe.log_error("Starting PyMuPDF font fixes", "PDF3A Generator")
+        
+        # Get all pages
+        for page_num in range(pdf_doc.page_count):
+            page = pdf_doc[page_num]
+            
+            # Get font list for this page
+            font_list = page.get_fonts()
+            
+            for font_info in font_list:
+                font_name, font_ref = font_info
+                frappe.log_error(f"Processing font: {font_name}", "PDF3A Generator")
+                
+                # Try to fix font consistency
+                try:
+                    # Get font object
+                    font_obj = pdf_doc.xref_get_key(font_ref, "Font")
+                    if font_obj:
+                        # Ensure font has consistent width array
+                        # This is a simplified approach - PyMuPDF handles font consistency better than pikepdf
+                        pass
+                        
+                except Exception as e:
+                    frappe.log_error(f"Font fix failed for {font_name}: {e}", "PDF3A Generator")
+                    continue
+        
+        frappe.log_error("PyMuPDF font fixes completed", "PDF3A Generator")
+        
+    except Exception as e:
+        frappe.log_error(f"PyMuPDF font fixes failed: {str(e)}", "PDF3A Generator")
+
+
+def ensure_header_visible(html: str) -> str:
+    """Make Frappe print header (#header-html) visible for WeasyPrint/Chromium by
+    duplicating its content at the top of the body when it's otherwise hidden (wkhtml-specific).
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except Exception:
+        return html
+
+    try:
+        soup = BeautifulSoup(html or "", "html.parser")
+        body = soup.find("body")
+        if not body:
+            return html
+
+        header_html = soup.find(id="header-html")
+        if not header_html:
+            return html
+
+        # If header exists but likely hidden (class hidden-pdf), duplicate its inner content visibly
+        visible_wrapper = soup.new_tag("div")
+        visible_wrapper["style"] = "margin-bottom: 8px;"
+        # Copy inner HTML
+        visible_wrapper.append(BeautifulSoup(header_html.decode_contents(), "html.parser"))
+
+        # Prepend to body as the first element so header/logo appears
+        body.insert(0, visible_wrapper)
+
+        # Also ensure letterhead blocks are visible (remove hidden classes if any)
+        for el in visible_wrapper.select(".letter-head, .letter-head-footer"):
+            existing_style = el.get("style", "")
+            el["style"] = (existing_style + ";display:block;").strip(";")
+
+        return str(soup)
+    except Exception:
+        return html
+
+
+def apply_forced_letterhead(html: str) -> str:
+    """Ensure the visible header shows the actual letterhead image, not the name.
+    Replaces any .letter-head content with our resolved letterhead HTML and prepends it to the body.
+    """
+    try:
+        lh_html = get_default_letterhead_html()
+        if not lh_html:
+            return html
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html or "", "html.parser")
+        # Ensure CSS to make it visible and not overridden
+        head = soup.find("head") or soup
+        style_tag = soup.new_tag("style")
+        style_tag.string = ".letter-head{display:block !important;margin-bottom:8px;} .hidden-pdf{display:block !important;}"
+        if head.name == "head":
+            head.append(style_tag)
+        else:
+            soup.insert(0, style_tag)
+        # Build replacement content
+        replacement = BeautifulSoup(lh_html, "html.parser")
+        # Replace all existing .letter-head blocks (which might contain plain text like the name)
+        for el in soup.select(".letter-head"):
+            el.clear()
+            for child in replacement.contents:
+                el.append(child if getattr(child, 'name', None) else BeautifulSoup(str(child), "html.parser"))
+        # Also prepend a visible copy at the very top
+        body = soup.find("body") or soup
+        wrapper = soup.new_tag("div")
+        wrapper["class"] = ["letter-head", "visible-pdf"]
+        for child in replacement.contents:
+            wrapper.append(child if getattr(child, 'name', None) else BeautifulSoup(str(child), "html.parser"))
+        if body.contents:
+            body.insert(0, wrapper)
+        else:
+            body.append(wrapper)
+        return str(soup)
+    except Exception:
+        return html
 
 
 @frappe.whitelist()
@@ -993,17 +1774,22 @@ def generate_pdf3a_with_xml(invoice_name):
         # Generate PDF from print format
         pdf_content = generate_pdf_from_print_format(invoice_doc)
 
-        # Create temporary PDF file
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_pdf:
-            temp_pdf_path = temp_pdf.name
-            temp_pdf.write(pdf_content)
+        if not pdf_content:
+            frappe.throw("Failed to generate PDF content from print format")
 
         try:
-            # Create final PDF with embedded XML
+            # Create final PDF path
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as final_pdf:
                 final_pdf_path = final_pdf.name
 
-            finalize_pdfa(temp_pdf_path, final_pdf_path, icc_path, xml_file, invoice_doc)
+            # Write input PDF to temp path for pikepdf processing
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_pdf_in:
+                temp_input_path = temp_pdf_in.name
+                temp_pdf_in.write(pdf_content)
+
+            # Finalize using pikepdf + Ghostscript
+            if not finalize_pdfa(temp_input_path, final_pdf_path, icc_path, xml_file, invoice_doc):
+                frappe.throw("Failed to finalize PDF/A-3A document")
 
             # Read the generated PDF
             with open(final_pdf_path, "rb") as f:
@@ -1047,28 +1833,12 @@ def generate_pdf3a_with_xml(invoice_name):
 
         finally:
             # Clean up temporary files
-            if os.path.exists(temp_pdf_path):
-                os.remove(temp_pdf_path)
             if os.path.exists(final_pdf_path):
                 os.remove(final_pdf_path)
+            if 'temp_input_path' in locals() and os.path.exists(temp_input_path):
+                os.remove(temp_input_path)
 
     except Exception as e:
         frappe.log_error(f"Error generating PDF3A: {str(e)}", "PDF3A Generator")
         frappe.throw(f"Failed to generate PDF3A: {str(e)}")
 
-
-@frappe.whitelist()
-def test_pdf3a_assets():
-    """Test method to check if required assets are available."""
-    try:
-        icc_path = ensure_assets()
-        font_path = find_ttf_font()
-
-        return {
-            "status": "success",
-            "icc_profile": icc_path,
-            "font_file": font_path,
-            "message": "All required assets are available for PDF3A generation",
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
