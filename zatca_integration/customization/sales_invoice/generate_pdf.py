@@ -525,7 +525,6 @@ def fix_arabic_words_for_pdf(text):
     return get_display(text)
 
 
-
 def _draw_header_section(c, invoice_doc, width, height, margin_x, y, font_name):
     """Draw the header section including invoice details and QR code."""
     cell_height = 15

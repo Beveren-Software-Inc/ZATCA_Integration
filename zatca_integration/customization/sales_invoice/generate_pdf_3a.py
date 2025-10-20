@@ -10,15 +10,11 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-import frappe
 import convertapi
+import frappe
 import pikepdf
 from frappe.utils.pdf import get_pdf
 from pikepdf import Array, Dictionary, Name, String
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfgen import canvas
 
 # Configuration paths
 font_dir = Path(frappe.get_app_path("zatca_integration", "public", "fonts"))
@@ -31,7 +27,7 @@ EMBEDDED_SRGB_ICC = icc_2014
 EMBEDDED_FONT_TTF = cairo_regular
 
 # Configure ConvertAPI (PDF -> PDF/A-3A)
-convertapi.api_credentials = 'GxRHhnLAaS1962KKdBhrSbZAc5v8ZFUt'
+convertapi.api_credentials = "GxRHhnLAaS1962KKdBhrSbZAc5v8ZFUt"
 
 
 def find_ttf_font() -> str:
@@ -103,27 +99,32 @@ def generate_pdf_from_print_format(invoice_doc):
 
         # Use wkhtmltopdf to preserve print format design, then convert to PDF/A-3A with ConvertAPI
         pdf_content = None
-        
+
         # Approach 1: wkhtmltopdf with print format (preserves design)
         try:
-            pdf_content = get_pdf(html, options={
-                "page-size": "A4",
-                "margin-top": "0.75in",
-                "margin-right": "0.75in",
-                "margin-bottom": "0.75in",
-                "margin-left": "0.75in",
-                "encoding": "UTF-8",
-                "no-outline": None,
-                "enable-local-file-access": None,
-                "print-media-type": None,
-                "disable-smart-shrinking": None,
-                "dpi": 300,
-                "image-quality": 100,
-            })
-            frappe.log_error("PDF generated with wkhtmltopdf preserving print format", "PDF3A Generator")
+            pdf_content = get_pdf(
+                html,
+                options={
+                    "page-size": "A4",
+                    "margin-top": "0.75in",
+                    "margin-right": "0.75in",
+                    "margin-bottom": "0.75in",
+                    "margin-left": "0.75in",
+                    "encoding": "UTF-8",
+                    "no-outline": None,
+                    "enable-local-file-access": None,
+                    "print-media-type": None,
+                    "disable-smart-shrinking": None,
+                    "dpi": 300,
+                    "image-quality": 100,
+                },
+            )
+            frappe.log_error(
+                "PDF generated with wkhtmltopdf preserving print format", "PDF3A Generator"
+            )
         except Exception as e:
             frappe.log_error(f"wkhtmltopdf generation failed: {e}", "PDF3A Generator")
-        
+
         # Approach 2: Fallback to ReportLab if wkhtmltopdf fails
         if not pdf_content:
             try:
@@ -150,27 +151,24 @@ def generate_pdf_from_print_format(invoice_doc):
 def create_pdfa_compliant_pdf(html_content, invoice_doc):
     """Create PDF/A compliant PDF using ReportLab with HTML content conversion."""
     try:
+        import tempfile
+
+        from bs4 import BeautifulSoup
         from reportlab.lib.pagesizes import A4
-        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.lib.styles import getSampleStyleSheet
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-        from reportlab.lib.units import inch
-        from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
-        import tempfile
-        import re
-        from bs4 import BeautifulSoup
-        
+        from reportlab.platypus import SimpleDocTemplate
+
         # Create a temporary PDF file
         temp_pdf = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
         temp_pdf_path = temp_pdf.name
         temp_pdf.close()
-        
+
         # Register fonts for PDF/A compliance
         font_path = find_ttf_font()
         pdfmetrics.registerFont(TTFont("EmbeddedFont", font_path))
-        
+
         # Create PDF document
         doc = SimpleDocTemplate(
             temp_pdf_path,
@@ -184,42 +182,44 @@ def create_pdfa_compliant_pdf(html_content, invoice_doc):
             subject="PDF/A-3A Compliant Invoice",
             creator="ERPNext ZATCA Integration",
         )
-        
+
         # Parse HTML content
-        soup = BeautifulSoup(html_content, 'html.parser')
-        
+        soup = BeautifulSoup(html_content, "html.parser")
+
         # Create story (content)
         story = []
         styles = getSampleStyleSheet()
-        
+
         # Configure styles with embedded font
-        for style_name in ['Title', 'Heading1', 'Heading2', 'Normal', 'BodyText']:
+        for style_name in ["Title", "Heading1", "Heading2", "Normal", "BodyText"]:
             if hasattr(styles, style_name):
                 style = getattr(styles, style_name)
                 style.fontName = "EmbeddedFont"
-        
+
         # Convert HTML to ReportLab elements
         convert_html_to_reportlab(soup, story, styles, invoice_doc)
-        
+
         # Build PDF
         doc.build(story)
-        
+
         # Read the generated PDF
         with open(temp_pdf_path, "rb") as f:
             pdf_content = f.read()
-        
+
         # Clean up temporary file
         os.unlink(temp_pdf_path)
-        
+
         return pdf_content
-        
+
     except Exception as e:
         frappe.log_error(f"Error creating PDF/A compliant PDF: {e}", "PDF3A Generator")
         # Fallback to standard PDF generation
         try:
             return get_pdf(html_content)
         except Exception as fallback_e:
-            frappe.log_error(f"Fallback PDF generation also failed: {fallback_e}", "PDF3A Generator")
+            frappe.log_error(
+                f"Fallback PDF generation also failed: {fallback_e}", "PDF3A Generator"
+            )
             return None
 
 
@@ -229,264 +229,311 @@ def convert_html_to_reportlab(soup, story, styles, invoice_doc):
         # Remove script and style tags
         for script in soup(["script", "style"]):
             script.decompose()
-        
+
         # Process the main content
-        body = soup.find('body')
+        body = soup.find("body")
         if not body:
             body = soup
-        
+
         # Convert HTML elements to ReportLab elements
-        for element in body.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'span', 'table', 'tr', 'td', 'th']):
-            if element.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+        for element in body.find_all(
+            ["h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "span", "table", "tr", "td", "th"]
+        ):
+            if element.name in ["h1", "h2", "h3", "h4", "h5", "h6"]:
                 # Handle headings
                 level = int(element.name[1])
-                style_name = f'Heading{level}' if level <= 2 else 'Heading2'
-                style = getattr(styles, style_name, styles['Heading2'])
+                style_name = f"Heading{level}" if level <= 2 else "Heading2"
+                style = getattr(styles, style_name, styles["Heading2"])
                 text = element.get_text(strip=True)
                 if text:
                     story.append(Paragraph(text, style))
                     story.append(Spacer(1, 6))
-            
-            elif element.name == 'p':
+
+            elif element.name == "p":
                 # Handle paragraphs
                 text = element.get_text(strip=True)
                 if text:
-                    story.append(Paragraph(text, styles['Normal']))
+                    story.append(Paragraph(text, styles["Normal"]))
                     story.append(Spacer(1, 6))
-            
-            elif element.name == 'table':
+
+            elif element.name == "table":
                 # Handle tables
                 table_data = []
-                rows = element.find_all('tr')
+                rows = element.find_all("tr")
                 for row in rows:
-                    cells = row.find_all(['td', 'th'])
+                    cells = row.find_all(["td", "th"])
                     row_data = []
                     for cell in cells:
                         cell_text = cell.get_text(strip=True)
                         row_data.append(cell_text)
                     if row_data:
                         table_data.append(row_data)
-                
+
                 if table_data:
                     # Create table
                     table = Table(table_data)
-                    table.setStyle(TableStyle([
-                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                        ('FONTNAME', (0, 0), (-1, -1), 'EmbeddedFont'),
-                        ('FONTSIZE', (0, 0), (-1, -1), 8),
-                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                    ]))
+                    table.setStyle(
+                        TableStyle(
+                            [
+                                ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                                ("FONTNAME", (0, 0), (-1, -1), "EmbeddedFont"),
+                                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                                ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                                ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                            ]
+                        )
+                    )
                     story.append(table)
                     story.append(Spacer(1, 12))
-            
-            elif element.name in ['div', 'span']:
+
+            elif element.name in ["div", "span"]:
                 # Handle divs and spans - convert to paragraphs
                 text = element.get_text(strip=True)
                 if text and len(text) > 0:
-                    story.append(Paragraph(text, styles['Normal']))
+                    story.append(Paragraph(text, styles["Normal"]))
                     story.append(Spacer(1, 3))
-        
+
         # If no content was processed, add basic invoice info
         if not story:
-            story.append(Paragraph(f"Sales Invoice: {invoice_doc.name}", styles['Title']))
+            story.append(Paragraph(f"Sales Invoice: {invoice_doc.name}", styles["Title"]))
             story.append(Spacer(1, 12))
-            story.append(Paragraph(f"Date: {invoice_doc.posting_date}", styles['Normal']))
-            story.append(Paragraph(f"Customer: {invoice_doc.customer_name}", styles['Normal']))
-            story.append(Paragraph(f"Grand Total: {invoice_doc.currency} {invoice_doc.grand_total}", styles['Normal']))
-        
+            story.append(Paragraph(f"Date: {invoice_doc.posting_date}", styles["Normal"]))
+            story.append(Paragraph(f"Customer: {invoice_doc.customer_name}", styles["Normal"]))
+            story.append(
+                Paragraph(
+                    f"Grand Total: {invoice_doc.currency} {invoice_doc.grand_total}",
+                    styles["Normal"],
+                )
+            )
+
     except Exception as e:
         frappe.log_error(f"Error converting HTML to ReportLab: {e}", "PDF3A Generator")
         # Add basic content as fallback
-        story.append(Paragraph(f"Sales Invoice: {invoice_doc.name}", styles['Title']))
+        story.append(Paragraph(f"Sales Invoice: {invoice_doc.name}", styles["Title"]))
         story.append(Spacer(1, 12))
-        story.append(Paragraph(f"Date: {invoice_doc.posting_date}", styles['Normal']))
-        story.append(Paragraph(f"Customer: {invoice_doc.customer_name}", styles['Normal']))
-        story.append(Paragraph(f"Grand Total: {invoice_doc.currency} {invoice_doc.grand_total}", styles['Normal']))
+        story.append(Paragraph(f"Date: {invoice_doc.posting_date}", styles["Normal"]))
+        story.append(Paragraph(f"Customer: {invoice_doc.customer_name}", styles["Normal"]))
+        story.append(
+            Paragraph(
+                f"Grand Total: {invoice_doc.currency} {invoice_doc.grand_total}", styles["Normal"]
+            )
+        )
 
 
 def create_comprehensive_pdfa_pdf(invoice_doc):
     """Create a comprehensive PDF/A compliant PDF using ReportLab with full invoice layout."""
     try:
-        from reportlab.lib.pagesizes import A4
+        import tempfile
+
         from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import inch
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
-        from reportlab.lib.units import inch, cm
-        from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
-        import tempfile
-        
+        from reportlab.platypus import (
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
+        )
+
         # Create a temporary PDF file
         temp_pdf = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
         temp_pdf_path = temp_pdf.name
         temp_pdf.close()
-        
+
         # Register fonts for PDF/A compliance
         font_path = find_ttf_font()
         pdfmetrics.registerFont(TTFont("EmbeddedFont", font_path))
-        
+
         # Create PDF document
         doc = SimpleDocTemplate(
             temp_pdf_path,
             pagesize=A4,
-            rightMargin=1*inch,
-            leftMargin=1*inch,
-            topMargin=1*inch,
-            bottomMargin=1*inch,
+            rightMargin=1 * inch,
+            leftMargin=1 * inch,
+            topMargin=1 * inch,
+            bottomMargin=1 * inch,
             title=f"Sales Invoice {invoice_doc.name}",
             author="ERPNext ZATCA Integration",
             subject="PDF/A-3A Compliant Invoice",
             creator="ERPNext ZATCA Integration",
         )
-        
+
         # Create story (content)
         story = []
-        
+
         # Create custom styles
         styles = getSampleStyleSheet()
-        
+
         # Title style
         title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Title'],
-            fontName='EmbeddedFont',
+            "CustomTitle",
+            parent=styles["Title"],
+            fontName="EmbeddedFont",
             fontSize=16,
             spaceAfter=20,
             alignment=TA_CENTER,
-            textColor=colors.black
+            textColor=colors.black,
         )
-        
+
         # Header style
         header_style = ParagraphStyle(
-            'CustomHeader',
-            parent=styles['Heading2'],
-            fontName='EmbeddedFont',
+            "CustomHeader",
+            parent=styles["Heading2"],
+            fontName="EmbeddedFont",
             fontSize=12,
             spaceAfter=10,
-            textColor=colors.black
+            textColor=colors.black,
         )
-        
+
         # Normal style
         normal_style = ParagraphStyle(
-            'CustomNormal',
-            parent=styles['Normal'],
-            fontName='EmbeddedFont',
+            "CustomNormal",
+            parent=styles["Normal"],
+            fontName="EmbeddedFont",
             fontSize=9,
             spaceAfter=6,
-            textColor=colors.black
+            textColor=colors.black,
         )
-        
+
         # Small style
-        small_style = ParagraphStyle(
-            'CustomSmall',
-            parent=styles['Normal'],
-            fontName='EmbeddedFont',
+        _small_style = ParagraphStyle(
+            "CustomSmall",
+            parent=styles["Normal"],
+            fontName="EmbeddedFont",
             fontSize=8,
             spaceAfter=4,
-            textColor=colors.black
+            textColor=colors.black,
         )
-        
+
         # Add title
-        story.append(Paragraph(f"Sales Invoice", title_style))
+        story.append(Paragraph("Sales Invoice", title_style))
         story.append(Spacer(1, 10))
-        
+
         # Invoice details table
         invoice_details = [
             ["Invoice Number:", invoice_doc.name, "Date:", str(invoice_doc.posting_date)],
             ["Customer:", invoice_doc.customer_name, "Due Date:", str(invoice_doc.due_date or "")],
-            ["Currency:", invoice_doc.currency, "Grand Total:", f"{invoice_doc.currency} {invoice_doc.grand_total}"],
+            [
+                "Currency:",
+                invoice_doc.currency,
+                "Grand Total:",
+                f"{invoice_doc.currency} {invoice_doc.grand_total}",
+            ],
         ]
-        
-        invoice_table = Table(invoice_details, colWidths=[2*inch, 2*inch, 1.5*inch, 2*inch])
-        invoice_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'EmbeddedFont'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-            ('ALIGN', (2, 0), (2, -1), 'LEFT'),
-            ('ALIGN', (3, 0), (3, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ]))
+
+        invoice_table = Table(invoice_details, colWidths=[2 * inch, 2 * inch, 1.5 * inch, 2 * inch])
+        invoice_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "EmbeddedFont"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("ALIGN", (0, 0), (0, -1), "LEFT"),
+                    ("ALIGN", (1, 0), (1, -1), "LEFT"),
+                    ("ALIGN", (2, 0), (2, -1), "LEFT"),
+                    ("ALIGN", (3, 0), (3, -1), "LEFT"),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
         story.append(invoice_table)
         story.append(Spacer(1, 20))
-        
+
         # Items table
         if invoice_doc.items:
             story.append(Paragraph("Items", header_style))
-            
+
             # Items table headers
             items_data = [["Item Code", "Description", "Qty", "Rate", "Amount"]]
-            
+
             # Add items
             for item in invoice_doc.items:
-                description = item.description[:40] + "..." if len(item.description) > 40 else item.description
-                items_data.append([
-                    item.item_code,
-                    description,
-                    str(item.qty),
-                    f"{invoice_doc.currency} {item.rate}",
-                    f"{invoice_doc.currency} {item.amount}"
-                ])
-            
-            items_table = Table(items_data, colWidths=[1.2*inch, 3*inch, 0.8*inch, 1.2*inch, 1.2*inch])
-            items_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, -1), 'EmbeddedFont'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ]))
+                description = (
+                    item.description[:40] + "..."
+                    if len(item.description) > 40
+                    else item.description
+                )
+                items_data.append(
+                    [
+                        item.item_code,
+                        description,
+                        str(item.qty),
+                        f"{invoice_doc.currency} {item.rate}",
+                        f"{invoice_doc.currency} {item.amount}",
+                    ]
+                )
+
+            items_table = Table(
+                items_data, colWidths=[1.2 * inch, 3 * inch, 0.8 * inch, 1.2 * inch, 1.2 * inch]
+            )
+            items_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("ALIGN", (1, 0), (1, -1), "LEFT"),
+                        ("FONTNAME", (0, 0), (-1, -1), "EmbeddedFont"),
+                        ("FONTSIZE", (0, 0), (-1, -1), 8),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ]
+                )
+            )
             story.append(items_table)
             story.append(Spacer(1, 20))
-        
+
         # Totals section
         totals_data = [
             ["Net Total:", f"{invoice_doc.currency} {invoice_doc.net_total}"],
             ["Taxes:", f"{invoice_doc.currency} {invoice_doc.total_taxes_and_charges}"],
             ["Grand Total:", f"{invoice_doc.currency} {invoice_doc.grand_total}"],
         ]
-        
-        totals_table = Table(totals_data, colWidths=[2*inch, 2*inch])
-        totals_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'EmbeddedFont'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('FONTNAME', (0, -1), (-1, -1), 'EmbeddedFont'),
-            ('FONTSIZE', (0, -1), (-1, -1), 12),
-            ('FONTNAME', (0, -1), (-1, -1), 'EmbeddedFont'),
-            ('LINEBELOW', (0, -1), (-1, -1), 2, colors.black),
-        ]))
+
+        totals_table = Table(totals_data, colWidths=[2 * inch, 2 * inch])
+        totals_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "EmbeddedFont"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    ("ALIGN", (0, 0), (0, -1), "LEFT"),
+                    ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                    ("FONTNAME", (0, -1), (-1, -1), "EmbeddedFont"),
+                    ("FONTSIZE", (0, -1), (-1, -1), 12),
+                    ("FONTNAME", (0, -1), (-1, -1), "EmbeddedFont"),
+                    ("LINEBELOW", (0, -1), (-1, -1), 2, colors.black),
+                ]
+            )
+        )
         story.append(totals_table)
-        
+
         # Add amount in words if available
-        if hasattr(invoice_doc, 'in_words') and invoice_doc.in_words:
+        if hasattr(invoice_doc, "in_words") and invoice_doc.in_words:
             story.append(Spacer(1, 10))
             story.append(Paragraph(f"Amount in words: {invoice_doc.in_words}", normal_style))
-        
+
         # Build PDF
         doc.build(story)
-        
+
         # Read the generated PDF
         with open(temp_pdf_path, "rb") as f:
             pdf_content = f.read()
-        
+
         # Clean up temporary file
         os.unlink(temp_pdf_path)
-        
+
         return pdf_content
-        
+
     except Exception as e:
         frappe.log_error(f"Error creating comprehensive PDF/A PDF: {e}", "PDF3A Generator")
         return None
@@ -495,23 +542,24 @@ def create_comprehensive_pdfa_pdf(invoice_doc):
 def create_basic_pdfa_pdf(invoice_doc):
     """Create a basic PDF/A compliant PDF using ReportLab."""
     try:
-        from reportlab.lib.pagesizes import A4
+        import tempfile
+
         from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.lib.styles import getSampleStyleSheet
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-        import tempfile
-        
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
         # Create a temporary PDF file
         temp_pdf = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
         temp_pdf_path = temp_pdf.name
         temp_pdf.close()
-        
+
         # Register fonts for PDF/A compliance
         font_path = find_ttf_font()
         pdfmetrics.registerFont(TTFont("EmbeddedFont", font_path))
-        
+
         # Create PDF document
         doc = SimpleDocTemplate(
             temp_pdf_path,
@@ -525,67 +573,79 @@ def create_basic_pdfa_pdf(invoice_doc):
             subject="PDF/A-3A Compliant Invoice",
             creator="ERPNext ZATCA Integration",
         )
-        
+
         # Create story (content)
         story = []
         styles = getSampleStyleSheet()
-        
+
         # Configure styles with embedded font
-        for style_name in ['Title', 'Heading1', 'Heading2', 'Normal', 'BodyText']:
+        for style_name in ["Title", "Heading1", "Heading2", "Normal", "BodyText"]:
             if hasattr(styles, style_name):
                 style = getattr(styles, style_name)
                 style.fontName = "EmbeddedFont"
-        
+
         # Add title
-        story.append(Paragraph(f"Sales Invoice: {invoice_doc.name}", styles['Title']))
+        story.append(Paragraph(f"Sales Invoice: {invoice_doc.name}", styles["Title"]))
         story.append(Spacer(1, 12))
-        
+
         # Add basic invoice information
-        story.append(Paragraph(f"Date: {invoice_doc.posting_date}", styles['Normal']))
-        story.append(Paragraph(f"Customer: {invoice_doc.customer_name}", styles['Normal']))
-        story.append(Paragraph(f"Grand Total: {invoice_doc.currency} {invoice_doc.grand_total}", styles['Normal']))
+        story.append(Paragraph(f"Date: {invoice_doc.posting_date}", styles["Normal"]))
+        story.append(Paragraph(f"Customer: {invoice_doc.customer_name}", styles["Normal"]))
+        story.append(
+            Paragraph(
+                f"Grand Total: {invoice_doc.currency} {invoice_doc.grand_total}", styles["Normal"]
+            )
+        )
         story.append(Spacer(1, 12))
-        
+
         # Add items table
         if invoice_doc.items:
-            story.append(Paragraph("Items:", styles['Heading2']))
-            
+            story.append(Paragraph("Items:", styles["Heading2"]))
+
             # Create items table
             table_data = [["Item Code", "Description", "Qty", "Rate", "Amount"]]
             for item in invoice_doc.items:
-                table_data.append([
-                    item.item_code,
-                    item.description[:30] + "..." if len(item.description) > 30 else item.description,
-                    str(item.qty),
-                    f"{invoice_doc.currency} {item.rate}",
-                    f"{invoice_doc.currency} {item.amount}"
-                ])
-            
+                table_data.append(
+                    [
+                        item.item_code,
+                        item.description[:30] + "..."
+                        if len(item.description) > 30
+                        else item.description,
+                        str(item.qty),
+                        f"{invoice_doc.currency} {item.rate}",
+                        f"{invoice_doc.currency} {item.amount}",
+                    ]
+                )
+
             table = Table(table_data)
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, -1), 'EmbeddedFont'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
+            table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("FONTNAME", (0, 0), (-1, -1), "EmbeddedFont"),
+                        ("FONTSIZE", (0, 0), (-1, -1), 8),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                    ]
+                )
+            )
             story.append(table)
-        
+
         # Build PDF
         doc.build(story)
-        
+
         # Read the generated PDF
         with open(temp_pdf_path, "rb") as f:
             pdf_content = f.read()
-        
+
         # Clean up temporary file
         os.unlink(temp_pdf_path)
-        
+
         return pdf_content
-        
+
     except Exception as e:
         frappe.log_error(f"Error creating basic PDF/A PDF: {e}", "PDF3A Generator")
         return None
@@ -596,27 +656,27 @@ def fix_font_embedding(pdf):
     try:
         # Get all pages
         pages = pdf.Root["/Pages"]["/Kids"]
-        
+
         for page_ref in pages:
             page = page_ref
             if page_ref.is_indirect:
                 page = page_ref.get_object()
-            
+
             # Get page resources
             resources = page.get("/Resources", Dictionary())
             fonts = resources.get("/Font", Dictionary())
-            
+
             # Process each font aggressively
-            for font_name, font_ref in fonts.items():
+            for _font_name, font_ref in fonts.items():
                 font = font_ref
                 if font_ref.is_indirect:
                     font = font_ref.get_object()
-                
+
                 # Aggressively rebuild font information
                 rebuild_font_aggressively(font, pdf)
-        
+
         frappe.log_error("Aggressive font embedding fixes applied successfully", "PDF3A Generator")
-        
+
     except Exception as e:
         frappe.log_error(f"Error in aggressive font embedding fix: {str(e)}", "PDF3A Generator")
 
@@ -626,14 +686,14 @@ def rebuild_font_aggressively(font, pdf):
     try:
         # Get base font name
         base_font_name = str(font.get("/BaseFont", "Unknown"))
-        
+
         # Remove subset prefix if present
         if base_font_name.startswith("+"):
             base_font_name = base_font_name[1:]
-        
+
         # Completely rebuild font with consistent properties
         font.clear()
-        
+
         # Set all required font properties
         font["/Type"] = Name("/Font")
         font["/Subtype"] = Name("/Type1")
@@ -641,42 +701,47 @@ def rebuild_font_aggressively(font, pdf):
         font["/Encoding"] = Name("/WinAnsiEncoding")
         font["/FirstChar"] = 0
         font["/LastChar"] = 255
-        
+
         # Create completely consistent width array
         widths = Array([600] * 256)  # All characters have same width
         font["/Widths"] = widths
-        
+
         # Create new font descriptor with matching properties
-        font_descriptor = Dictionary({
-            "/Type": Name("/FontDescriptor"),
-            "/FontName": String(f"+{base_font_name}"),
-            "/Flags": 4,
-            "/FontBBox": Array([0, 0, 1000, 1000]),
-            "/ItalicAngle": 0,
-            "/Ascent": 800,
-            "/Descent": -200,
-            "/CapHeight": 700,
-            "/StemV": 80,
-            "/StemH": 80,
-            "/AvgWidth": 600,        # Must match width array
-            "/MaxWidth": 1000,
-            "/MissingWidth": 600,    # Must match width array
-        })
-        
+        font_descriptor = Dictionary(
+            {
+                "/Type": Name("/FontDescriptor"),
+                "/FontName": String(f"+{base_font_name}"),
+                "/Flags": 4,
+                "/FontBBox": Array([0, 0, 1000, 1000]),
+                "/ItalicAngle": 0,
+                "/Ascent": 800,
+                "/Descent": -200,
+                "/CapHeight": 700,
+                "/StemV": 80,
+                "/StemH": 80,
+                "/AvgWidth": 600,  # Must match width array
+                "/MaxWidth": 1000,
+                "/MissingWidth": 600,  # Must match width array
+            }
+        )
+
         # Make font descriptor indirect
         font_descriptor_ind = pdf.make_indirect(font_descriptor)
         font["/FontDescriptor"] = font_descriptor_ind
-        
+
         # Create ToUnicode stream
         to_unicode_content = create_to_unicode_stream()
         to_unicode_stream = pdf.make_stream(to_unicode_content)
         font["/ToUnicode"] = to_unicode_stream
-        
+
         # Set font name consistently
         font["/FontName"] = String(f"+{base_font_name}")
-        
+
     except Exception as e:
-        frappe.log_error(f"Error aggressively rebuilding font {font.get('/BaseFont', 'Unknown')}: {str(e)}", "PDF3A Generator")
+        frappe.log_error(
+            f"Error aggressively rebuilding font {font.get('/BaseFont', 'Unknown')}: {str(e)}",
+            "PDF3A Generator",
+        )
 
 
 def rebuild_font_for_pdfa(font, pdf):
@@ -684,56 +749,60 @@ def rebuild_font_for_pdfa(font, pdf):
     try:
         # Get base font name
         base_font_name = str(font.get("/BaseFont", "Unknown"))
-        
+
         # Remove subset prefix if present for consistency
         if base_font_name.startswith("+"):
             base_font_name = base_font_name[1:]
-        
+
         # Set consistent font properties
         font["/Type"] = Name("/Font")
         font["/Subtype"] = Name("/Type1")
         font["/BaseFont"] = String(f"+{base_font_name}")
         font["/Encoding"] = Name("/WinAnsiEncoding")
-        
+
         # Set character range
         font["/FirstChar"] = 0
         font["/LastChar"] = 255
-        
+
         # Create consistent width array (600 units for all characters)
         widths = Array([600] * 256)
         font["/Widths"] = widths
-        
+
         # Create or update font descriptor
-        font_descriptor = Dictionary({
-            "/Type": Name("/FontDescriptor"),
-            "/FontName": String(f"+{base_font_name}"),
-            "/Flags": 4,  # Symbolic font flag
-            "/FontBBox": Array([0, 0, 1000, 1000]),
-            "/ItalicAngle": 0,
-            "/Ascent": 800,
-            "/Descent": -200,
-            "/CapHeight": 700,
-            "/StemV": 80,
-            "/StemH": 80,
-            "/AvgWidth": 600,
-            "/MaxWidth": 1000,
-            "/MissingWidth": 600,
-        })
-        
+        font_descriptor = Dictionary(
+            {
+                "/Type": Name("/FontDescriptor"),
+                "/FontName": String(f"+{base_font_name}"),
+                "/Flags": 4,  # Symbolic font flag
+                "/FontBBox": Array([0, 0, 1000, 1000]),
+                "/ItalicAngle": 0,
+                "/Ascent": 800,
+                "/Descent": -200,
+                "/CapHeight": 700,
+                "/StemV": 80,
+                "/StemH": 80,
+                "/AvgWidth": 600,
+                "/MaxWidth": 1000,
+                "/MissingWidth": 600,
+            }
+        )
+
         # Make font descriptor indirect
         font_descriptor_ind = pdf.make_indirect(font_descriptor)
         font["/FontDescriptor"] = font_descriptor_ind
-        
+
         # Create ToUnicode stream for proper character mapping
         to_unicode_content = create_to_unicode_stream()
         to_unicode_stream = pdf.make_stream(to_unicode_content)
         font["/ToUnicode"] = to_unicode_stream
-        
+
         # Ensure font name is consistent
         font["/FontName"] = String(f"+{base_font_name}")
-        
+
     except Exception as e:
-        frappe.log_error(f"Error rebuilding font {font.get('/BaseFont', 'Unknown')}: {str(e)}", "PDF3A Generator")
+        frappe.log_error(
+            f"Error rebuilding font {font.get('/BaseFont', 'Unknown')}: {str(e)}", "PDF3A Generator"
+        )
 
 
 def create_to_unicode_stream():
@@ -851,6 +920,7 @@ def finalize_pdfa(
         # Save the PDF with embedded XML
         try:
             from pikepdf import PdfVersion
+
             pdf.save(final_pdf_path, linearize=False, min_version=PdfVersion.v1_7)
         except Exception:
             pdf.save(final_pdf_path, linearize=False)
@@ -860,20 +930,22 @@ def finalize_pdfa(
         # ConvertAPI writes output files; convert then overwrite final_pdf_path
         out_dir = tempfile.mkdtemp()
         result = convertapi.convert(
-            'pdfa',
+            "pdfa",
             {
-                'File': final_pdf_path,
-                'PdfaVersion': 'PdfA3a',
+                "File": final_pdf_path,
+                "PdfaVersion": "PdfA3a",
             },
-            from_format='pdf',
+            from_format="pdf",
         )
         saved_files = result.save_files(out_dir)
         if saved_files:
             converted_path = saved_files[0]
             # Replace final_pdf_path contents with converted file
-            with open(converted_path, 'rb') as src, open(final_pdf_path, 'wb') as dst:
+            with open(converted_path, "rb") as src, open(final_pdf_path, "wb") as dst:
                 dst.write(src.read())
-            frappe.log_error("Successfully converted to PDF/A-3A using ConvertAPI", "PDF3A Generator")
+            frappe.log_error(
+                "Successfully converted to PDF/A-3A using ConvertAPI", "PDF3A Generator"
+            )
     except Exception as e:
         # If external conversion fails, continue with internally conformed file
         frappe.log_error(f"ConvertAPI PDF/A conversion failed: {e}", "PDF3A Generator")
