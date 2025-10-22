@@ -10,9 +10,16 @@ frappe.ui.form.on('Sales Invoice', {
     },
     refresh: frm => {
         if (frm.doc.docstatus === 1) {
+            check_pdf_3a_enabled(frm, (enabled) => {
+                frm.pdf3_enabled = enabled;
+                if (!enabled){
+                return;
+            }
             frm.add_custom_button(__('Print PDF+XML'), function () {
                 zatca_embed_qr_in_pdf(frm);
             }, __('ZATCA Actions')); // 'ZATCA Actions' will be the group name
+            })
+
         }
 
         frm.trigger('set_custom_payment_method')
@@ -328,6 +335,30 @@ function check_multi_sales_invoice_enabled(frm, callback) {
     }
 }
 
+function check_pdf_3a_enabled(frm, callback) {
+    if (frm.doc.company) {
+        frappe.call({
+            method: "frappe.client.get_value",
+            args: {
+                doctype: "Company",
+                filters: { name: frm.doc.company },
+                fieldname: "custom_enable_pdf3a"
+            },
+            callback: function(r) {
+                const enabled = !!r.message?.custom_enable_pdf3a ? 1 : 0;
+                frm.zatca_enabled = enabled;
+
+                frm.toggle_display("custom_enable_pdf3a", !!enabled);
+
+                if (callback) callback(enabled);
+            }
+        });
+    } else {
+        if (callback) callback(0);
+    }
+}
+
+
 // New feature from al-kneel
 frappe.ui.form.on("Credit Details", {
     sales_invoice(frm, cdt, cdn) {
@@ -472,9 +503,8 @@ function zatca_embed_qr_in_pdf(frm) {
                         label: "Print Format",
                         fieldname: "print_format",
                         fieldtype: "Select",
-                        options: "Zatca PDF-A 3A",
-                        default: "Zatca PDF-A 3A",
-                        read_only: 1,
+                        options: print_formats.join("\n"),
+                        default: default_format,
                     },
 
                 ],
@@ -483,7 +513,7 @@ function zatca_embed_qr_in_pdf(frm) {
                     d.hide();
 
                     frappe.call({
-                        method: "zatca_integration.customization.sales_invoice.generate_pdf_3a.generate_pdf3a_with_xml",
+                        method: "zatca_integration.customization.sales_invoice.generate_pdf_3a_convertapi.generate_pdf3a_with_xml",
                         args: {
                             invoice_name: frm.doc.name,
                             print_format: values.print_format,
