@@ -107,7 +107,7 @@ def generate_pdf_from_print_format(invoice_doc, print_format: str) -> bytes:
                     "margin-bottom": "0.75in",
                     "margin-left": "0.75in",
                     # Add extra spacing between header and body so letterhead/header isn't clipped
-                    "header-spacing": "10",
+                    "header-spacing": "1",
                     "encoding": "UTF-8",
                     "no-outline": None,
                     "enable-local-file-access": None,
