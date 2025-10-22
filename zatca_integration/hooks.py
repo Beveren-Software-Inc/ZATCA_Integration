@@ -81,6 +81,9 @@ fixtures = [
                     "Company-custom_csr_settings",
                     "Company-custom_production_csid",
                     "Company-custom_e_invoice_settings",
+                    "Company-custom_column_break_t28uu",
+                    "Company-custom_enable_pdf3a",
+                    "Company-custom_convertapi_token",
                     # Sales Invoice
                     "Sales Invoice-custom_compliance",
                     "Sales Invoice-custom_cn_ref",
