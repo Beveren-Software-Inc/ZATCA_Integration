@@ -96,7 +96,6 @@ def generate_pdf_from_print_format(invoice_doc, print_format: str) -> bytes:
         # Use wkhtmltopdf to preserve print format design, then convert to PDF/A-3A with ConvertAPI
         pdf_content = None
 
-        # Approach 1: wkhtmltopdf with print format (preserves design)
         try:
             pdf_content = get_pdf(
                 html,
@@ -106,7 +105,6 @@ def generate_pdf_from_print_format(invoice_doc, print_format: str) -> bytes:
                     "margin-right": "0.75in",
                     "margin-bottom": "0.75in",
                     "margin-left": "0.75in",
-                    # Add extra spacing between header and body so letterhead/header isn't clipped
                     "header-spacing": "1",
                     "encoding": "UTF-8",
                     "no-outline": None,
@@ -169,6 +167,31 @@ def build_xmp_metadata(invoice_doc) -> bytes:
     return xmp.encode("utf-8")
 
 
+def convert_to_pdfa3a(pdf_path: str, token: str) -> None:
+    """Convert PDF to PDF/A-3A using ConvertAPI."""
+    try:
+        out_dir = tempfile.mkdtemp()
+
+        convertapi.api_credentials = token
+        result = convertapi.convert(
+            "pdfa",
+            {
+                "File": pdf_path,
+                "PdfaVersion": "PdfA3a",
+            },
+            from_format="pdf",
+        )
+        saved_files = result.save_files(out_dir)
+        if saved_files:
+            converted_path = saved_files[0]
+            # Replace pdf_path contents with converted file
+            with open(converted_path, "rb") as src, open(pdf_path, "wb") as dst:
+                dst.write(src.read())
+
+    except Exception as e:
+        frappe.log_error(f"ConvertAPI PDF/A conversion failed: {e}", "PDF3A Generator")
+
+
 def finalize_pdfa(
     temp_pdf_path: str, final_pdf_path: str, icc_path: str, xml_path: str, invoice_doc, token: str
 ):
@@ -226,28 +249,7 @@ def finalize_pdfa(
         except Exception:
             pdf.save(final_pdf_path, linearize=False)
 
-    # Convert to PDF/A-3A using ConvertAPI to preserve original print format rendering
-    try:
-        out_dir = tempfile.mkdtemp()
-
-        convertapi.api_credentials = token
-        result = convertapi.convert(
-            "pdfa",
-            {
-                "File": final_pdf_path,
-                "PdfaVersion": "PdfA3a",
-            },
-            from_format="pdf",
-        )
-        saved_files = result.save_files(out_dir)
-        if saved_files:
-            converted_path = saved_files[0]
-            # Replace final_pdf_path contents with converted file
-            with open(converted_path, "rb") as src, open(final_pdf_path, "wb") as dst:
-                dst.write(src.read())
-
-    except Exception as e:
-        frappe.log_error(f"ConvertAPI PDF/A conversion failed: {e}", "PDF3A Generator")
+    convert_to_pdfa3a(final_pdf_path, token)
 
 
 @frappe.whitelist()
@@ -288,7 +290,6 @@ def generate_pdf3a_with_xml(invoice_name, print_format):
         # Ensure assets exist
         icc_path = ensure_assets()
 
-        # Generate PDF from print format
         pdf_content = generate_pdf_from_print_format(invoice_doc, print_format)
 
         # Create temporary PDF file
@@ -297,17 +298,14 @@ def generate_pdf3a_with_xml(invoice_name, print_format):
             temp_pdf.write(pdf_content)
 
         try:
-            # Create final PDF with embedded XML
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as final_pdf:
                 final_pdf_path = final_pdf.name
 
             finalize_pdfa(temp_pdf_path, final_pdf_path, icc_path, xml_file, invoice_doc, token)
 
-            # Read the generated PDF
             with open(final_pdf_path, "rb") as f:
                 final_pdf_content = f.read()
 
-            # Create File document in ERPNext
             pdf_filename = f"{invoice_name}_PDF3A.pdf"
 
             # Check if file already exists
