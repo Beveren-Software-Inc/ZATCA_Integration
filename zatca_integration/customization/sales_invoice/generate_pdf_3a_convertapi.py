@@ -102,10 +102,12 @@ def generate_pdf_from_print_format(invoice_doc, print_format: str) -> bytes:
                 html,
                 options={
                     "page-size": "A4",
-                    "margin-top": "0.75in",
+                    "margin-top": "1.5in",
                     "margin-right": "0.75in",
                     "margin-bottom": "0.75in",
                     "margin-left": "0.75in",
+                    # Add extra spacing between header and body so letterhead/header isn't clipped
+                    "header-spacing": "10",
                     "encoding": "UTF-8",
                     "no-outline": None,
                     "enable-local-file-access": None,
