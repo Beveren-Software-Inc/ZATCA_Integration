@@ -16,7 +16,7 @@ frappe.ui.form.on('Sales Invoice', {
                     console.log("mko hapa pia", enabled)
                 return;
             }
-            
+
             // Get PDF3A generation method and show button if method is selected
             get_pdf3a_generation_method(frm, function(generation_method) {
                 if (generation_method) {
@@ -25,7 +25,7 @@ frappe.ui.form.on('Sales Invoice', {
                     }, __('ZATCA Actions'));
                 }
             });
-            
+
             });
         }
 
@@ -357,7 +357,7 @@ function check_pdf_3a_enabled(frm, callback) {
             },
             callback: function(r) {
                 const enabled = !!r.message?.custom_generate_pdf3a_through;
-                
+
                 frm.zatca_enabled = enabled;
 
                 frm.toggle_display("custom_generate_pdf3a_through", enabled);
