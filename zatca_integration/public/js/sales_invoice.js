@@ -420,6 +420,7 @@ function fetch_sold_qty(frm, cdt, cdn) {
         });
     }
 }
+
 function fetch_returned_qty(frm, cdt, cdn) {
     let row = frappe.get_doc(cdt, cdn);
     if (row.item && row.sales_invoice) {
