@@ -172,10 +172,13 @@ fixtures = [
                     "Bank-custom_bank_name_in_arabic",
                     "Bank Account-custom_display_in_pdf",
                     "Bank Account-custom_account_name_in_arabic",
+                    
+                    "Selling Settings-custom_enable_stock_delivered_unbilled",
                 ],
             ]
         ],
     },
+    
     # Property Setters
     # {"doctype": "Property Setter", "filters": [["doc_type", "in", [
     #     "Address",
