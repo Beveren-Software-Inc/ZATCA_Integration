@@ -3,9 +3,9 @@
 
 import erpnext
 import frappe
+from erpnext.accounts.doctype.sales_invoice.sales_invoice import SalesInvoice
 from erpnext.accounts.utils import get_account_currency
 from frappe.utils import flt
-from erpnext.accounts.doctype.sales_invoice.sales_invoice import SalesInvoice
 
 
 class CustomSalesInvoice(SalesInvoice):
@@ -22,12 +22,12 @@ class CustomSalesInvoice(SalesInvoice):
         self.make_internal_transfer_gl_entries(gl_entries)
 
         self.make_item_gl_entries(gl_entries)
-        
+
         # Check if stock delivered but not billed feature is enabled
         enable_stock_delivered_unbilled = self._is_stock_delivered_unbilled_enabled()
         if enable_stock_delivered_unbilled:
             self.make_stock_delivered_but_not_billed_gl_entries(gl_entries)
-        
+
         self.make_precision_loss_gl_entry(gl_entries)
         self.make_discount_gl_entries(gl_entries)
 
@@ -69,7 +69,6 @@ class CustomSalesInvoice(SalesInvoice):
                 )
             )
 
-
     def _is_stock_delivered_unbilled_enabled(self):
         """Check if stock delivered unbilled feature is enabled in settings
         Priority: Selling Settings (singleton) -> Company (backward compatibility)
@@ -84,7 +83,7 @@ class CustomSalesInvoice(SalesInvoice):
             pass
 
         return False
-        
+
     def make_stock_delivered_but_not_billed_gl_entries(self, gl_entries):
         """Handle Stock Delivered But Not Billed GL entries
         This replaces the functionality from stock_delivered_unbilled app
@@ -103,16 +102,16 @@ class CustomSalesInvoice(SalesInvoice):
                                 {
                                     "voucher_no": item.delivery_note,
                                     "voucher_detail_no": item.dn_detail,
-                                    "item_code": item.item_code
+                                    "item_code": item.item_code,
                                 },
                                 ["stock_value_difference", "actual_qty"],
-                                as_dict=True
+                                as_dict=True,
                             )
                             if item_g and item_g.actual_qty:
                                 valuation_rate = item_g.stock_value_difference / item_g.actual_qty
                                 valuation_amount = valuation_rate * item.stock_qty
                                 account_currency = get_account_currency(dn_expense_account)
-                                
+
                                 gl_entries.append(
                                     self.get_gl_dict(
                                         {
