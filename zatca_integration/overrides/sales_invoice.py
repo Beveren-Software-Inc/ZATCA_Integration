@@ -75,9 +75,9 @@ class CustomSalesInvoice(SalesInvoice):
         """
         # 1) Check Selling Settings (preferred)
         try:
-            selling_settings = frappe.get_cached_doc("Selling Settings")
-            if hasattr(selling_settings, "custom_enable_stock_delivered_unbilled"):
-                return bool(selling_settings.custom_enable_stock_delivered_unbilled)
+            company = frappe.get_cached_doc("Company", self.company)
+            if hasattr(company, "disable_sdbnb_in_sr"):
+                return bool(company.disable_sdbnb_in_sr)
         except Exception:
             # ignore and fall back
             pass
