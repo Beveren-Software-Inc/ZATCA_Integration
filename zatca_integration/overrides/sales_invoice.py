@@ -22,11 +22,19 @@ class CustomSalesInvoice(SalesInvoice):
         self.make_internal_transfer_gl_entries(gl_entries)
 
         self.make_item_gl_entries(gl_entries)
-
+        company = frappe.get_cached_doc("Company", self.company)
+        if hasattr(company, "disable_sdbnb_in_sr"):
+            disable_sdbnb_in_sr = company.disable_sdbnb_in_sr
+        else:
+            disable_sdbnb_in_sr = False
         # Check if stock delivered but not billed feature is enabled
         enable_stock_delivered_unbilled = self._is_stock_delivered_unbilled_enabled()
         if enable_stock_delivered_unbilled:
-            self.make_stock_delivered_but_not_billed_gl_entries(gl_entries)
+            if self.is_return:
+                if not disable_sdbnb_in_sr:
+                    self.make_stock_delivered_but_not_billed_gl_entries(gl_entries)
+            else:
+                self.make_stock_delivered_but_not_billed_gl_entries(gl_entries)
 
         self.make_precision_loss_gl_entry(gl_entries)
         self.make_discount_gl_entries(gl_entries)
@@ -76,8 +84,8 @@ class CustomSalesInvoice(SalesInvoice):
         # 1) Check Selling Settings (preferred)
         try:
             company = frappe.get_cached_doc("Company", self.company)
-            if hasattr(company, "disable_sdbnb_in_sr"):
-                return bool(company.disable_sdbnb_in_sr)
+            if hasattr(company, "custom_enable_stock_delivered_unbilled"):
+                return bool(company.custom_enable_stock_delivered_unbilled)
         except Exception:
             # ignore and fall back
             pass
