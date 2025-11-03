@@ -10,9 +10,23 @@ frappe.ui.form.on('Sales Invoice', {
     },
     refresh: frm => {
         if (frm.doc.docstatus === 1) {
-            frm.add_custom_button(__('Print PDF+XML'), function () {
-                zatca_embed_qr_in_pdf(frm);
-            }, __('ZATCA Actions')); // 'ZATCA Actions' will be the group name
+            check_pdf_3a_enabled(frm, (enabled) => {
+                frm.pdf3_enabled = enabled;
+                if (!enabled){
+                    console.log("mko hapa pia", enabled)
+                return;
+            }
+
+            // Get PDF3A generation method and show button if method is selected
+            get_pdf3a_generation_method(frm, function(generation_method) {
+                if (generation_method) {
+                    frm.add_custom_button(__('Print PDF+XML'), function () {
+                        zatca_embed_qr_in_pdf(frm);
+                    }, __('ZATCA Actions'));
+                }
+            });
+
+            });
         }
 
         frm.trigger('set_custom_payment_method')
@@ -99,6 +113,10 @@ frappe.ui.form.on('Sales Invoice', {
             frm.set_value('grand_total', (frm.doc.net_total + frm.doc.total_taxes_and_charges - frm.doc.custom_retention_amount));
             frm.refresh_field('grand_total');
         }
+    },
+    custom_generate_pdf3a_through: function(frm) {
+        // Refresh the form to update button visibility when PDF3A method changes
+        frm.refresh();
     },
     set_retention_amount: frm => {
         let retention = frm.doc.custom_retention_percentage
@@ -328,6 +346,31 @@ function check_multi_sales_invoice_enabled(frm, callback) {
     }
 }
 
+function check_pdf_3a_enabled(frm, callback) {
+    if (frm.doc.company) {
+        frappe.call({
+            method: "frappe.client.get_value",
+            args: {
+                doctype: "Company",
+                filters: { name: frm.doc.company },
+                fieldname: "custom_generate_pdf3a_through"
+            },
+            callback: function(r) {
+                const enabled = !!r.message?.custom_generate_pdf3a_through;
+
+                frm.zatca_enabled = enabled;
+
+                frm.toggle_display("custom_generate_pdf3a_through", enabled);
+
+                if (callback) callback(enabled);
+            }
+        });
+    } else {
+        if (callback) callback(0);
+    }
+}
+
+
 // New feature from al-kneel
 frappe.ui.form.on("Credit Details", {
     sales_invoice(frm, cdt, cdn) {
@@ -377,6 +420,7 @@ function fetch_sold_qty(frm, cdt, cdn) {
         });
     }
 }
+
 function fetch_returned_qty(frm, cdt, cdn) {
     let row = frappe.get_doc(cdt, cdn);
     if (row.item && row.sales_invoice) {
@@ -438,69 +482,111 @@ function create_missing_cn_reference(frm) {
     }
 }
 
+function get_pdf3a_generation_method(frm, callback) {
+    if (frm.doc.company) {
+        frappe.call({
+            method: "frappe.client.get_value",
+            args: {
+                doctype: "Company",
+                filters: { name: frm.doc.company },
+                fieldname: "custom_generate_pdf3a_through"
+            },
+            callback: function(r) {
+                const generation_method = r.message?.custom_generate_pdf3a_through || "";
+                if (callback) callback(generation_method);
+            }
+        });
+    } else {
+        if (callback) callback("");
+    }
+}
 
 function zatca_embed_qr_in_pdf(frm) {
     if (frm.doc.docstatus !== 1) {
         return;
     }
 
-    // Fetch available print formats for Sales Invoice
-    frappe.call({
-        method: "frappe.client.get_list",
-        args: {
-            doctype: "Print Format",
-            fields: ["name"],
-            filters: {
-                doc_type: "Sales Invoice",
-                "disabled": 0,
-            }
-        },
-        callback: function(res) {
-            let print_formats = res.message.map(pf => pf.name);
-
-            let default_format = frm.meta.default_print_format || frappe.boot.sysdefaults.print_format;
-
-            if (!print_formats.includes(default_format)) {
-                print_formats.unshift(default_format);
-            }
-
-            // Create dialog
-            let d = new frappe.ui.Dialog({
-                title: __("Select Print Format"),
-                fields: [
-                    {
-                        label: "Print Format",
-                        fieldname: "print_format",
-                        fieldtype: "Select",
-                        options: "Zatca PDF-A 3A",
-                        default: "Zatca PDF-A 3A",
-                        read_only: 1,
-                    },
-
-                ],
-                primary_action_label: __("Generate PDF"),
-                primary_action(values) {
-                    d.hide();
-
-                    frappe.call({
-                        method: "zatca_integration.customization.sales_invoice.generate_pdf_image.zatca_embed_qr_in_pdf",
-                        args: {
-                            invoice_name: frm.doc.name,
-                            print_format: values.print_format,
-
-                        },
-                        callback: function(r) {
-                            if (r.message) {
-                                window.open(r.message.file_url, "_blank");
-                            } else {
-                                frappe.msgprint(__("Failed to generate PDF-A3"));
-                            }
-                        }
-                    });
-                }
-            });
-
-            d.show();
+    // Get the PDF3A generation method from company
+    get_pdf3a_generation_method(frm, function(generation_method) {
+        if (!generation_method) {
+            return;
         }
+
+    if (generation_method === "Image Generation") {
+        frappe.call({
+            method: "zatca_integration.customization.sales_invoice.generate_pdf_image.zatca_embed_qr_in_pdf",
+            args: {
+                invoice_name: frm.doc.name,
+            },
+            callback: function(r) {
+                if (r.message) {
+                    window.open(r.message.file_url, "_blank");
+                } else {
+                    frappe.msgprint(__("Failed to generate PDF-A3"));
+                }
+            }
+        });
+        return;
+    }
+
+    if (generation_method === "Convertapi") {
+        frappe.call({
+            method: "frappe.client.get_list",
+            args: {
+                doctype: "Print Format",
+                fields: ["name"],
+                filters: {
+                    doc_type: "Sales Invoice",
+                    "disabled": 0,
+                }
+            },
+            callback: function(res) {
+                let print_formats = res.message.map(pf => pf.name);
+
+                let default_format = frm.meta.default_print_format || frappe.boot.sysdefaults.print_format;
+
+                if (!print_formats.includes(default_format)) {
+                    print_formats.unshift(default_format);
+                }
+                    console.log("Mania")
+                // Create dialog
+                let d = new frappe.ui.Dialog({
+                    title: __("Select Print Format"),
+                    fields: [
+                        {
+                            label: "Print Format",
+                            fieldname: "print_format",
+                            fieldtype: "Select",
+                            options: print_formats.join("\n"),
+                            default: default_format,
+                        },
+
+                    ],
+                    primary_action_label: __("Generate PDF"),
+                    primary_action(values) {
+                        d.hide();
+
+                        frappe.call({
+                            method: "zatca_integration.customization.sales_invoice.generate_pdf_3a_convertapi.generate_pdf3a_with_xml",
+                            args: {
+                                invoice_name: frm.doc.name,
+                                print_format: values.print_format,
+
+                            },
+                            callback: function(r) {
+                                if (r.message) {
+                                    window.open(r.message.file_url, "_blank");
+                                } else {
+                                    frappe.msgprint(__("Failed to generate PDF-A3"));
+                                }
+                            }
+                        });
+                    }
+                });
+
+                d.show();
+            }
+        });
+    }
     });
 }

@@ -830,6 +830,12 @@ def delete_customer_and_addresses(customer_name):
         frappe.delete_doc("Customer", customer_name, force=1)
 
 
+def get_pdf_3a_token(company_name):
+    """Fetch ZATCA PDF/A settings from Company."""
+    company = frappe.get_doc("Company", company_name)
+    return company.get_password("custom_convertapi_token")
+
+
 # -----------------------------
 # End of Helper Functions
 # -----------------------------
