@@ -289,6 +289,7 @@
    "fieldname": "csr_generated",
    "fieldtype": "Check",
    "label": "CSR Generated",
+   "no_copy": 1,
    "read_only": 1
   }
  ],
@@ -300,7 +301,7 @@
    "link_fieldname": "csr_settings"
   }
  ],
- "modified": "2025-08-02 10:16:25.816409",
+ "modified": "2025-11-16 12:01:18.174308",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca CSR Settings",

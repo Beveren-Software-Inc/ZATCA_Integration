@@ -10,12 +10,16 @@
   "input_section",
   "column_break_btvk",
   "csr_settings",
+  "renewal_pcsid",
+  "production_csid",
   "column_break_bmay",
   "otp",
+  "production_csid_success",
   "generated_compliance_csid_section",
   "request_id",
   "disposition_message",
   "created_time",
+  "token_type",
   "errors",
   "certificate",
   "column_break_bbje",
@@ -186,6 +190,34 @@
    "fieldtype": "Small Text",
    "label": "Public Key",
    "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "renewal_pcsid",
+   "fieldtype": "Check",
+   "label": "Renewal PCSID"
+  },
+  {
+   "depends_on": "eval: doc.renewal_pcsid===1",
+   "fieldname": "production_csid",
+   "fieldtype": "Link",
+   "label": "Production CSID To Renew",
+   "mandatory_depends_on": "eval: doc.renewal_pcsid===1",
+   "options": "Production CSID"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.renewal_pcsid===1",
+   "fieldname": "production_csid_success",
+   "fieldtype": "Check",
+   "label": "Production CSID Success",
+   "read_only": 1
+  },
+  {
+   "fieldname": "token_type",
+   "fieldtype": "Data",
+   "label": "Token Type",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
@@ -196,7 +228,7 @@
    "link_fieldname": "compliance_csid"
   }
  ],
- "modified": "2025-07-19 13:31:09.321553",
+ "modified": "2025-11-16 14:02:22.516264",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Compliance CSID",

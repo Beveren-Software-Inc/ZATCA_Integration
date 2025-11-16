@@ -2,13 +2,16 @@
 frappe.ui.form.on("Compliance CSID", {
     refresh: frm => {
         if (!frm.is_new()) {
-            if (!frm.doc.binary_security_token) {
+            if (!frm.doc.binary_security_token && !frm.doc.renewal_pcsid) {
                 frm.trigger("genereate_zatca_compliance_csid");
 
             }
             if (!are_all_flags_true(frm) && frm.doc.binary_security_token) {
                 frm.trigger("validate_zatca_compliance_csid");
 
+            }
+            if(frm.doc.renewal_pcsid){
+                frm.trigger('re_generate_production_csid');
             }
         }
         make_fields_read_only(frm);
@@ -57,6 +60,26 @@ frappe.ui.form.on("Compliance CSID", {
                 error: function(r) {
                     frappe.hide_progress();
                     frappe.show_alert({ message: __('Failed to Validate Compliance CSID'), indicator: 'red' });
+                }
+            });
+        });
+    },
+
+       re_generate_production_csid: frm => {
+        frm.add_custom_button(__('Renew Production CSID'), function () {
+            frappe.show_progress(__('Renewing Production CSID...'));
+            frappe.call({
+                method: 'renew_zatca_production_csid',
+                doc: frm.doc,
+                callback(r) {
+                    frappe.hide_progress();
+                    if (!r.exc) {
+                        frappe.show_alert({
+                            message: __('Production CSID Renewed Successfully!'),
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+                    }
                 }
             });
         });
