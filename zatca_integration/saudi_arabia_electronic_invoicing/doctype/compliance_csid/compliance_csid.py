@@ -328,24 +328,13 @@ class ComplianceCSID(Document):
         decoded_compliance_certificate = base64.b64decode(compliance_certificate.encode("utf-8"))
         return decoded_compliance_certificate.decode("utf-8")
     
-    @frappe.whitelist()
-    def renew_zatca_production_csid(self):
-        
-        #Mania: I have attached the reference just incase the next developer will need clarification
-
-        """
-        Renews the ZATCA Production CSID using PATCH request.
-        According to ZATCA docs (https://zatca1.discourse.group/t/how-to-renew-expired-pcsid/524),
-        renewal requires a NEW CSR in the request body.
-        Handles both 200 (success) and 428 (NOT_COMPLIANT - renewal successful but needs compliance checks) responses.
-        """
+    def _prepare_renewal_request(self):
+        """Prepare renewal request data, headers, and get required documents."""
         if not self.production_csid:
             frappe.throw("Production CSID is required for renewal. Please select the Production CSID you want to renew in the production_csid field.")
         
         production_csid = frappe.get_doc("Production CSID", self.production_csid)
-        
         zatca_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
-        
         zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
 
         # ZATCA renewal requires:
@@ -354,13 +343,127 @@ class ComplianceCSID(Document):
         # 3. PCSID credentials for authorization
         # Reference: https://zatca1.discourse.group/t/how-to-renew-expired-pcsid/524
         data = {"csr": zatca_settings.csr}
-
         headers = {
             "accept": "application/json",
             "OTP": self.otp,  # Renewal OTP from Fatoora portal
             "Accept-Version": "V2",
             "Content-Type": "application/json",
         }
+        
+        return production_csid, zatca_environment, data, headers
+
+    def _handle_renewal_success_200(self, production_csid, response_json):
+        """Handle 200 response - Production CSID directly renewed and ready to use."""
+        disposition_message = response_json.get("dispositionMessage", "")
+        
+        # Update Production CSID with new credentials
+        production_csid.created_time = frappe.utils.now_datetime()
+        production_csid.expiry_date = calculation_expiry_date(production_csid.created_time)
+        production_csid.request_id = response_json.get("requestID", "")
+        production_csid.disposition_message = disposition_message
+        production_csid.binary_security_token = response_json.get("binarySecurityToken", "")
+        production_csid.token_type = response_json.get("tokenType", "")
+        production_csid.secret = response_json.get("secret", "")
+        production_csid.errors = response_json.get("errors", "{}")
+        production_csid.certificate = build_certificate_data(production_csid.binary_security_token)
+        production_csid.public_key = create_public_key(production_csid.certificate)
+        production_csid.save()
+        
+        # Mark production_csid_success as passed
+        self.production_csid_success = 1
+        self.save()
+        
+        message = (
+            "Renewal successful! The Production CSID has been updated with new credentials.<br><br>"
+            "<b>Status:</b> " + disposition_message + "<br><br>"
+            "You can now use the renewed Production CSID for invoice clearance and reporting."
+        )
+        frappe.msgprint(message, indicator="green", title="Production CSID Renewed Successfully")
+        return "Production CSID renewed successfully"
+
+    def _handle_renewal_success_428(self, response_json):
+        """Handle 428 response - Renewal successful but new Compliance CSID needs compliance checks."""
+        # Handle nested "value" structure if present
+        if "value" in response_json:
+            response_data = response_json.get("value", {})
+        else:
+            response_data = response_json
+        
+        disposition_message = response_data.get("dispositionMessage", "")
+        
+        if disposition_message != "NOT_COMPLIANT":
+            # 428 but not NOT_COMPLIANT - treat as error
+            error_text = f"Status 428: {disposition_message}"
+            self._save_and_throw_error(error_text, "ZATCA Renewal Failed")
+        
+        # Update Compliance CSID with new credentials
+        self.created_time = frappe.utils.now_datetime()
+        self.request_id = response_data.get("requestID", "")
+        self.disposition_message = disposition_message
+        self.binary_security_token = response_data.get("binarySecurityToken", "")
+        self.token_type = response_data.get("tokenType", "")
+        self.secret = response_data.get("secret", "")
+        self.errors = response_data.get("errors", "{}")
+        self.certificate = build_certificate_data(self.binary_security_token)
+        self.public_key = create_public_key(self.certificate)
+        self.save()
+        
+        message = (
+            "Renewal successful! The Compliance CSID has been updated with new credentials.<br><br>"
+            "<b>Status:</b> NOT_COMPLIANT<br><br>"
+            "<b>Next Steps:</b><br>"
+            "1. Complete compliance checks for invoices with the new Compliance CSID credentials<br>"
+            "2. Generate a new Production CSID from the renewed Compliance CSID<br>"
+            "3. Use the new Production CSID for clearance/reporting APIs"
+        )
+        frappe.msgprint(message, indicator="orange", title="Renewal Successful - Compliance Required")
+        return "Renewal successful - Compliance checks required"
+
+    def _parse_error_response(self, response):
+        """Parse error response and return formatted error text."""
+        error_text = response.text if response.text else f"Status {response.status_code}"
+        
+        try:
+            error_data = response.json()
+            # Handle errors array format
+            if "errors" in error_data and isinstance(error_data["errors"], list):
+                error_messages = []
+                for err in error_data["errors"]:
+                    code = err.get("code", "")
+                    msg = err.get("message", "")
+                    error_messages.append(f"{code}: {msg}")
+                error_text = "<br>".join([f"• {frappe.utils.escape_html(msg)}" for msg in error_messages])
+            else:
+                error_code = error_data.get("code", "")
+                error_message = error_data.get("message", "")
+                if error_code or error_message:
+                    error_text = f"{error_code}: {error_message}" if error_code else error_message
+                else:
+                    error_text = json.dumps(error_data, indent=2)
+        except:
+            # Not JSON, use text as is
+            pass
+        
+        return error_text
+
+    def _save_and_throw_error(self, error_text, title="ZATCA Renewal Failed"):
+        """Save error to document and throw exception."""
+        self.errors = error_text
+        self.save()
+        frappe.db.commit()
+        # Don't add "ZATCA Error" prefix since title already contains it
+        frappe.throw(frappe.utils.escape_html(error_text), title=title)
+
+    @frappe.whitelist()
+    def renew_zatca_production_csid(self):
+        # Mania: I have attached the reference just incase the next developer will need clarification
+        """
+        Renews the ZATCA Production CSID using PATCH request.
+        According to ZATCA docs (https://zatca1.discourse.group/t/how-to-renew-expired-pcsid/524),
+        renewal requires a NEW CSR in the request body.
+        Handles both 200 (success) and 428 (NOT_COMPLIANT - renewal successful but needs compliance checks) responses.
+        """
+        production_csid, zatca_environment, data, headers = self._prepare_renewal_request()
         
         try:
             # For renewal, use Production CSID credentials (the one being renewed)
@@ -376,132 +479,27 @@ class ComplianceCSID(Document):
             # Reference: https://zatca1.discourse.group/t/how-to-renew-expired-pcsid/524/8
             if response.status_code == 200:
                 response_json = response.json()
-                disposition_message = response_json.get("dispositionMessage", "")
-                
-                # 200 with "ISSUED" means Production CSID is directly renewed and ready to use
-                # Update the Production CSID with new credentials
-                production_csid.created_time = frappe.utils.now_datetime()
-                production_csid.expiry_date = calculation_expiry_date(production_csid.created_time)
-                production_csid.request_id = response_json.get("requestID", "")
-                production_csid.disposition_message = disposition_message
-                production_csid.binary_security_token = response_json.get("binarySecurityToken", "")
-                production_csid.token_type = response_json.get("tokenType", "")
-                production_csid.secret = response_json.get("secret", "")
-                production_csid.errors = response_json.get("errors", "{}")
-
-                production_csid.certificate = build_certificate_data(production_csid.binary_security_token)
-                production_csid.public_key = create_public_key(production_csid.certificate)
-
-                production_csid.save()
-                
-                self.production_csid_success = 1
-                self.save()
-                
-                # Production CSID is ready to use - no compliance checks needed
-                message = (
-                    "Renewal successful! The Production CSID has been updated with new credentials.<br><br>"
-                    "<b>Status:</b> " + disposition_message + "<br><br>"
-                    "You can now use the renewed Production CSID for invoice clearance and reporting."
-                )
-                frappe.msgprint(message, indicator="green", title="Production CSID Renewed Successfully")
-                return "Production CSID renewed successfully"
+                return self._handle_renewal_success_200(production_csid, response_json)
                 
             elif response.status_code == 428:
                 try:
                     response_json = response.json()
-                    
-                    # Handle nested "value" structure if present
-                    if "value" in response_json:
-                        response_data = response_json.get("value", {})
-                    else:
-                        response_data = response_json
-                    
-                    disposition_message = response_data.get("dispositionMessage", "")
-                    
-                    if disposition_message == "NOT_COMPLIANT":
-                        # Update Compliance CSID with new credentials from renewal response
-                        self.created_time = frappe.utils.now_datetime()
-                        self.request_id = response_data.get("requestID", "")
-                        self.disposition_message = disposition_message
-                        self.binary_security_token = response_data.get("binarySecurityToken", "")
-                        self.token_type = response_data.get("tokenType", "")
-                        self.secret = response_data.get("secret", "")
-                        self.errors = response_data.get("errors", "{}")
-
-                        self.certificate = build_certificate_data(self.binary_security_token)
-                        self.public_key = create_public_key(self.certificate)
-
-                        self.save()
-                        
-                        # Show message explaining next steps
-                        message = (
-                            "Renewal successful! The Compliance CSID has been updated with new credentials.<br><br>"
-                            "<b>Status:</b> NOT_COMPLIANT<br><br>"
-                            "<b>Next Steps:</b><br>"
-                            "1. Complete compliance checks for invoices with the new Compliance CSID credentials<br>"
-                            "2. Generate a new Production CSID from the renewed Compliance CSID<br>"
-                            "3. Use the new Production CSID for clearance/reporting APIs"
-                        )
-                        frappe.msgprint(message, indicator="orange", title="Renewal Successful - Compliance Required")
-                        return "Renewal successful - Compliance checks required"
-                    else:
-                        # 428 but not NOT_COMPLIANT - treat as error
-                        error_text = response.text if response.text else f"Status {response.status_code}: {disposition_message}"
-                        self.errors = error_text
-                        self.save()
-                        frappe.db.commit()
-                        frappe.throw(f"<b>ZATCA Error {response.status_code}</b><br><br>{frappe.utils.escape_html(error_text)}", title="ZATCA Renewal Failed")
+                    return self._handle_renewal_success_428(response_json)
                 except (ValueError, json.JSONDecodeError):
-                    # If response is not JSON, treat as error
                     error_text = response.text if response.text else f"Status {response.status_code}"
-                    self.errors = error_text
-                    self.save()
-                    frappe.db.commit()
-                    frappe.throw(f"<b>ZATCA Error {response.status_code}</b><br><br>{frappe.utils.escape_html(error_text)}", title="ZATCA Renewal Failed")
+                    self._save_and_throw_error(error_text, "ZATCA Renewal Failed")
             else:
                 # Handle other error responses
-                error_text = response.text if response.text else f"Status {response.status_code}"
-                # Try to parse as JSON, but don't fail if it's not
-                try:
-                    error_data = response.json()
-                    # Handle errors array format
-                    if "errors" in error_data and isinstance(error_data["errors"], list):
-                        error_messages = []
-                        for err in error_data["errors"]:
-                            code = err.get("code", "")
-                            msg = err.get("message", "")
-                            error_messages.append(f"{code}: {msg}")
-                        error_text = "<br>".join([f"• {frappe.utils.escape_html(msg)}" for msg in error_messages])
-                    else:
-                        error_code = error_data.get("code", "")
-                        error_message = error_data.get("message", "")
-                        if error_code or error_message:
-                            error_text = f"{error_code}: {error_message}" if error_code else error_message
-                        else:
-                            error_text = json.dumps(error_data, indent=2)
-                except:
-                    # Not JSON, use text as is
-                    pass
-                
-                # Save error and throw
-                self.errors = error_text
-                self.save()
-                frappe.db.commit()
-                frappe.throw(f"<b>ZATCA Error {response.status_code}</b><br><br>{error_text}", title="ZATCA Renewal Failed")
+                error_text = self._parse_error_response(response)
+                self._save_and_throw_error(error_text, "ZATCA Renewal Failed")
 
         except requests.exceptions.RequestException as req_err:
             error_msg = str(req_err)
             if 'response' in locals() and response:
                 error_msg += f"\n\nResponse: {response.text}"
-            self.errors = error_msg
-            self.save()
-            
-            frappe.throw(f"<b>ZATCA Renewal Request Error</b><br><br>{frappe.utils.escape_html(error_msg)}", title="ZATCA Renewal Failed")
+            self._save_and_throw_error(error_msg, "ZATCA Renewal Request Error")
         except Exception as e:
-            self.errors = str(e)
-            self.save()
-            frappe.db.commit()
-            frappe.throw(f"<b>ZATCA Renewal Error</b><br><br>{frappe.utils.escape_html(str(e))}", title="ZATCA Renewal Failed")
+            self._save_and_throw_error(str(e), "ZATCA Renewal Error")
 
 
 
