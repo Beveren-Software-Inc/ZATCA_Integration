@@ -1,8 +1,5 @@
 # Copyright (c) 2023, Shakir PM and contributors
 # For license information, please see license.txt
-import base64
-import json
-from textwrap import wrap
 
 import frappe
 import requests
@@ -116,8 +113,6 @@ class ProductionCSID(Document):
         frappe.db.commit()
 
         frappe.throw(f"Error in generating ZATCA Production CSID: {self.errors}")
-
-
 
 
 def handle_error(response):
