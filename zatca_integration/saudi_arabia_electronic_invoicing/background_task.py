@@ -105,7 +105,7 @@ def send_csid_expiry_email(csid_name, expiry_date):
         <span>to ensure uninterrupted compliance.</span></p>
     """
 
-    recipients = get_emails_for_roles(["System Manager", "Sales User"])
+    recipients = get_emails_for_roles(["System Manager"])
 
     if recipients:
         frappe.sendmail(recipients=recipients, subject=subject, message=message)

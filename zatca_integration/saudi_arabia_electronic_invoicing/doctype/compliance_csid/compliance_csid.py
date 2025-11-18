@@ -384,7 +384,6 @@ class ComplianceCSID(Document):
         return "Production CSID renewed successfully"
 
     def _handle_renewal_success_428(self, response_json):
-        # Handle nested "value" structure if present
         if "value" in response_json:
             response_data = response_json.get("value", {})
         else:
@@ -446,7 +445,6 @@ class ComplianceCSID(Document):
                 else:
                     error_text = json.dumps(error_data, indent=2)
         except (ValueError, json.JSONDecodeError):
-            # Not JSON, use text as is
             pass
 
         return error_text
@@ -456,7 +454,6 @@ class ComplianceCSID(Document):
         self.errors = error_text
         self.save()
         frappe.db.commit()
-        # Don't add "ZATCA Error" prefix since title already contains it
         frappe.throw(frappe.utils.escape_html(error_text), title=title)
 
     @frappe.whitelist()
