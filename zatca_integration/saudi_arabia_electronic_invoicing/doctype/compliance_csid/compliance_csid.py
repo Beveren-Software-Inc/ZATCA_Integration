@@ -322,7 +322,7 @@ class ComplianceCSID(Document):
         if response.status_code == 406:
             frappe.log_error(
                 title="ZATCA Compliance Invoice Already Submitted",
-                message=f"Invoice with hash {invoice_request['invoiceHash']} was already submitted.",
+                message=f"{invoice_request['invoiceHash']} was already submitted.",
             )
             # ZATCA returns 406 when the exact payload was already validated;
             # treat it as a success so downstream steps keep running.
