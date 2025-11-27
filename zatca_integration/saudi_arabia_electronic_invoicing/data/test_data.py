@@ -77,6 +77,7 @@ def create_test_customer(
     customer_type="Individual", tax_id="300450349600003", vat_number="300450349600003"
 ):
     """Create test customer if it doesn't exist"""
+    
     customer_name = TEST_CUSTOMER_DATA["customer_name"]
 
     if not frappe.db.exists("Customer", customer_name):

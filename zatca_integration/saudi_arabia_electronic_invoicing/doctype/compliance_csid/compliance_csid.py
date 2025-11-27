@@ -101,9 +101,11 @@ class ComplianceCSID(Document):
         buyer = get_buyer_information()
 
         if csr_settings.csrinvoicetype == "1100":
+            
             if self._is_standard_validation_pending():
+                
                 self.invoke_complaince_check("standard", csr_settings, seller, buyer)
-
+            
             if self._is_simplified_validation_pending():
                 self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
 
@@ -191,7 +193,7 @@ class ComplianceCSID(Document):
         """Dynamically generate first invoice hash to ensure unique hash for each run."""
         first_invoice_hash = generate_invoice_hash()
         compliance_name = str(self.name)
-
+        
         # Issue Invoice
         tax_invoice = generate_tax_invoice_xml(
             compliance_name,
@@ -343,18 +345,18 @@ class ComplianceCSID(Document):
     def _is_standard_validation_pending(self):
         return not all(
             [
-                bool(self.standard_invoice),
-                bool(self.standard_credit_note),
-                bool(self.standard_debit_note),
+                self.standard_invoice,
+                self.standard_credit_note,
+                self.standard_debit_note,
             ]
         )
 
     def _is_simplified_validation_pending(self):
         return not all(
             [
-                bool(self.simplified_invoice),
-                bool(self.simplified_credit_note),
-                bool(self.simplified_debit_note),
+                self.simplified_invoice,
+                self.simplified_credit_note,
+                self.simplified_debit_note,
             ]
         )
 
