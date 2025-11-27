@@ -279,6 +279,7 @@ class ComplianceCSID(Document):
             "Accept-Version": "V2",
             "Content-Type": "application/json",
         }
+        response_json = None
         try:
             response = requests.post(
                 zatca_environment.compliance_invoice_api,
@@ -289,6 +290,10 @@ class ComplianceCSID(Document):
             response_code = response.status_code
             response_text = response.text
             response_headers = dict(response.headers)
+            try:
+                response_json = response.json()
+            except ValueError:
+                response_json = None
         except requests.exceptions.RequestException as e:
             response_code = None
             response_text = str(e)
@@ -311,8 +316,23 @@ class ComplianceCSID(Document):
 
         if response.status_code == 200:
             return True, invoice_request["invoiceHash"]
-        else:
-            return False, None
+        if response.status_code == 406 and self._is_compliance_already_completed(response_json):
+            # ZATCA returns 406 when the exact payload was already validated;
+            # treat it as a success so downstream steps keep running.
+            return True, invoice_request["invoiceHash"]
+        return False, None
+
+    def _is_compliance_already_completed(self, response_json):
+        """Return True if ZATCA indicates the document was already submitted."""
+        if not response_json:
+            return False
+        validation_results = response_json.get("validationResults", {})
+        error_messages = validation_results.get("errorMessages", [])
+        for error in error_messages:
+            message = (error or {}).get("message", "")
+            if isinstance(message, str) and "submitted before" in message.lower():
+                return True
+        return False
 
     def reset_compliance_csid_status(self, status):
         """Reset the compliance CSID status."""
