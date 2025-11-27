@@ -319,7 +319,7 @@ class ComplianceCSID(Document):
         )
         transaction.insert()
 
-        if response.status_code == 200:
+        if response.status_code == 200 or response.status_code == 202:
             return True, invoice_request["invoiceHash"]
         if response.status_code == 406:
             frappe.log_error(
