@@ -316,7 +316,7 @@ class ComplianceCSID(Document):
 
         if response.status_code == 200:
             return True, invoice_request["invoiceHash"]
-        if response.status_code == 406 and self._is_compliance_already_completed(response_json):
+        if response.status_code == 406:
             # ZATCA returns 406 when the exact payload was already validated;
             # treat it as a success so downstream steps keep running.
             return True, invoice_request["invoiceHash"]
