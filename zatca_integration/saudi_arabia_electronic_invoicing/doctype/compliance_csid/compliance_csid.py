@@ -101,11 +101,9 @@ class ComplianceCSID(Document):
         buyer = get_buyer_information()
 
         if csr_settings.csrinvoicetype == "1100":
-            
             if self._is_standard_validation_pending():
-                
                 self.invoke_complaince_check("standard", csr_settings, seller, buyer)
-            
+
             if self._is_simplified_validation_pending():
                 self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
 
@@ -193,7 +191,7 @@ class ComplianceCSID(Document):
         """Dynamically generate first invoice hash to ensure unique hash for each run."""
         first_invoice_hash = generate_invoice_hash()
         compliance_name = str(self.name)
-        
+
         # Issue Invoice
         tax_invoice = generate_tax_invoice_xml(
             compliance_name,
@@ -296,9 +294,9 @@ class ComplianceCSID(Document):
             response_text = response.text
             response_headers = dict(response.headers)
             try:
-                response_json = response.json()
+                _response_json = response.json()
             except ValueError:
-                response_json = None
+                _response_json = None
         except requests.exceptions.RequestException as e:
             response_code = None
             response_text = str(e)
@@ -324,7 +322,8 @@ class ComplianceCSID(Document):
         if response.status_code == 406:
             frappe.log_error(
                 title="ZATCA Compliance Invoice Already Submitted",
-                message=f"Invoice with hash {invoice_request['invoiceHash']} was already submitted.",)
+                message=f"Invoice with hash {invoice_request['invoiceHash']} was already submitted.",
+            )
             # ZATCA returns 406 when the exact payload was already validated;
             # treat it as a success so downstream steps keep running.
             return True, invoice_request["invoiceHash"]
