@@ -282,7 +282,7 @@ class ComplianceCSID(Document):
             "Accept-Version": "V2",
             "Content-Type": "application/json",
         }
-        response_json = None
+        _response_json = None
         try:
             response = requests.post(
                 zatca_environment.compliance_invoice_api,
