@@ -231,6 +231,7 @@ def create_test_simplified_debit_sales_invoice(csr_data, compliance_name):
         {
             "name": "TEST-SINV-2025-00216",
             "po_no": "12345",
+            "is_debit_note": 1,
         }
     )
 
