@@ -117,6 +117,59 @@ Generate Production CSID from validated Compliance CSID.
 
 ![Production CSID Generation](docs/screenshots/Generate_PSID.png)
 
+### 1.4: **Renew Production CSID**
+
+When your Production CSID is about to expire or has expired, follow these steps to renew it:
+
+#### Step-by-Step Renewal Process:
+
+1. **Create a New ZATCA CSR**
+   - Go to ZATCA CSR Settings
+   - Duplicate the original CSR you are currently using
+   - Generate new configuration for the duplicated CSR
+
+2. **Create Compliance CSID from New CSR**
+   - Create a new Compliance CSID using the CSR you just created
+   - Follow the same process as Step 1.2 above
+
+3. **Enable Renewal Mode**
+   - In the Compliance CSID document, tick the checkbox **"Renew Production CSID"**
+   - A field will appear to select the Production CSID you want to renew
+   - Pick the Production CSID from the displayed field
+
+4. **Get Renewal OTP from Fatoora Portal**
+   - Go to the Fatoora portal
+   - Navigate to the **"Renewal CSID"** page
+   - Generate a new OTP for renewal
+   - **Important:** OTPs expire quickly (usually within 5-10 minutes), so generate it right before you need it
+
+5. **Enter OTP and Renew**
+   - Enter the OTP you just generated in the OTP field of the Compliance CSID document
+   - **Save** the document
+   - Click the **"Renew Production CSID"** button
+
+#### What Happens After Renewal:
+
+**Scenario 1: Direct Renewal (Success)**
+If the renewal is successful, you will see a success message indicating that your Production CSID has been renewed and updated automatically. **No further action is required** - you can continue using your Production CSID for invoice clearance and reporting immediately.
+
+**Scenario 2: Renewal with Compliance Check Required**
+Sometimes, when you click "Renew Production CSID", you may see a status message showing **"NOT_COMPLIANT"**. This means:
+
+1. **Your Compliance CSID has been renewed successfully** - The system has updated your Compliance CSID with new credentials.
+
+2. **You need to complete compliance checks** - Before you can use the renewed credentials, ZATCA requires you to validate your invoices through compliance testing.
+
+3. **Generate a new Production CSID** - After completing the compliance checks, you need to generate a new Production CSID from the renewed Compliance CSID (similar to Step 1.3 above).
+
+4. **Use the new Production CSID** - Once the new Production CSID is generated, update your Company Settings to use this new Production CSID for all future invoice submissions.
+
+**Important Notes:**
+- Make sure you have a **fresh OTP** from the Fatoora portal before starting the renewal process. OTPs expire quickly (usually within 5-10 minutes), so generate it right before you need it.
+- Ensure the OTP is generated from the **same environment** (Simulation or Production) that matches your ZATCA Environment setting.
+- The VAT number used to generate the OTP must match the VAT number in your CSR Settings.
+- If you see "Invalid-OTP" error, generate a new OTP from the Fatoora portal and try again immediately.
+
 ### 2. **Company Configuration**
 
   i. *Enable ZATCA E-Invoicing*
