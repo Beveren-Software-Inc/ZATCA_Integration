@@ -103,7 +103,7 @@ def notify_expiring_csids():
 
             # Only send email if company exists and alerts are enabled
             if company and company.custom_enable_csid_expiry_alerts:
-                send_csid_expiry_email(csid.name, expiry_date)
+                send_csid_expiry_email(csid.name, expiry_date) 
 
 
 def send_csid_expiry_email(csid_name, expiry_date):
