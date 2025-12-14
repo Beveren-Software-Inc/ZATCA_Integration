@@ -48,13 +48,13 @@ frappe.ui.form.on("Compliance CSID", {
             add_validate_button(frm);
             return;
         }
-        
+
         // Fetch CSR Settings invoice type asynchronously
         frappe.db.get_value('Zatca CSR Settings', frm.doc.csr_settings, 'csrinvoicetype', (r) => {
             if (r && r.csrinvoicetype) {
                 const invoiceType = r.csrinvoicetype;
                 const isComplete = are_required_validations_complete(frm, invoiceType);
-                
+
                 if (!isComplete) {
                     add_validate_button(frm);
                 }
@@ -69,11 +69,11 @@ frappe.ui.form.on("Compliance CSID", {
         // Hide button if renewal is complete (renewal_pcsid is ticked, certificate exists, and binary_security_token exists)
         const hasCertificate = frm.doc.certificate && String(frm.doc.certificate).trim() !== '';
         const hasBinarySecurityToken = frm.doc.binary_security_token && String(frm.doc.binary_security_token).trim() !== '';
-        
+
         if (frm.doc.renewal_pcsid && hasCertificate && hasBinarySecurityToken) {
             return; // Don't show the button if renewal is already complete
         }
-        
+
         frm.add_custom_button(__('Renew Production CSID'), function () {
             frappe.show_progress(__('Renewing Production CSID...'));
             frappe.call({
@@ -151,7 +151,7 @@ function are_required_validations_complete(frm, invoiceType) {
                frm.doc.simplified_debit_note &&
                frm.doc.simplified_credit_note;
     }
-    
+
     return false; // Unknown type, show button
 }
 
