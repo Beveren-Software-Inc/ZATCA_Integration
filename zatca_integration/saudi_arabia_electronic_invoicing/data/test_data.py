@@ -77,7 +77,9 @@ def create_test_customer(
     customer_type="Individual", tax_id="300450349600003", vat_number="300450349600003"
 ):
     """Create test customer if it doesn't exist"""
-    customer_name = TEST_CUSTOMER_DATA["customer_name"]
+
+    base_name = TEST_CUSTOMER_DATA["customer_name"]
+    customer_name = f"{base_name} ({customer_type})"
 
     if not frappe.db.exists("Customer", customer_name):
         customer_data = TEST_CUSTOMER_DATA.copy()
@@ -94,7 +96,11 @@ def create_test_customer(
         create_customer_address(customer.name)
         return customer
     else:
-        return frappe.get_doc("Customer", customer_name)
+        customer = frappe.get_doc("Customer", customer_name)
+        if customer.customer_type != customer_type:
+            customer.customer_type = customer_type
+            customer.save(ignore_permissions=True)
+        return customer
 
 
 def create_base_invoice_data(company, csr_data, compliance_name, customer, item_data):
@@ -231,6 +237,7 @@ def create_test_simplified_debit_sales_invoice(csr_data, compliance_name):
         {
             "name": "TEST-SINV-2025-00216",
             "po_no": "12345",
+            "is_debit_note": 1,
         }
     )
 

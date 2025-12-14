@@ -85,6 +85,7 @@ fixtures = [
                     "Company-custom_generate_pdf3a_through",
                     "Company-custom_convertapi_token",
                     "Company-custom_enable_stock_delivered_unbilled",
+                    "Company-custom_enable_csid_expiry_alerts",
                     # Sales Invoice
                     "Sales Invoice-custom_compliance",
                     "Sales Invoice-custom_cn_ref",

@@ -1,8 +1,5 @@
 # Copyright (c) 2023, Shakir PM and contributors
 # For license information, please see license.txt
-import base64
-import json
-from textwrap import wrap
 
 import frappe
 import requests
@@ -116,76 +113,6 @@ class ProductionCSID(Document):
         frappe.db.commit()
 
         frappe.throw(f"Error in generating ZATCA Production CSID: {self.errors}")
-
-    @frappe.whitelist()
-    def renew_zatca_production_csid(self):
-        """
-        Renews the ZATCA Production CSID using PATCH request with given CSR and OTP.
-        """
-        compliance_csid = frappe.get_doc("Compliance CSID", self.compliance_csid)
-        zatca_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
-        zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
-        otp = compliance_csid.otp
-
-        data = json.dumps({"csr": f"{get_cert_pem(compliance_csid)}"})
-
-        try:
-            response = requests.patch(
-                url=zatca_environment.production_csid_api,
-                headers=get_renewal_headers(otp),
-                json=data,
-            )
-
-            if response.status_code == 200:
-                response_json = response.json()
-                self.created_time = frappe.utils.now_datetime()
-                self.expiry_date = calculation_expiry_date(self.created_time)
-                self.request_id = response_json.get("requestID", "")
-                self.disposition_message = response_json.get("dispositionMessage", "")
-                self.binary_security_token = response_json.get("binarySecurityToken", "")
-                self.token_type = response_json.get("tokenType", "")
-                self.secret = response_json.get("secret", "")
-                self.errors = response_json.get("errors", "{}")
-
-                self.certificate = build_certificate_data(self.binary_security_token)
-                self.public_key = create_public_key(self.certificate)
-
-                self.save()
-                return "Production CSID renewed successfully"
-            else:
-                handle_error(response)
-
-        except requests.exceptions.RequestException as req_err:
-            frappe.throw(
-                f"Request error: {str(req_err)}\n{response.text if 'response' in locals() else ''}"
-            )
-        except Exception:
-            frappe.log_error(frappe.get_traceback(), "ZATCA Renewal Error")
-
-
-def get_renewal_headers(otp):
-    headers = {
-        "accept": "application/json",
-        "OTP": otp,
-        "accept-language": "en",
-        "Accept-Version": "V2",
-        "Content-Type": "application/json",
-    }
-    return headers
-
-
-def get_cert_pem(compliance_csid):
-    der_bytes = base64.b64decode(compliance_csid.certificate)
-
-    pem_lines = [
-        "-----BEGIN CERTIFICATE REQUEST-----",
-        *wrap(base64.b64encode(der_bytes).decode(), 64),
-        "-----END CERTIFICATE REQUEST-----",
-    ]
-    pem_csr = "\n".join(pem_lines)
-
-    csr_for_zatca = base64.b64encode(pem_csr.encode()).decode()
-    return csr_for_zatca
 
 
 def handle_error(response):

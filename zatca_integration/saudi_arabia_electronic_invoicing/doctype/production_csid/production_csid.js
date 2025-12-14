@@ -41,21 +41,6 @@ frappe.ui.form.on("Production CSID", {
         });
     },
 
-    re_generate_production_csid: frm => {
-        frm.add_custom_button(__('Renew Production CSID'), function () {
-            frappe.call({
-                method: 'renew_zatca_production_csid',
-                doc: frm.doc,
-                callback(r) {
-                    if (r.message) {
-                        frappe.msgprint(`ZATCA XML File created: <a href="${r.message}" target="_blank">${r.message}</a>`);
-                    } else {
-                        frappe.msgprint("Something went wrong. No file URL returned.");
-                    }
-                }
-            });
-        });
-    },
 
     re_build_production_csid: frm => {
         frm.add_custom_button(__('Re-build Certificate'), function () {

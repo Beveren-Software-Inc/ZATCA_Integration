@@ -93,7 +93,17 @@ def notify_expiring_csids():
         expiry_date = add_days(renewal_date, 365)
 
         if expiry_date <= expiry_threshold:
-            send_csid_expiry_email(csid.name, expiry_date)
+            # Find the Company that uses this Production CSID
+            company = frappe.db.get_value(
+                "Company",
+                {"custom_production_csid": csid.name},
+                ["name", "custom_enable_csid_expiry_alerts"],
+                as_dict=True,
+            )
+
+            # Only send email if company exists and alerts are enabled
+            if company and company.custom_enable_csid_expiry_alerts:
+                send_csid_expiry_email(csid.name, expiry_date)
 
 
 def send_csid_expiry_email(csid_name, expiry_date):
@@ -105,7 +115,7 @@ def send_csid_expiry_email(csid_name, expiry_date):
         <span>to ensure uninterrupted compliance.</span></p>
     """
 
-    recipients = get_emails_for_roles(["System Manager", "Sales User"])
+    recipients = get_emails_for_roles(["System Manager"])
 
     if recipients:
         frappe.sendmail(recipients=recipients, subject=subject, message=message)

@@ -25,6 +25,7 @@ from zatca_integration.saudi_arabia_electronic_invoicing.data.test_data import (
 )
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
     build_certificate_data,
+    calculation_expiry_date,
     create_public_key,
     delete_zatca_test_invoices_and_related_docs,
 )
@@ -100,10 +101,11 @@ class ComplianceCSID(Document):
         buyer = get_buyer_information()
 
         if csr_settings.csrinvoicetype == "1100":
-            # Uncomment after testing
-            self.invoke_complaince_check("standard", csr_settings, seller, buyer)
+            if self._is_standard_validation_pending():
+                self.invoke_complaince_check("standard", csr_settings, seller, buyer)
 
-            self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
+            if self._is_simplified_validation_pending():
+                self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
 
             if not (
                 self.standard_invoice
@@ -141,7 +143,8 @@ class ComplianceCSID(Document):
                     "Review CSID TRANSACTIONS for more details."
                 )
         elif csr_settings.csrinvoicetype == "1000":
-            self.invoke_complaince_check("standard", csr_settings, seller, buyer)
+            if self._is_standard_validation_pending():
+                self.invoke_complaince_check("standard", csr_settings, seller, buyer)
             if not (
                 self.standard_invoice and self.standard_credit_note and self.standard_debit_note
             ):
@@ -151,7 +154,8 @@ class ComplianceCSID(Document):
                     "Failed to Validate Compliance CSID, Review CSID TRANSACTIONS for more details"
                 )
         elif csr_settings.csrinvoicetype == "0100":
-            self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
+            if self._is_simplified_validation_pending():
+                self.invoke_complaince_check("simplified", csr_settings, seller, buyer)
             if not (self.simplified_invoice):
                 frappe.db.commit()
                 frappe.throw(
@@ -278,6 +282,7 @@ class ComplianceCSID(Document):
             "Accept-Version": "V2",
             "Content-Type": "application/json",
         }
+        _response_json = None
         try:
             response = requests.post(
                 zatca_environment.compliance_invoice_api,
@@ -288,6 +293,10 @@ class ComplianceCSID(Document):
             response_code = response.status_code
             response_text = response.text
             response_headers = dict(response.headers)
+            try:
+                _response_json = response.json()
+            except ValueError:
+                _response_json = None
         except requests.exceptions.RequestException as e:
             response_code = None
             response_text = str(e)
@@ -308,10 +317,47 @@ class ComplianceCSID(Document):
         )
         transaction.insert()
 
-        if response.status_code == 200:
+        if response.status_code == 200 or response.status_code == 202:
             return True, invoice_request["invoiceHash"]
-        else:
-            return False, None
+        if response.status_code == 406:
+            frappe.log_error(
+                title="ZATCA Compliance Invoice Already Submitted",
+                message=f"{invoice_request['invoiceHash']} was already submitted.",
+            )
+            # ZATCA returns 406 when the exact payload was already validated;
+            # treat it as a success so downstream steps keep running.
+            return True, invoice_request["invoiceHash"]
+        return False, None
+
+    def _is_compliance_already_completed(self, response_json):
+        """Return True if ZATCA indicates the document was already submitted."""
+        if not response_json:
+            return False
+        validation_results = response_json.get("validationResults", {})
+        error_messages = validation_results.get("errorMessages", [])
+        for error in error_messages:
+            message = (error or {}).get("message", "")
+            if isinstance(message, str) and "submitted before" in message.lower():
+                return True
+        return False
+
+    def _is_standard_validation_pending(self):
+        return not all(
+            [
+                self.standard_invoice,
+                self.standard_credit_note,
+                self.standard_debit_note,
+            ]
+        )
+
+    def _is_simplified_validation_pending(self):
+        return not all(
+            [
+                self.simplified_invoice,
+                self.simplified_credit_note,
+                self.simplified_debit_note,
+            ]
+        )
 
     def reset_compliance_csid_status(self, status):
         """Reset the compliance CSID status."""
@@ -326,6 +372,186 @@ class ComplianceCSID(Document):
         """Decode the compliance certificate from base64."""
         decoded_compliance_certificate = base64.b64decode(compliance_certificate.encode("utf-8"))
         return decoded_compliance_certificate.decode("utf-8")
+
+    def _prepare_renewal_request(self):
+        """Prepare renewal request data, headers, and get required documents."""
+        if not self.production_csid:
+            frappe.throw(
+                "Please select the Production CSID you want to renew in the production_csid field."
+            )
+
+        production_csid = frappe.get_doc("Production CSID", self.production_csid)
+        zatca_settings = frappe.get_doc("Zatca CSR Settings", self.csr_settings)
+        zatca_environment = frappe.get_doc("Zatca Environment", zatca_settings.zatca_environment)
+
+        # ZATCA renewal requires:
+        # 1. NEW CSR in the request body
+        # 2. Renewal OTP in the header
+        # 3. PCSID credentials for authorization
+        # Reference: https://zatca1.discourse.group/t/how-to-renew-expired-pcsid/524
+        data = {"csr": zatca_settings.csr}
+        headers = {
+            "accept": "application/json",
+            "OTP": self.otp,  # Renewal OTP from Fatoora portal
+            "Accept-Version": "V2",
+            "Content-Type": "application/json",
+        }
+
+        return production_csid, zatca_environment, data, headers
+
+    def _handle_renewal_success_200(self, production_csid, response_json):
+        """Handle 200 response - Production CSID directly renewed and ready to use."""
+        disposition_message = response_json.get("dispositionMessage", "")
+
+        # Update Production CSID with new credentials
+        production_csid.created_time = frappe.utils.now_datetime()
+        production_csid.expiry_date = calculation_expiry_date(production_csid.created_time)
+        production_csid.request_id = response_json.get("requestID", "")
+        production_csid.disposition_message = disposition_message
+        production_csid.binary_security_token = response_json.get("binarySecurityToken", "")
+        production_csid.token_type = response_json.get("tokenType", "")
+        production_csid.secret = response_json.get("secret", "")
+        production_csid.errors = response_json.get("errors", "{}")
+        production_csid.certificate = build_certificate_data(production_csid.binary_security_token)
+        production_csid.public_key = create_public_key(production_csid.certificate)
+        production_csid.save()
+
+        # Mark production_csid_success as passed
+        self.production_csid_success = 1
+        self.save()
+
+        message = (
+            "Renewal successful! The Production CSID has been updated with new credentials.<br><br>"
+            "<b>Status:</b> " + disposition_message + "<br><br>"
+            "You can now use the renewed Production CSID for invoice clearance and reporting."
+        )
+        frappe.msgprint(message, indicator="green", title="Production CSID Renewed Successfully")
+        return "Production CSID renewed successfully"
+
+    def _handle_renewal_success_428(self, response_json):
+        if "value" in response_json:
+            response_data = response_json.get("value", {})
+        else:
+            response_data = response_json
+
+        disposition_message = response_data.get("dispositionMessage", "")
+
+        if disposition_message != "NOT_COMPLIANT":
+            # 428 but not NOT_COMPLIANT - treat as error
+            error_text = f"Status 428: {disposition_message}"
+            self._save_and_throw_error(error_text, "ZATCA Renewal Failed")
+
+        # Update Compliance CSID with new credentials
+        self.created_time = frappe.utils.now_datetime()
+        self.request_id = response_data.get("requestID", "")
+        self.disposition_message = disposition_message
+        self.binary_security_token = response_data.get("binarySecurityToken", "")
+        self.token_type = response_data.get("tokenType", "")
+        self.secret = response_data.get("secret", "")
+        self.errors = response_data.get("errors", "{}")
+        self.certificate = build_certificate_data(self.binary_security_token)
+        self.public_key = create_public_key(self.certificate)
+        self.save()
+
+        message = (
+            "Renewal successful! The Compliance CSID has been updated with new credentials.<br><br>"
+            "<b>Status:</b> NOT_COMPLIANT<br><br>"
+            "<b>Next Steps:</b><br>"
+            "1. Complete compliance checks for invoices<br>"
+            "2. Generate a new Production CSID from the renewed Compliance CSID<br>"
+            "3. Use the new Production CSID for clearance/reporting APIs"
+        )
+        frappe.msgprint(
+            message, indicator="orange", title="Renewal Successful - Compliance Required"
+        )
+        return "Renewal successful - Compliance checks required"
+
+    def _parse_error_response(self, response):
+        """Parse error response and return formatted error text."""
+        error_text = response.text if response.text else f"Status {response.status_code}"
+
+        try:
+            error_data = response.json()
+            # Handle errors array format
+            if "errors" in error_data and isinstance(error_data["errors"], list):
+                error_messages = []
+                for err in error_data["errors"]:
+                    code = err.get("code", "")
+                    msg = err.get("message", "")
+                    error_messages.append(f"{code}: {msg}")
+                error_text = "<br>".join(
+                    [f"• {frappe.utils.escape_html(msg)}" for msg in error_messages]
+                )
+            else:
+                error_code = error_data.get("code", "")
+                error_message = error_data.get("message", "")
+                if error_code or error_message:
+                    error_text = f"{error_code}: {error_message}" if error_code else error_message
+                else:
+                    error_text = json.dumps(error_data, indent=2)
+        except (ValueError, json.JSONDecodeError):
+            pass
+
+        return error_text
+
+    def _save_and_throw_error(self, error_text, title="ZATCA Renewal Failed"):
+        """Save error to document and throw exception."""
+        self.errors = error_text
+        self.save()
+        frappe.db.commit()
+        frappe.throw(frappe.utils.escape_html(error_text), title=title)
+
+    @frappe.whitelist()
+    def renew_zatca_production_csid(self):
+        # Mania: I have attached the reference just incase the
+        # next developer will need clarification
+        """
+        Renews the ZATCA Production CSID using PATCH request.
+        According to ZATCA docs (https://zatca1.discourse.group/t/how-to-renew-expired-pcsid/524),
+        renewal requires a NEW CSR in the request body.
+        Handles both 200 (success) and 428 (NOT_COMPLIANT - renewal successful
+        but needs compliance checks) responses.
+        """
+        production_csid, zatca_environment, data, headers = self._prepare_renewal_request()
+
+        try:
+            # For renewal, use Production CSID credentials (the one being renewed)
+            # Reference: https://zatca1.discourse.group/t/renew-csid-401-unauthorized-error/3034
+            response = requests.patch(
+                url=zatca_environment.production_csid_api,
+                headers=headers,
+                auth=HTTPBasicAuth(production_csid.binary_security_token, production_csid.secret),
+                json=data,
+            )
+
+            # Handle both 200 (ISSUED - Production CSID directly updated) and
+            # 428 (NOT_COMPLIANT - new Compliance CSID)
+            # Reference: https://zatca1.discourse.group/t/how-to-renew-expired-pcsid/524/8
+            if response.status_code == 200:
+                response_json = response.json()
+                return self._handle_renewal_success_200(production_csid, response_json)
+
+            elif response.status_code == 428:
+                try:
+                    response_json = response.json()
+                    return self._handle_renewal_success_428(response_json)
+                except (ValueError, json.JSONDecodeError):
+                    error_text = (
+                        response.text if response.text else f"Status {response.status_code}"
+                    )
+                    self._save_and_throw_error(error_text, "ZATCA Renewal Failed")
+            else:
+                # Handle other error responses
+                error_text = self._parse_error_response(response)
+                self._save_and_throw_error(error_text, "ZATCA Renewal Failed")
+
+        except requests.exceptions.RequestException as req_err:
+            error_msg = str(req_err)
+            if "response" in locals() and response:
+                error_msg += f"\n\nResponse: {response.text}"
+            self._save_and_throw_error(error_msg, "ZATCA Renewal Request Error")
+        except Exception as e:
+            self._save_and_throw_error(str(e), "ZATCA Renewal Error")
 
 
 def generate_debit_note_xml(
