@@ -84,6 +84,9 @@ def get_data(filters):
     company = filters.get("company")
     company_currency = frappe.get_cached_value("Company", company, "default_currency")
 
+    from_date = filters.get("from_date")
+    to_date = filters.get("to_date")
+
     # Sales Heading
     append_data(data, "Sales", "", "", "", "", "", "", "", company_currency)
 
@@ -119,6 +122,30 @@ def get_data(filters):
         total_vat_collected += row.vat_collected
         total_vat_credited += row.vat_credited
         grand_total_vat += row.total_taxes_and_charges
+
+    # Add VAT from Journal Entries on the Sales side (Tax account credits)
+    journal_sales_vat_by_type, _journal_purchase_dummy = get_journal_vat_by_type(
+        company, from_date, to_date
+    )
+    for tax_type, vat_amount in journal_sales_vat_by_type.items():
+        if not vat_amount:
+            continue
+        data.append(
+            {
+                "title": _("Journal Entries"),
+                "custom_tax_type": tax_type,
+                "collected_amount": 0,
+                "credited_amount": 0,
+                "total_amount": 0,
+                "vat_collected": vat_amount,
+                "vat_credited": 0,
+                "total_vat": vat_amount,
+                "currency": company_currency,
+            }
+        )
+
+        total_vat_collected += vat_amount
+        grand_total_vat += vat_amount
 
     # Sales Grand Total
     append_data(
@@ -171,6 +198,52 @@ def get_data(filters):
         total_vat_collected += row.vat_collected
         total_vat_credited += row.vat_credited
         grand_total_vat += row.total_taxes_and_charges
+
+    # Add VAT from Expense Claims (always treated as purchases/input VAT)
+    expense_claim_vat_by_type = get_expense_claim_vat_by_type(company, from_date, to_date)
+    for tax_type, vat_amount in expense_claim_vat_by_type.items():
+        if not vat_amount:
+            continue
+        data.append(
+            {
+                "title": _("Expense Claims"),
+                "custom_tax_type": tax_type,
+                "collected_amount": 0,
+                "credited_amount": 0,
+                "total_amount": 0,
+                "vat_collected": vat_amount,
+                "vat_credited": 0,
+                "total_vat": vat_amount,
+                "currency": company_currency,
+            }
+        )
+
+        total_vat_collected += vat_amount
+        grand_total_vat += vat_amount
+
+    # Add VAT from Journal Entries on the Purchase side (Tax account debits)
+    _journal_sales_dummy, journal_purchase_vat_by_type = get_journal_vat_by_type(
+        company, from_date, to_date
+    )
+    for tax_type, vat_amount in journal_purchase_vat_by_type.items():
+        if not vat_amount:
+            continue
+        data.append(
+            {
+                "title": _("Journal Entries"),
+                "custom_tax_type": tax_type,
+                "collected_amount": 0,
+                "credited_amount": 0,
+                "total_amount": 0,
+                "vat_collected": vat_amount,
+                "vat_credited": 0,
+                "total_vat": vat_amount,
+                "currency": company_currency,
+            }
+        )
+
+        total_vat_collected += vat_amount
+        grand_total_vat += vat_amount
 
     # Purchase Grand Total
     append_data(
@@ -270,3 +343,84 @@ def fetch_and_aggregate_data(company, doctype_table, tax_template_table, filters
     )
 
     return fetched_data
+
+
+def get_expense_claim_vat_by_type(company, from_date, to_date):
+    """Return VAT from Expense Claims grouped by Account.custom_tax_type.
+
+    Expense Claims are always treated as purchases (input VAT).
+    """
+    if not from_date or not to_date:
+        return {}
+
+    sql = """
+        SELECT
+            acc.custom_tax_type,
+            SUM(IFNULL(ect.tax_amount, 0)) AS vat_amount
+        FROM `tabExpense Claim` ec
+        JOIN `tabExpense Taxes and Charges` ect ON ect.parent = ec.name
+        JOIN `tabAccount` acc ON acc.name = ect.account_head
+        WHERE
+            ec.docstatus = 1
+            AND ec.company = %(company)s
+            AND ec.posting_date BETWEEN %(from_date)s AND %(to_date)s
+            AND acc.account_type = 'Tax'
+            AND IFNULL(ect.tax_amount, 0) != 0
+        GROUP BY acc.custom_tax_type
+    """
+
+    results = frappe.db.sql(
+        sql,
+        {"company": company, "from_date": from_date, "to_date": to_date},
+        as_dict=True,
+    )
+
+    return {row.custom_tax_type or "Standard Rate": row.vat_amount for row in results}
+
+
+def get_journal_vat_by_type(company, from_date, to_date):
+    """Return VAT from Journal Entries grouped by Account.custom_tax_type.
+
+    - Tax account credits are treated as Sales VAT (output)
+    - Tax account debits are treated as Purchase VAT (input)
+    """
+    if not from_date or not to_date:
+        return {}, {}
+
+    sql = """
+        SELECT
+            acc.custom_tax_type,
+            SUM(IFNULL(jea.credit_in_account_currency, 0)) AS credit_vat,
+            SUM(IFNULL(jea.debit_in_account_currency, 0)) AS debit_vat
+        FROM `tabJournal Entry` je
+        JOIN `tabJournal Entry Account` jea ON jea.parent = je.name
+        JOIN `tabAccount` acc ON acc.name = jea.account
+        WHERE
+            je.docstatus = 1
+            AND je.company = %(company)s
+            AND je.posting_date BETWEEN %(from_date)s AND %(to_date)s
+            AND acc.account_type = 'Tax'
+        GROUP BY acc.custom_tax_type
+    """
+
+    results = frappe.db.sql(
+        sql,
+        {"company": company, "from_date": from_date, "to_date": to_date},
+        as_dict=True,
+    )
+
+    sales_vat_by_type = {}
+    purchase_vat_by_type = {}
+
+    for row in results:
+        tax_type = row.custom_tax_type or "Standard Rate"
+        credit_vat = row.credit_vat or 0
+        debit_vat = row.debit_vat or 0
+
+        if credit_vat:
+            sales_vat_by_type[tax_type] = sales_vat_by_type.get(tax_type, 0) + credit_vat
+        if debit_vat:
+            purchase_vat_by_type[tax_type] = purchase_vat_by_type.get(tax_type, 0) + debit_vat
+
+    return sales_vat_by_type, purchase_vat_by_type
+
