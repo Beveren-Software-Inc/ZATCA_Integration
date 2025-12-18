@@ -92,20 +92,8 @@ def get_data(filters):
         grand_total_taxable_adjustment_amount += total_taxable_adjustment_amount
         grand_total_tax += total_tax
 
-    # Add VAT coming from Journal Entries (Tax account credits -> Sales VAT)
-    journal_sales_vat_by_type, _journal_purchase_dummy = get_journal_vat_by_type(
-        company, from_date, to_date
-    )
-
     # Aggregate Sales Data
     aggregated_sales_data = aggregate_data(sales_data)
-
-    # Add journal VAT to the matching Standard/Zero/Except rate rows
-    for row in aggregated_sales_data:
-        extra_vat = journal_sales_vat_by_type.get(row["title"])
-        if extra_vat:
-            row["vat_amount"] = (row.get("vat_amount") or 0) + extra_vat
-            grand_total_tax += extra_vat
 
     # Add Sales Data
     data.extend(aggregated_sales_data)
@@ -158,33 +146,23 @@ def get_data(filters):
         grand_total_tax += total_tax
 
     # Additional input VAT sources:
-    # 1) Expense Claims – always treated as purchases, grouped by tax account.custom_tax_type
+    # Expense Claims – always treated as purchases, grouped by tax account.custom_tax_type
     expense_claim_vat_by_type = get_expense_claim_vat_by_type(company, from_date, to_date)
 
-    # 2) Journal Entries – Tax account debits treated as purchase/input VAT
-    _journal_sales_dummy, journal_purchase_vat_by_type = get_journal_vat_by_type(
-        company, from_date, to_date
-    )
-
-    # Merge additional VAT into purchase_data before aggregation
-    def add_extra_vat(source_by_type):
-        nonlocal grand_total_tax
-        for tax_type, vat_amount in source_by_type.items():
-            if not vat_amount:
-                continue
-            purchase_data.append(
-                {
-                    "title": _(tax_type),
-                    "amount": 0,
-                    "adjustment_amount": 0,
-                    "vat_amount": vat_amount,
-                    "currency": company_currency,
-                }
-            )
-            grand_total_tax += vat_amount
-
-    add_extra_vat(expense_claim_vat_by_type)
-    add_extra_vat(journal_purchase_vat_by_type)
+    # Merge Expense Claim VAT into purchase_data before aggregation
+    for tax_type, vat_amount in expense_claim_vat_by_type.items():
+        if not vat_amount:
+            continue
+        purchase_data.append(
+            {
+                "title": _(tax_type),
+                "amount": 0,
+                "adjustment_amount": 0,
+                "vat_amount": vat_amount,
+                "currency": company_currency,
+            }
+        )
+        grand_total_tax += vat_amount
 
     # Aggregate Purchase Data
     aggregated_purchase_data = aggregate_data(purchase_data)
@@ -271,53 +249,6 @@ def get_expense_claim_vat_by_type(company, from_date, to_date):
     )
 
     return {row.custom_tax_type or "Standard Rate": row.vat_amount for row in results}
-
-
-def get_journal_vat_by_type(company, from_date, to_date):
-    """Return VAT from Journal Entries grouped by Account.custom_tax_type.
-
-    - Tax account credits are treated as Sales VAT (output)
-    - Tax account debits are treated as Purchase VAT (input)
-    """
-    if not from_date or not to_date:
-        return {}, {}
-
-    sql = """
-        SELECT
-            acc.custom_tax_type,
-            SUM(IFNULL(jea.credit_in_account_currency, 0)) AS credit_vat,
-            SUM(IFNULL(jea.debit_in_account_currency, 0)) AS debit_vat
-        FROM `tabJournal Entry` je
-        JOIN `tabJournal Entry Account` jea ON jea.parent = je.name
-        JOIN `tabAccount` acc ON acc.name = jea.account
-        WHERE
-            je.docstatus = 1
-            AND je.company = %(company)s
-            AND je.posting_date BETWEEN %(from_date)s AND %(to_date)s
-            AND acc.account_type = 'Tax'
-        GROUP BY acc.custom_tax_type
-    """
-
-    results = frappe.db.sql(
-        sql,
-        {"company": company, "from_date": from_date, "to_date": to_date},
-        as_dict=True,
-    )
-
-    sales_vat_by_type = {}
-    purchase_vat_by_type = {}
-
-    for row in results:
-        tax_type = row.custom_tax_type or "Standard Rate"
-        credit_vat = row.credit_vat or 0
-        debit_vat = row.debit_vat or 0
-
-        if credit_vat:
-            sales_vat_by_type[tax_type] = sales_vat_by_type.get(tax_type, 0) + credit_vat
-        if debit_vat:
-            purchase_vat_by_type[tax_type] = purchase_vat_by_type.get(tax_type, 0) + debit_vat
-
-    return sales_vat_by_type, purchase_vat_by_type
 
 
 def append_data(data, title, amount, adjustment_amount, vat_amount, company_currency):
