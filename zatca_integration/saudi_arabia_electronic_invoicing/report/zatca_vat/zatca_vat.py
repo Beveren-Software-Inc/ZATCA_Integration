@@ -52,11 +52,13 @@ def get_columns():
 
 def get_data(filters):
     data = []
-    # Validate if vat settings exist
     company = filters.get("company")
     company_currency = frappe.get_cached_value("Company", company, "default_currency")
 
-    # Sales Heading
+    from_date = filters.get("from_date")
+    to_date = filters.get("to_date")
+
+    # --- VAT on Sales (Output VAT) ---
     append_data(data, "VAT on Sales", "", "", "", company_currency)
 
     grand_total_taxable_amount = 0
@@ -92,6 +94,7 @@ def get_data(filters):
 
     # Aggregate Sales Data
     aggregated_sales_data = aggregate_data(sales_data)
+
     # Add Sales Data
     data.extend(aggregated_sales_data)
 
@@ -108,7 +111,7 @@ def get_data(filters):
     # Blank Line
     append_data(data, " ", " ", " ", " ", company_currency)
 
-    # Purchase Heading
+    # --- VAT on Purchases (Input VAT) ---
     append_data(data, "VAT on Purchases", "", "", "", company_currency)
 
     grand_total_taxable_amount = 0
@@ -142,9 +145,28 @@ def get_data(filters):
         grand_total_taxable_adjustment_amount += total_taxable_adjustment_amount
         grand_total_tax += total_tax
 
-    # Aggregate Sales Data
+    # Additional input VAT sources:
+    # Expense Claims – always treated as purchases, grouped by tax account.custom_tax_type
+    expense_claim_vat_by_type = get_expense_claim_vat_by_type(company, from_date, to_date)
+
+    # Merge Expense Claim VAT into purchase_data before aggregation
+    for tax_type, vat_amount in expense_claim_vat_by_type.items():
+        if not vat_amount:
+            continue
+        purchase_data.append(
+            {
+                "title": _(tax_type),
+                "amount": 0,
+                "adjustment_amount": 0,
+                "vat_amount": vat_amount,
+                "currency": company_currency,
+            }
+        )
+        grand_total_tax += vat_amount
+
+    # Aggregate Purchase Data
     aggregated_purchase_data = aggregate_data(purchase_data)
-    # Add Sales Data
+    # Add Purchase Data
     data.extend(aggregated_purchase_data)
 
     # Purchase Grand Total
@@ -180,11 +202,11 @@ def get_tax_data_for_each_tax_type(tax_type, filters, doctype):
             "posting_date": ["between", [from_date, to_date]],
             "taxes_and_charges": tax_type,
         },
-        fields=["name", "taxes_and_charges", "is_return", "total_taxes_and_charges", "base_total"],
+        fields=["name", "taxes_and_charges", "is_return", "base_total_taxes_and_charges", "base_total"],
     )
 
     for invoice in invoices:
-        total_tax += invoice.total_taxes_and_charges
+        total_tax += invoice.base_total_taxes_and_charges
 
         # Summing up total taxable amount
         if invoice.is_return == 0:
@@ -194,6 +216,39 @@ def get_tax_data_for_each_tax_type(tax_type, filters, doctype):
             total_taxable_adjustment_amount += invoice.base_total
 
     return total_taxable_amount, total_taxable_adjustment_amount, total_tax
+
+
+def get_expense_claim_vat_by_type(company, from_date, to_date):
+    """Return VAT from Expense Claims grouped by Account.custom_tax_type.
+
+    Expense Claims are always treated as purchases (input VAT).
+    """
+    if not from_date or not to_date:
+        return {}
+
+    sql = """
+        SELECT
+            acc.custom_tax_type,
+            SUM(IFNULL(ect.tax_amount, 0)) AS vat_amount
+        FROM `tabExpense Claim` ec
+        JOIN `tabExpense Taxes and Charges` ect ON ect.parent = ec.name
+        JOIN `tabAccount` acc ON acc.name = ect.account_head
+        WHERE
+            ec.docstatus = 1
+            AND ec.company = %(company)s
+            AND ec.posting_date BETWEEN %(from_date)s AND %(to_date)s
+            AND acc.account_type = 'Tax'
+            AND IFNULL(ect.tax_amount, 0) != 0
+        GROUP BY acc.custom_tax_type
+    """
+
+    results = frappe.db.sql(
+        sql,
+        {"company": company, "from_date": from_date, "to_date": to_date},
+        as_dict=True,
+    )
+
+    return {row.custom_tax_type or "Standard Rate": row.vat_amount for row in results}
 
 
 def append_data(data, title, amount, adjustment_amount, vat_amount, company_currency):
