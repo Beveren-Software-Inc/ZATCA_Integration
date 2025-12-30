@@ -22,7 +22,7 @@
   "module": "Accounts",
   "name": "ZATCA",
   "page_number": "Hide",
-  "pdf_generator": null,
+  "pdf_generator": "wkhtmltopdf",
   "print_format_builder": 0,
   "print_format_builder_beta": 0,
   "print_format_for": null,
