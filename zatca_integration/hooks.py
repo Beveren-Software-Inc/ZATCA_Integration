@@ -327,6 +327,10 @@ doc_events = {
     "Company": {
         "on_update": "zatca_integration.saudi_arabia_electronic_invoicing.background_task.on_update"
     },
+    
+    "Address": {
+        "before_save": "zatca_integration.overrides.address.before_save"
+    },
 }
 
 # doc_events = {
