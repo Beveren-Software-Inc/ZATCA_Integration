@@ -328,4 +328,3 @@ def get_expense_claim_vat_by_type(company, from_date, to_date):
     )
 
     return {row.custom_tax_type or "Standard Rate": row.vat_amount for row in results}
-

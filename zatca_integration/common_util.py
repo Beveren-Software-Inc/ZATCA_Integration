@@ -52,7 +52,7 @@ def get_buyer_information(customer_name):
         # Building Number must be 4 digits if country_code is SA
         if not address.address_line2:
             frappe.throw("Building Number is required for Company type customer")
-        if country_code == "SA" and len(address.address_line2) != 4:
+        if country_code == "sa" and len(address.address_line2) != 4:
             frappe.throw(
                 "Building Number must be 4 digits for Company type customer in Saudi Arabia"
             )

@@ -1,6 +1,6 @@
 # Copyright (c) 2024, Beveren Software Inc and contributors
 # For license information, please see license.txt
-
+# ruff: noqa: E501
 import frappe
 from frappe import _
 
@@ -202,7 +202,13 @@ def get_tax_data_for_each_tax_type(tax_type, filters, doctype):
             "posting_date": ["between", [from_date, to_date]],
             "taxes_and_charges": tax_type,
         },
-        fields=["name", "taxes_and_charges", "is_return", "base_total_taxes_and_charges", "base_total"],
+        fields=[
+            "name",
+            "taxes_and_charges",
+            "is_return",
+            "base_total_taxes_and_charges",
+            "base_total",
+        ],
     )
 
     for invoice in invoices:
