@@ -87,6 +87,9 @@ def get_data(filters):
     from_date = filters.get("from_date")
     to_date = filters.get("to_date")
 
+    # Get Journal Entry VAT data once (used for both sales and purchases)
+    je_vat_data = get_journal_entry_vat_by_type(company, from_date, to_date)
+
     # Sales Heading
     append_data(data, "Sales", "", "", "", "", "", "", "", company_currency)
 
@@ -122,6 +125,30 @@ def get_data(filters):
         total_vat_collected += row.vat_collected
         total_vat_credited += row.vat_credited
         grand_total_vat += row.total_taxes_and_charges
+
+    # Add Journal Entry VAT - Output VAT (VAT on Sales)
+    for tax_type, data_dict in je_vat_data["sales"].items():
+        vat_amount = data_dict.get("vat_amount", 0)
+        base_amount = data_dict.get("base_amount", 0)
+        if not vat_amount:
+            continue
+        data.append(
+            {
+                "title": _("Journal Entries"),
+                "custom_tax_type": tax_type,
+                "collected_amount": base_amount,
+                "credited_amount": 0,
+                "total_amount": base_amount,
+                "vat_collected": vat_amount,
+                "vat_credited": 0,
+                "total_vat": vat_amount,
+                "currency": company_currency,
+            }
+        )
+        total_collected += base_amount
+        grand_total += base_amount
+        total_vat_collected += vat_amount
+        grand_total_vat += vat_amount
 
     # Sales Grand Total
     append_data(
@@ -177,16 +204,18 @@ def get_data(filters):
 
     # Add VAT from Expense Claims (always treated as purchases/input VAT)
     expense_claim_vat_by_type = get_expense_claim_vat_by_type(company, from_date, to_date)
-    for tax_type, vat_amount in expense_claim_vat_by_type.items():
+    for tax_type, data_dict in expense_claim_vat_by_type.items():
+        vat_amount = data_dict.get("vat_amount", 0)
+        base_amount = data_dict.get("base_amount", 0)
         if not vat_amount:
             continue
         data.append(
             {
                 "title": _("Expense Claims"),
                 "custom_tax_type": tax_type,
-                "collected_amount": 0,
+                "collected_amount": base_amount,
                 "credited_amount": 0,
-                "total_amount": 0,
+                "total_amount": base_amount,
                 "vat_collected": vat_amount,
                 "vat_credited": 0,
                 "total_vat": vat_amount,
@@ -194,6 +223,32 @@ def get_data(filters):
             }
         )
 
+        total_collected += base_amount
+        grand_total += base_amount
+        total_vat_collected += vat_amount
+        grand_total_vat += vat_amount
+
+    # Add Journal Entry VAT - Input VAT (VAT on Purchases)
+    for tax_type, data_dict in je_vat_data["purchases"].items():
+        vat_amount = data_dict.get("vat_amount", 0)
+        base_amount = data_dict.get("base_amount", 0)
+        if not vat_amount:
+            continue
+        data.append(
+            {
+                "title": _("Journal Entries"),
+                "custom_tax_type": tax_type,
+                "collected_amount": base_amount,
+                "credited_amount": 0,
+                "total_amount": base_amount,
+                "vat_collected": vat_amount,
+                "vat_credited": 0,
+                "total_vat": vat_amount,
+                "currency": company_currency,
+            }
+        )
+        total_collected += base_amount
+        grand_total += base_amount
         total_vat_collected += vat_amount
         grand_total_vat += vat_amount
 
@@ -301,6 +356,7 @@ def get_expense_claim_vat_by_type(company, from_date, to_date):
     """Return VAT from Expense Claims grouped by Account.custom_tax_type.
 
     Expense Claims are always treated as purchases (input VAT).
+    Returns: dict with tax_type as key and dict with 'vat_amount' and 'base_amount' as values.
     """
     if not from_date or not to_date:
         return {}
@@ -308,7 +364,19 @@ def get_expense_claim_vat_by_type(company, from_date, to_date):
     sql = """
         SELECT
             acc.custom_tax_type,
-            SUM(IFNULL(ect.tax_amount, 0)) AS vat_amount
+            SUM(IFNULL(ect.tax_amount, 0)) AS vat_amount,
+            -- Get base amount per expense claim (to avoid double counting when multiple tax types exist)
+            SUM(
+                CASE 
+                    WHEN ect.idx = (
+                        SELECT MIN(ect2.idx) 
+                        FROM `tabExpense Taxes and Charges` ect2 
+                        WHERE ect2.parent = ec.name AND ect2.tax_amount > 0
+                    )
+                    THEN IFNULL(ec.total_sanctioned_amount, 0) - IFNULL(ec.total_taxes_and_charges, 0)
+                    ELSE 0
+                END
+            ) AS base_amount
         FROM `tabExpense Claim` ec
         JOIN `tabExpense Taxes and Charges` ect ON ect.parent = ec.name
         JOIN `tabAccount` acc ON acc.name = ect.account_head
@@ -327,4 +395,80 @@ def get_expense_claim_vat_by_type(company, from_date, to_date):
         as_dict=True,
     )
 
-    return {row.custom_tax_type or "Standard Rate": row.vat_amount for row in results}
+    return {
+        row.custom_tax_type or "Standard Rate": {
+            "vat_amount": row.vat_amount,
+            "base_amount": row.base_amount,
+        }
+        for row in results
+    }
+
+
+def get_journal_entry_vat_by_type(company, from_date, to_date):
+    """Return VAT from Journal Entries grouped by Account.custom_tax_type.
+
+    Logic:
+    - Tax account with debit > 0 → Input VAT (VAT on Purchases)
+    - Tax account with credit > 0 → Output VAT (VAT on Sales)
+    - Base amount is extracted from related expense/income accounts in the same JE
+
+    Returns: dict with 'sales' and 'purchases' keys, each containing tax_type dicts.
+    """
+    if not from_date or not to_date:
+        return {"sales": {}, "purchases": {}}
+
+    sql = """
+        SELECT
+            je.name as je_name,
+            je.posting_date,
+            tax_acc.custom_tax_type,
+            tax_jea.debit_in_account_currency as tax_debit,
+            tax_jea.credit_in_account_currency as tax_credit,
+            tax_jea.account as tax_account,
+            -- Get base amount from expense/income accounts in same JE
+            SUM(CASE 
+                WHEN base_jea.account_type = 'Expense' AND base_jea.debit_in_account_currency > 0 
+                THEN base_jea.debit_in_account_currency 
+                WHEN base_jea.account_type = 'Income' AND base_jea.credit_in_account_currency > 0 
+                THEN base_jea.credit_in_account_currency 
+                ELSE 0 
+            END) as base_amount
+        FROM `tabJournal Entry` je
+        JOIN `tabJournal Entry Account` tax_jea ON tax_jea.parent = je.name
+        JOIN `tabAccount` tax_acc ON tax_acc.name = tax_jea.account
+        LEFT JOIN `tabJournal Entry Account` base_jea ON base_jea.parent = je.name
+            AND base_jea.name != tax_jea.name
+            AND base_jea.account_type IN ('Expense', 'Income')
+        WHERE
+            je.docstatus = 1
+            AND je.company = %(company)s
+            AND je.posting_date BETWEEN %(from_date)s AND %(to_date)s
+            AND tax_acc.account_type = 'Tax'
+            AND (tax_jea.debit_in_account_currency > 0 OR tax_jea.credit_in_account_currency > 0)
+        GROUP BY je.name, tax_acc.custom_tax_type, tax_jea.debit_in_account_currency, tax_jea.credit_in_account_currency
+    """
+
+    results = frappe.db.sql(sql, {"company": company, "from_date": from_date, "to_date": to_date}, as_dict=True)
+
+    sales_data = {}
+    purchases_data = {}
+
+    for row in results:
+        tax_type = row.custom_tax_type or "Standard Rate"
+        base_amount = row.base_amount or 0
+
+        # Tax account credited → Output VAT (VAT on Sales)
+        if row.tax_credit and row.tax_credit > 0:
+            if tax_type not in sales_data:
+                sales_data[tax_type] = {"vat_amount": 0, "base_amount": 0}
+            sales_data[tax_type]["vat_amount"] += row.tax_credit
+            sales_data[tax_type]["base_amount"] += base_amount
+
+        # Tax account debited → Input VAT (VAT on Purchases)
+        if row.tax_debit and row.tax_debit > 0:
+            if tax_type not in purchases_data:
+                purchases_data[tax_type] = {"vat_amount": 0, "base_amount": 0}
+            purchases_data[tax_type]["vat_amount"] += row.tax_debit
+            purchases_data[tax_type]["base_amount"] += base_amount
+
+    return {"sales": sales_data, "purchases": purchases_data}
