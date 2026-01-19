@@ -105,24 +105,14 @@ class CustomSalesInvoice(SalesInvoice):
                             "Delivery Note Item", item.dn_detail, "expense_account"
                         )
                         if dn_expense_account and dn_expense_account != item.expense_account:
-                            item_g = frappe.db.get_value(
-                                "Stock Ledger Entry",
-                                {
-                                    "voucher_no": item.delivery_note,
-                                    "voucher_detail_no": item.dn_detail,
-                                    "item_code": item.item_code,
-                                },
-                                ["valuation_rate", "stock_value_difference", "actual_qty"],
-                                as_dict=True,
+                            # Get the incoming_rate directly from Delivery Note Item
+                            # This ensures we use the exact rate from DN regardless of valuation changes
+                            valuation_rate = frappe.db.get_value(
+                                "Delivery Note Item",
+                                item.dn_detail,
+                                "incoming_rate",
                             )
-                            if item_g and item_g.actual_qty:
-                                # Use the original valuation_rate from Delivery Note's Stock Ledger Entry
-                                # This ensures consistency even if valuation rate changed due to manufacturing entries
-                                if item_g.valuation_rate:
-                                    valuation_rate = item_g.valuation_rate
-                                else:
-                                    # Fallback to calculation if valuation_rate is not available
-                                    valuation_rate = item_g.stock_value_difference / item_g.actual_qty
+                            if valuation_rate:
                                 valuation_amount = valuation_rate * item.stock_qty
                                 account_currency = get_account_currency(dn_expense_account)
 
