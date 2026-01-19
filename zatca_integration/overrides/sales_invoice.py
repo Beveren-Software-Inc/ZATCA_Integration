@@ -112,11 +112,17 @@ class CustomSalesInvoice(SalesInvoice):
                                     "voucher_detail_no": item.dn_detail,
                                     "item_code": item.item_code,
                                 },
-                                ["stock_value_difference", "actual_qty"],
+                                ["valuation_rate", "stock_value_difference", "actual_qty"],
                                 as_dict=True,
                             )
                             if item_g and item_g.actual_qty:
-                                valuation_rate = item_g.stock_value_difference / item_g.actual_qty
+                                # Use the original valuation_rate from Delivery Note's Stock Ledger Entry
+                                # This ensures consistency even if valuation rate changed due to manufacturing entries
+                                if item_g.valuation_rate:
+                                    valuation_rate = item_g.valuation_rate
+                                else:
+                                    # Fallback to calculation if valuation_rate is not available
+                                    valuation_rate = item_g.stock_value_difference / item_g.actual_qty
                                 valuation_amount = valuation_rate * item.stock_qty
                                 account_currency = get_account_currency(dn_expense_account)
 
