@@ -105,18 +105,14 @@ class CustomSalesInvoice(SalesInvoice):
                             "Delivery Note Item", item.dn_detail, "expense_account"
                         )
                         if dn_expense_account and dn_expense_account != item.expense_account:
-                            item_g = frappe.db.get_value(
-                                "Stock Ledger Entry",
-                                {
-                                    "voucher_no": item.delivery_note,
-                                    "voucher_detail_no": item.dn_detail,
-                                    "item_code": item.item_code,
-                                },
-                                ["stock_value_difference", "actual_qty"],
-                                as_dict=True,
+                            # Get the incoming_rate directly from Delivery Note Item
+                            # This ensures we use the exact rate from DN regardless of valuation changes
+                            valuation_rate = frappe.db.get_value(
+                                "Delivery Note Item",
+                                item.dn_detail,
+                                "incoming_rate",
                             )
-                            if item_g and item_g.actual_qty:
-                                valuation_rate = item_g.stock_value_difference / item_g.actual_qty
+                            if valuation_rate:
                                 valuation_amount = valuation_rate * item.stock_qty
                                 account_currency = get_account_currency(dn_expense_account)
 
