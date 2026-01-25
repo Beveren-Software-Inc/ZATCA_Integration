@@ -427,7 +427,7 @@ def update_status_on_error(doc, status, validation_results):
         frappe.utils.now_datetime(),
         update_modified=True,
     )
-    frappe.db.commit()
+    # frappe.db.commit() - to adhere to v16 standards
     display_error_ui(validation_results, doc)
 
 
