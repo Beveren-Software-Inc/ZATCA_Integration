@@ -434,6 +434,18 @@ scheduler_events = {
 # "zatca_integration.auth.validate"
 # ]
 
+# Apps Page / Desktop Screen (v16)
+# --------------------------------
+# Show app icon on desktop screen in v16 with custom icon
+add_to_apps_screen = [
+    {
+        "name": "zatca_integration",
+        "logo": "/assets/zatca_integration/images/fatoorah.png",
+        "title": "Saudi Arabia Electronic Invoicing",
+        "route": "/app/zatca-integration"
+    }
+]
+
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True
 
