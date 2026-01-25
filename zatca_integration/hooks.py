@@ -58,12 +58,6 @@ fixtures = [
                 "name",
                 "in",
                 [
-                    # "Address",
-                    # "Company",
-                    # "Customer",
-                    # "Sales Invoice",
-                    # "Purchase Taxes and Charges Template",
-                    # "Sales Taxes and Charges Template",
                     # Revised company settings
                     "Company-custom_enable_sales_retention",
                     "Company-custom_enable_multisales_invoice_on_credit_note",
