@@ -204,6 +204,7 @@ fixtures = [
                     "Address-address_line2-label",
                     "Address-address_line1-label",
                     "Address-pincode-reqd",
+                    "Journal Entry-voucher_type-option",
                 ],
             ]
         ],

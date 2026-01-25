@@ -1,5 +1,21 @@
 [
  {
+  "default_value": "",
+  "doc_type": "Journal Entry",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "voucher_type",
+  "is_system_generated": 0,
+  "modified": "2026-01-25 11:50:50.774395",
+  "module": "",
+  "name": "Journal Entry-voucher_type-option",
+  "property": "options",
+  "property_type": "Small Text",
+  "row_name": null,
+  "value": "Journal Entry\nInter Company Journal Entry\nBank Entry\nCash Entry\nCredit Card Entry\nDebit Note\nCredit Note\nContra Entry\nExcise Entry\nWrite Off Entry\nOpening Entry\nDepreciation Entry\nExchange Rate Revaluation\nExchange Gain Or Loss\nDeferred Revenue\nDeferred Expense\nVat Payable\nVat SetOff"
+ },
+ {
   "default_value": null,
   "doc_type": "Address",
   "docstatus": 0,

@@ -443,6 +443,7 @@ def get_journal_entry_vat_by_type(company, from_date, to_date):
             je.docstatus = 1
             AND je.company = %(company)s
             AND je.posting_date BETWEEN %(from_date)s AND %(to_date)s
+            AND je.voucher_type != 'Vat SetOff'
             AND tax_acc.account_type = 'Tax'
             AND (tax_jea.debit_in_account_currency > 0 OR tax_jea.credit_in_account_currency > 0)
         GROUP BY je.name, tax_acc.custom_tax_type, tax_jea.debit_in_account_currency, tax_jea.credit_in_account_currency
