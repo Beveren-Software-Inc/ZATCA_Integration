@@ -56,6 +56,7 @@ def send_multiple_signed_compliance_invoices_to_zatca():
                 "custom_is_zatca_test": 0,
             },
             fields=["name"],
+            order_by="modified desc",
         )
 
         for invoice_data in invoices:
