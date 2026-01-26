@@ -48,8 +48,6 @@ doctype_list_js = {"Sales Invoice": "public/js/sales_invoice_list.js"}
 fixtures = [
     "Zatca Environment",
     {"dt": "Print Format", "filters": {"name": "ZATCA"}},
-    {"dt": "Workspace", "filters": {"name": "ZATCA Integrations"}},
-    {"dt": "Print Format", "filters": {"name": "ZATCA"}},
     # Custom Fields
     {
         "doctype": "Custom Field",
@@ -436,7 +434,7 @@ add_to_apps_screen = [
         "name": "zatca_integration",
         "logo": "/assets/zatca_integration/images/fatoorah.png",
         "title": "Saudi Arabia Electronic Invoicing",
-        "route": "/app/zatca-integration"
+        "route": "/desk/zatca-integrations"
     }
 ]
 

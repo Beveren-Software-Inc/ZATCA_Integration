@@ -1,0 +1,41 @@
+{
+ "app": "zatca_integration",
+ "creation": "2026-01-26 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "file-invoice",
+ "idx": 0,
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "home",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Home",
+   "link_to": "ZATCA Integrations",
+   "link_type": "Workspace",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "settings",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Settings",
+   "link_to": "Zatca CSR Settings",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-01-26 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "ZATCA Integrations",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "ZATCA Integrations"
+}

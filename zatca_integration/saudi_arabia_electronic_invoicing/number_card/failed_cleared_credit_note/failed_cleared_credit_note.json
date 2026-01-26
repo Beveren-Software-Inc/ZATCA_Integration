@@ -7,7 +7,7 @@
  "doctype": "Number Card",
  "document_type": "Sales Invoice",
  "dynamic_filters_json": "[]",
- "filters_json": "[[\"Sales Invoice\",\"custom_zatca_submit_status\",\"=\",\"DRAFT\",false],[\"Sales Invoice\",\"tax_id\",\"is\",\"set\",false],[\"Sales Invoice\",\"is_return\",\"=\",1,false]]",
+ "filters_json": "[[\"Sales Invoice\", \"custom_zatca_submit_status\", \"=\", \"DRAFT\"], [\"Sales Invoice\", \"tax_id\", \"is\", \"set\"], [\"Sales Invoice\", \"is_return\", \"=\", 1]]",
  "function": "Count",
  "idx": 0,
  "is_public": 1,
