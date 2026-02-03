@@ -315,6 +315,7 @@ def fetch_and_aggregate_data(company, doctype_table, tax_template_table, filters
         frappe.throw(_("Invalid Database Table Name!"))
 
     # Safe to format the table name here since it's controlled or validated
+    # Use base_* fields so amounts and VAT are always in company currency (SAR) and match Zatca VAT report
     sql_query = f"""
         SELECT
 			stct.custom_tax_type,
@@ -323,13 +324,13 @@ def fetch_and_aggregate_data(company, doctype_table, tax_template_table, filters
 				WHEN stct.custom_tax_type = 'Except Rate' THEN stct.custom_except_rate_reason
 				ELSE 'Standard Rate'
 			END as tax_reason,
-			SUM(si.grand_total) as total_grand_total,
-			SUM(si.total_taxes_and_charges) as total_taxes_and_charges,
+			SUM(si.base_grand_total) as total_grand_total,
+			SUM(si.base_total_taxes_and_charges) as total_taxes_and_charges,
 			SUM(si.base_total) as total_base_total,
 			SUM(CASE WHEN si.is_return = 0 THEN si.base_total ELSE 0 END) as collected_amount,
-			SUM(CASE WHEN si.is_return = 0 THEN si.total_taxes_and_charges ELSE 0 END) as vat_collected,
+			SUM(CASE WHEN si.is_return = 0 THEN si.base_total_taxes_and_charges ELSE 0 END) as vat_collected,
 			SUM(CASE WHEN si.is_return = 1 THEN si.base_total ELSE 0 END) as credited_amount,
-			SUM(CASE WHEN si.is_return = 1 THEN si.total_taxes_and_charges ELSE 0 END) as vat_credited
+			SUM(CASE WHEN si.is_return = 1 THEN si.base_total_taxes_and_charges ELSE 0 END) as vat_credited
 		FROM
 			`{doctype_table}` si
 		LEFT JOIN
