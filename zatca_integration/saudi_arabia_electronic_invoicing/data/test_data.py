@@ -112,7 +112,8 @@ def create_base_invoice_data(company, csr_data, compliance_name, customer, item_
     invoice_data.update(
         {
             "doctype": "Sales Invoice",
-            "customer": customer,
+            # Link fields must use the document NAME (string), not the full doc
+            "customer": customer.name,
             "customer_name": customer.customer_name,
             "company": company,
             "company_tax_id": csr_data.csrorganizationidentifier,
