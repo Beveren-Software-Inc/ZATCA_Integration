@@ -782,9 +782,15 @@ def delete_gl_and_payment_ledgers(invoice_name):
 
 
 def delete_zatca_transaction(invoice_name):
-    zatca_txn_name = frappe.get_value("ZATCA Transaction", {"sales_invoice": invoice_name}, "name")
+    # In current Zatca Transactions doctype, the link to the invoice
+    # is stored in the `invoice_id` field (not `sales_invoice`).
+    # Using `sales_invoice` here causes SQL errors like:
+    # "Unknown column 'sales_invoice' in 'WHERE'".
+    zatca_txn_name = frappe.get_value(
+        "Zatca Transactions", {"invoice_id": invoice_name}, "name"
+    )
     if zatca_txn_name:
-        frappe.delete_doc("ZATCA Transaction", zatca_txn_name, force=1)
+        frappe.delete_doc("ZATCA Transactions", zatca_txn_name, force=1)
 
 
 def delete_return_invoice(original_invoice_name):

@@ -34,11 +34,30 @@ def calculate_total_item_tax(sales_invoice_doc):
     TAX_ERROR_MESSAGE = "Tax Calculation Error"
     try:
         total_tax = 0
+
+        # In some ERPNext versions (including v16), SalesTaxesandCharges may not expose
+        # item_wise_tax_detail as an attribute. In that case, fall back to the
+        # document-level total_taxes_and_charges / base_total_taxes_and_charges.
+        if not sales_invoice_doc.taxes:
+            return 0
+
+        first_tax_row = sales_invoice_doc.taxes[0]
+        item_wise_detail = getattr(first_tax_row, "item_wise_tax_detail", None)
+
+        # Fallback: use document totals if per‑item JSON is not available
+        if not item_wise_detail:
+            return (
+                sales_invoice_doc.get("total_taxes_and_charges")
+                or sales_invoice_doc.get("base_total_taxes_and_charges")
+                or 0
+            )
+
         for single_item in sales_invoice_doc.items:
             _item_tax_amount, tax_percent = extract_tax_details_for_item(
-                sales_invoice_doc.taxes[0].item_wise_tax_detail, single_item.item_code
+                item_wise_detail, single_item.item_code
             )
-            total_tax = total_tax + (single_item.net_amount * (tax_percent / 100))
+            total_tax += single_item.net_amount * (tax_percent / 100)
+
         return total_tax
     except AttributeError as e:
         frappe.throw(
