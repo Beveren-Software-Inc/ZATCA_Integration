@@ -106,8 +106,8 @@ class CustomSalesInvoice(SalesInvoice):
                         )
                         if dn_expense_account and dn_expense_account != item.expense_account:
                             # Get the incoming_rate directly from Delivery Note Item
-                            '''This ensures we use the exact rate from DN 
-                            regardless of valuation changes'''
+                            """This ensures we use the exact rate from DN
+                            regardless of valuation changes"""
                             valuation_rate = frappe.db.get_value(
                                 "Delivery Note Item",
                                 item.dn_detail,
