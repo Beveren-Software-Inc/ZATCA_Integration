@@ -640,10 +640,8 @@ def customer_data(invoice, sales_invoice_doc):
             cac_country_1 = ET.SubElement(cac_postaladdress_1, "cac:Country")
             cbc_identificationcode_1 = ET.SubElement(cac_country_1, "cbc:IdentificationCode")
             country_name = address.country or "Saudi Arabia"
-            country_code = (
-    frappe.db.get_value("Country", country_name, "code") or "SA"
-).upper() 
-            
+            country_code = (frappe.db.get_value("Country", country_name, "code") or "SA").upper()
+
             cbc_identificationcode_1.text = country_code
 
         # Tax Info
