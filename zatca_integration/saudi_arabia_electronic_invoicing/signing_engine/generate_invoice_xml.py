@@ -11,6 +11,7 @@ from frappe.utils.data import get_time
 from zatca_integration.common_util import generate_invoice_hash, get_registration_scheme_code
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
     get_address,
+    get_document_level_tax_category_details,
     get_previous_invoice_counter,
     get_previous_invoice_hash,
     get_zatca_config,
@@ -765,7 +766,10 @@ def add_document_level_discount_with_tax(invoice, sales_invoice_doc):
         cbc_id.text = tax_details["code"]
 
         cbc_percent = ET.SubElement(cac_tax_category, "cbc:Percent")
-        cbc_percent.text = f"{float(sales_invoice_doc.taxes[0].rate):.2f}"
+        # Use rate from tax_details which properly handles Zero/Except rates (must be 0%)
+        # and validates Standard Rate (must be 5% or 15%)
+        tax_rate = tax_details["rate"]
+        cbc_percent.text = f"{float(tax_rate):.2f}"
 
         cac_tax_scheme = ET.SubElement(cac_tax_category, "cac:TaxScheme")
         cbc_tax_scheme_id = ET.SubElement(cac_tax_scheme, CBC_ID)
@@ -818,22 +822,14 @@ def add_document_level_discount_with_tax_template(invoice, sales_invoice_doc):
         cac_tax_category = ET.SubElement(cac_allowance_charge, "cac:TaxCategory")
         cbc_id = ET.SubElement(cac_tax_category, CBC_ID)
 
-        # Removed unused variable 'vat_category_code'
-        tax_percentage = 0.0
-
-        for item in sales_invoice_doc.items:
-            item_tax_template_doc = frappe.get_doc("Item Tax Template", item.item_tax_template)
-            # vat_category_code = item_tax_template_doc.custom_zatca_tax_category
-            tax_percentage = (
-                item_tax_template_doc.taxes[0].tax_rate if item_tax_template_doc.taxes else 15
-            )
-            break
-
-        tax_details = get_zatca_tax_category_details(sales_invoice_doc)
+        # Get tax details - handles both Sales Taxes and Charges Template and Item Tax Templates
+        tax_details = get_document_level_tax_category_details(sales_invoice_doc)
         cbc_id.text = tax_details["code"]
 
         cbc_percent = ET.SubElement(cac_tax_category, "cbc:Percent")
-        cbc_percent.text = f"{tax_percentage:.2f}"
+        # ZATCA requires: Standard Rate must have rate > 0, Zero/Except Rate must have 0% rate
+        tax_rate = tax_details["rate"]
+        cbc_percent.text = f"{float(tax_rate):.2f}"
 
         cac_tax_scheme = ET.SubElement(cac_tax_category, "cac:TaxScheme")
         cbc_tax_scheme_id = ET.SubElement(cac_tax_scheme, CBC_ID)

@@ -6,8 +6,17 @@ import frappe
 
 
 def validate_sales_invoice(doc, method):
-    if not doc.taxes_and_charges:
-        frappe.throw("Sales Taxes and Charges Template must be provided.")
+    # Allow either Sales Taxes and Charges Template (general) or Item Tax Templates (per-item)
+    has_taxes_and_charges = bool(doc.taxes_and_charges)
+    has_item_tax_templates = any(
+        hasattr(item, 'item_tax_template') and item.item_tax_template
+        for item in doc.items
+    )
+    
+    if not has_taxes_and_charges and not has_item_tax_templates:
+        frappe.throw(
+            "Either Sales Taxes and Charges Template or Item Tax Templates must be provided."
+        )
 
 
 def validate_pos_invoice(doc, method):

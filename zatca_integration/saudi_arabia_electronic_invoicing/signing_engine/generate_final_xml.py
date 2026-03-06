@@ -12,6 +12,7 @@ from frappe.utils.data import get_time
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
     get_exemption_reason_map,
     get_zatca_tax_category_details,
+    get_zatca_tax_category_for_item,
 )
 
 ITEM_TAX_TEMPLATE = "Item Tax Template"
@@ -49,62 +50,105 @@ def tax_data_nominal(invoice, sales_invoice_doc):
             total_line_extension = sales_invoice_doc.net_total
 
         discount_amount = flt(sales_invoice_doc.discount_amount or 0.0)
-        taxable_base = total_line_extension
+        
+        # Get item-wise tax details
+        item_wise_tax_detail = {}
+        if sales_invoice_doc.taxes and sales_invoice_doc.taxes[0].item_wise_tax_detail:
+            import json
+            item_wise_tax_detail = json.loads(sales_invoice_doc.taxes[0].item_wise_tax_detail)
 
-        if abs(discount_amount - total_line_extension) == 0.01:
-            taxable_base = total_line_extension
-        elif included_in_rate:
-            taxable_base = flt(sales_invoice_doc.base_discount_amount or 0.0)
-
-        # === Group by Tax Type from Tax Template ===
-        for tax in sales_invoice_doc.taxes:
-            if not tax.tax_template:
-                continue
-
-            template = frappe.get_doc("Sales Taxes and Charges Template", tax.tax_template)
-            tax_type = template.custom_tax_type or "Standard Rate"
-            reason = ""
-            if tax_type == "Zero Rate":
-                reason = template.custom_zero_rate_reason or "Zero Rated"
-            elif tax_type == "Except Rate":
-                reason = template.custom_except_rate_reason or "Exempted"
-
+        # === Group items by their ZATCA tax category (from Item Tax Template or fallback) ===
+        for item in sales_invoice_doc.items:
+            # Get tax category for this item
+            item_tax_details = get_zatca_tax_category_for_item(sales_invoice_doc, item)
+            tax_type = item_tax_details["category"]
+            item_tax_rate = flt(item_tax_details["rate"])
+            
+            # Calculate item line extension amount
+            if included_in_rate:
+                item_line_extension = abs(round(item.amount / (1 + item_tax_rate / 100), 2))
+            else:
+                item_line_extension = abs(flt(item.net_amount))
+            
+            # Get tax amount for this item
+            item_tax_amount = 0
+            if item.item_code in item_wise_tax_detail:
+                item_tax_amount = abs(flt(item_wise_tax_detail[item.item_code][1]))
+            else:
+                # Calculate from rate if not in item_wise_tax_detail
+                if included_in_rate:
+                    item_tax_amount = item_line_extension * item_tax_rate / (100 + item_tax_rate)
+                else:
+                    item_tax_amount = item_line_extension * item_tax_rate / 100
+            
+            # Initialize category if not exists
             if tax_type not in tax_category_totals:
+                reason_code = None
+                if item_tax_details.get("exemption_reason_code"):
+                    reason_code = item_tax_details["exemption_reason_code"]
+                
                 tax_category_totals[tax_type] = {
                     "taxable_amount": 0,
                     "tax_amount": 0,
-                    "tax_rate": tax.rate or 15,
-                    "exemption_reason_code": reason,
+                    "tax_rate": item_tax_rate,
+                    "exemption_reason_code": reason_code,
                 }
+            
+            # Accumulate amounts for this category
+            tax_category_totals[tax_type]["taxable_amount"] += item_line_extension
+            tax_category_totals[tax_type]["tax_amount"] += item_tax_amount
+        
+        # Apply document-level discount proportionally (if any)
+        if discount_amount and total_line_extension:
+            discount_ratio = discount_amount / total_line_extension
+            for tax_type in tax_category_totals:
+                category_discount = tax_category_totals[tax_type]["taxable_amount"] * discount_ratio
+                tax_category_totals[tax_type]["taxable_amount"] -= category_discount
 
-            tax_category_totals[tax_type]["taxable_amount"] += flt(taxable_base)
-            tax_category_totals[tax_type]["tax_amount"] += flt(taxable_base) * flt(tax.rate) / 100
+        # === Calculate recalculated tax amounts first ===
+        # Recalculate tax amounts for each category to ensure BT-117 = BT-116 × (BT-119 / 100)
+        recalculated_total_tax_amount = 0.0
+        total_taxable_from_categories = 0.0
+        for category, data in tax_category_totals.items():
+            taxable_amount = round(data['taxable_amount'], 2)
+            total_taxable_from_categories += taxable_amount
+            tax_rate = data['tax_rate']
+            calculated_tax_amount = round(taxable_amount * tax_rate / 100, 2)
+            recalculated_total_tax_amount += abs(calculated_tax_amount)
+        
+        # Calculate taxable_base from categories (after discount applied)
+        taxable_base = total_taxable_from_categories
 
         # === Tax Total (SAR required by ZATCA) ===
         cac_taxtotal_sar = ET.SubElement(invoice, CAC_TAX_TOTAL)
         cbc_taxamount_sar = ET.SubElement(cac_taxtotal_sar, CBC_TAX_AMOUNT)
         cbc_taxamount_sar.set("currencyID", "SAR")
-
-        total_tax_amount_sar = sum(t["tax_amount"] for t in tax_category_totals.values())
-        cbc_taxamount_sar.text = f"{abs(round(total_tax_amount_sar, 2)):.2f}"
+        # Use recalculated total to ensure BT-110 matches sum of all category tax amounts
+        cbc_taxamount_sar.text = f"{abs(round(recalculated_total_tax_amount, 2)):.2f}"
 
         # === Tax Total (Invoice Currency) ===
         cac_taxtotal_currency = ET.SubElement(invoice, CAC_TAX_TOTAL)
         cbc_taxamount_cur = ET.SubElement(cac_taxtotal_currency, CBC_TAX_AMOUNT)
         cbc_taxamount_cur.set("currencyID", sales_invoice_doc.currency)
-        cbc_taxamount_cur.text = f"{abs(round(total_tax_amount_sar, 2)):.2f}"
+        cbc_taxamount_cur.text = f"{abs(round(recalculated_total_tax_amount, 2)):.2f}"
 
         # === Add Tax Subtotals ===
         for category, data in tax_category_totals.items():
             cac_taxsubtotal = ET.SubElement(cac_taxtotal_currency, CAC_TAX_SUBTOTAL)
 
+            taxable_amount = round(data['taxable_amount'], 2)
             cbc_taxableamount = ET.SubElement(cac_taxsubtotal, CBC_TAXABLE_AMOUNT)
             cbc_taxableamount.set("currencyID", sales_invoice_doc.currency)
-            cbc_taxableamount.text = f"{round(data['taxable_amount'], 2):.2f}"
+            cbc_taxableamount.text = f"{taxable_amount:.2f}"
+
+            # ZATCA Requirement: BT-117 (TaxAmount) = BT-116 (TaxableAmount) × (BT-119 (Percent) / 100)
+            # Recalculate to ensure exact match per ZATCA validation rules
+            tax_rate = data['tax_rate']
+            calculated_tax_amount = round(taxable_amount * tax_rate / 100, 2)
 
             cbc_taxamount = ET.SubElement(cac_taxsubtotal, CBC_TAX_AMOUNT)
             cbc_taxamount.set("currencyID", sales_invoice_doc.currency)
-            cbc_taxamount.text = f"{abs(round(data['tax_amount'], 2)):.2f}"
+            cbc_taxamount.text = f"{abs(calculated_tax_amount):.2f}"
 
             cac_taxcategory = ET.SubElement(cac_taxsubtotal, "cac:TaxCategory")
             cbc_id = ET.SubElement(cac_taxcategory, "cbc:ID")
@@ -173,7 +217,9 @@ def tax_data_nominal(invoice, sales_invoice_doc):
 
         cbc_taxinclusiveamount = ET.SubElement(cac_legalmonetarytotal, "cbc:TaxInclusiveAmount")
         cbc_taxinclusiveamount.set("currencyID", sales_invoice_doc.currency)
-        cbc_taxinclusiveamount.text = f"{abs(round(sales_invoice_doc.grand_total, 2)):.2f}"
+        # BT-112: Use recalculated total tax amount to ensure consistency
+        tax_inclusive_amount = round(taxable_base + recalculated_total_tax_amount, 2)
+        cbc_taxinclusiveamount.text = f"{abs(tax_inclusive_amount):.2f}"
         cbc_allowancetotalamount = ET.SubElement(cac_legalmonetarytotal, "cbc:AllowanceTotalAmount")
         cbc_allowancetotalamount.set("currencyID", sales_invoice_doc.currency)
         cbc_allowancetotalamount.text = f"{round(discount_amount, 2):.2f}"
@@ -230,17 +276,21 @@ def add_line_item_discount(cac_price, single_item, sales_invoice_doc):
 
 def item_data(invoice, sales_invoice_doc):
     """
-    Create UBL-compliant item-level XML lines without using Item Tax Template.
-    Uses `get_zatca_tax_category_details`.
+    Create UBL-compliant item-level XML lines with per-item tax category support.
+    Uses `get_zatca_tax_category_for_item` to get category for each item.
     """
     try:
-        tax_details = get_zatca_tax_category_details(sales_invoice_doc)
-        _rate = Decimal(str(tax_details["rate"]))
-        code = tax_details["code"]
+        # Fallback tax details for items without Item Tax Template
+        fallback_tax_details = get_zatca_tax_category_details(sales_invoice_doc)
+        fallback_rate = Decimal(str(fallback_tax_details["rate"]))
+        fallback_code = fallback_tax_details["code"]
 
         for item in sales_invoice_doc.items:
-            tax_rate = Decimal(str(sales_invoice_doc.taxes[0].rate))
-            included = sales_invoice_doc.taxes[0].included_in_print_rate
+            # Get tax category for this specific item
+            item_tax_details = get_zatca_tax_category_for_item(sales_invoice_doc, item)
+            tax_rate = Decimal(str(item_tax_details["rate"]))
+            code = item_tax_details["code"]
+            included = sales_invoice_doc.taxes[0].included_in_print_rate if sales_invoice_doc.taxes else 0
 
             cac_invoiceline = ET.SubElement(invoice, "cac:InvoiceLine")
 
@@ -287,16 +337,18 @@ def item_data(invoice, sales_invoice_doc):
             name = ET.SubElement(cac_item, "cbc:Name")
             name.text = f"{item.item_code}:{item.item_name}"
 
-            # Classified Tax Category
+            # Classified Tax Category (per-item)
             classified = ET.SubElement(cac_item, "cac:ClassifiedTaxCategory")
             ET.SubElement(classified, "cbc:ID").text = code
             ET.SubElement(classified, "cbc:Percent").text = f"{float(tax_rate):.2f}"
 
-            if tax_details["category"] != "Standard Rate":
-                reason_code = ET.SubElement(classified, "cbc:TaxExemptionReasonCode")
-                reason_code.text = tax_details["exemption_reason_code"] or ""
-                reason_text = ET.SubElement(classified, "cbc:TaxExemptionReason")
-                reason_text.text = tax_details["exemption_reason_text"] or ""
+            if item_tax_details["category"] != "Standard Rate":
+                if item_tax_details.get("exemption_reason_code"):
+                    reason_code = ET.SubElement(classified, "cbc:TaxExemptionReasonCode")
+                    reason_code.text = item_tax_details["exemption_reason_code"]
+                if item_tax_details.get("exemption_reason_text"):
+                    reason_text = ET.SubElement(classified, "cbc:TaxExemptionReason")
+                    reason_text.text = item_tax_details["exemption_reason_text"]
 
             tax_scheme = ET.SubElement(classified, "cac:TaxScheme")
             ET.SubElement(tax_scheme, "cbc:ID").text = "VAT"

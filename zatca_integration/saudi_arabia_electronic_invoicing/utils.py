@@ -521,11 +521,21 @@ def get_zatca_tax_category_details(invoice_doc):
         reason_code = None
         reason_text = None
 
+        # ZATCA Requirements:
+        # - Zero Rate must have 0% rate
+        # - Except Rate must have 0% rate
+        # - Standard Rate must be 5% or 15%
         if tax_type == "Zero Rate":
+            rate = 0.0
             reason_and_code = template.get("custom_zero_rate_reason")
-
         elif tax_type == "Except Rate":
+            rate = 0.0
             reason_and_code = template.get("custom_except_rate_reason")
+        elif tax_type == "Standard Rate":
+            # Standard Rate must be either 5% or 15% per ZATCA rules
+            if rate not in [5.0, 15.0]:
+                # If rate is not 5 or 15, default to 15
+                rate = 15.0
 
         if reason_and_code:
             reason_text, reason_code = get_tax_exemption_code(reason_and_code)
@@ -546,6 +556,177 @@ def get_tax_exemption_code(exempt_reason):
     reason, code = exempt_reason.split("(", 1)
     code = code.rstrip(")")
     return reason.strip(), code.strip()
+
+
+def get_zatca_tax_category_for_item(invoice_doc, item):
+    """
+    Returns ZATCA tax category details for a specific invoice item.
+    
+    Supports both scenarios:
+    1. Item Tax Template: If item has item_tax_template with custom_tax_type configured
+    2. Sales Taxes and Charges Template: Falls back to invoice-level template if Item Tax Template
+       is not set or doesn't have custom_tax_type
+    
+    Priority:
+    1. Item Tax Template (if item has item_tax_template and it has custom_tax_type)
+    2. Sales Taxes and Charges Template (invoice-level fallback)
+    
+    Output: Same format as get_zatca_tax_category_details()
+    {
+        "category": "Standard Rate" | "Zero Rate" | "Except Rate",
+        "rate": float,
+        "code": "S" | "Z" | "E" | "O",
+        "exemption_reason_code": str or None,
+        "exemption_reason_text": str or None
+    }
+    """
+    try:
+        # SCENARIO 1: Try to get from Item Tax Template first
+        if hasattr(item, 'item_tax_template') and item.item_tax_template:
+            try:
+                item_tax_template = frappe.get_doc("Item Tax Template", item.item_tax_template)
+                
+                # Check if Item Tax Template has custom_tax_type field configured
+                # This field must exist and have a value (Standard Rate, Zero Rate, or Except Rate)
+                if hasattr(item_tax_template, 'custom_tax_type') and item_tax_template.custom_tax_type:
+                    tax_type = item_tax_template.custom_tax_type
+                    rate = 15.0
+                    
+                    # Get rate from Item Tax Template taxes
+                    if item_tax_template.taxes and len(item_tax_template.taxes) > 0:
+                        rate = item_tax_template.taxes[0].tax_rate or 15.0
+                    
+                    code_map = {
+                        "Standard Rate": "S",
+                        "Zero Rate": "Z",
+                        "Except Rate": "E",
+                    }
+                    reason_and_code = None
+                    reason_code = None
+                    reason_text = None
+                    
+                    # ZATCA Requirements:
+                    # - Zero Rate must have 0% rate (BT-152)
+                    # - Except Rate must have 0% rate (BT-152)
+                    # - Standard Rate must be 5% or 15% (BT-119, BT-152)
+                    if tax_type == "Zero Rate":
+                        rate = 0.0
+                        reason_and_code = getattr(item_tax_template, 'custom_zero_rate_reason', None)
+                    elif tax_type == "Except Rate":
+                        rate = 0.0
+                        reason_and_code = getattr(item_tax_template, 'custom_except_rate_reason', None)
+                    elif tax_type == "Standard Rate":
+                        # Standard Rate must be either 5% or 15% per ZATCA rules
+                        if rate not in [5.0, 15.0]:
+                            # If rate is not 5 or 15, default to 15
+                            rate = 15.0
+                    
+                    if reason_and_code:
+                        reason_text, reason_code = get_tax_exemption_code(reason_and_code)
+                    
+                    return {
+                        "category": tax_type,
+                        "rate": rate,
+                        "code": code_map.get(tax_type, "O"),
+                        "exemption_reason_code": reason_code,
+                        "exemption_reason_text": reason_text,
+                    }
+                # If Item Tax Template exists but doesn't have custom_tax_type, fall through to fallback
+            except (frappe.DoesNotExistError, AttributeError, KeyError):
+                # Item Tax Template doesn't exist, doesn't have custom fields, or error occurred
+                # Fall through to invoice-level template
+                pass
+        
+        # SCENARIO 2: Fallback to invoice-level Sales Taxes and Charges Template
+        # This is used when:
+        # - Item doesn't have item_tax_template set
+        # - Item Tax Template exists but doesn't have custom_tax_type configured
+        # - Item Tax Template doesn't exist or error occurred
+        return get_zatca_tax_category_details(invoice_doc)
+        
+    except Exception as e:
+        frappe.logger().error(f"Error getting tax category for item {item.item_code}: {str(e)}")
+        # Final fallback to invoice-level template
+        return get_zatca_tax_category_details(invoice_doc)
+
+
+def get_document_level_tax_category_details(invoice_doc):
+    """
+    Returns ZATCA tax category details for document-level allowances/charges.
+    
+    When using Item Tax Templates, this function determines the dominant tax category
+    (by taxable amount) to use for document-level discounts/charges.
+    
+    When using Sales Taxes and Charges Template, it uses that template's tax category.
+    
+    Output: Same format as get_zatca_tax_category_details()
+    {
+        "category": "Standard Rate" | "Zero Rate" | "Except Rate",
+        "rate": float,
+        "code": "S" | "Z" | "E" | "O",
+        "exemption_reason_code": str or None,
+        "exemption_reason_text": str or None
+    }
+    """
+    try:
+        # If Sales Taxes and Charges Template is set, use it
+        if invoice_doc.taxes_and_charges:
+            return get_zatca_tax_category_details(invoice_doc)
+        
+        # Otherwise, determine dominant tax category from Item Tax Templates
+        # Group items by tax category and sum their taxable amounts
+        from collections import defaultdict
+        from frappe.utils import flt
+        
+        category_totals = defaultdict(lambda: {"taxable_amount": 0.0, "details": None})
+        
+        for item in invoice_doc.items:
+            item_tax_details = get_zatca_tax_category_for_item(invoice_doc, item)
+            category = item_tax_details["category"]
+            
+            # Calculate item taxable amount
+            item_amount = flt(item.base_amount if invoice_doc.currency == "SAR" else item.amount)
+            included = invoice_doc.taxes[0].included_in_print_rate if invoice_doc.taxes else 0
+            
+            if included:
+                # Tax included: extract base amount
+                item_tax_rate = flt(item_tax_details["rate"])
+                if item_tax_rate > 0:
+                    taxable_amount = item_amount / (1 + item_tax_rate / 100)
+                else:
+                    taxable_amount = item_amount
+            else:
+                # Tax excluded: use amount directly
+                taxable_amount = item_amount
+            
+            category_totals[category]["taxable_amount"] += abs(taxable_amount)
+            if category_totals[category]["details"] is None:
+                category_totals[category]["details"] = item_tax_details
+        
+        # Find the category with the highest taxable amount
+        if category_totals:
+            dominant_category = max(category_totals.items(), key=lambda x: x[1]["taxable_amount"])
+            return dominant_category[1]["details"]
+        
+        # Fallback if no items found
+        return {
+            "category": "Standard Rate",
+            "rate": 15.0,
+            "code": "S",
+            "exemption_reason_code": None,
+            "exemption_reason_text": None,
+        }
+        
+    except Exception as e:
+        frappe.logger().error(f"Error getting document-level tax category: {str(e)}")
+        # Final fallback
+        return {
+            "category": "Standard Rate",
+            "rate": 15.0,
+            "code": "S",
+            "exemption_reason_code": None,
+            "exemption_reason_text": None,
+        }
 
 
 def get_exemption_reason_map():
