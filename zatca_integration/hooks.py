@@ -1,5 +1,5 @@
 app_name = "zatca_integration"
-app_title = "Saudi Arabia Electronic Invoicing"
+app_title = "ZATCA E-Invoicing"
 app_publisher = "Beveren Software"
 app_description = "Saudi Arabia Electronic Invoicing Phase 2"
 app_email = "info@beverensoftware.com"
