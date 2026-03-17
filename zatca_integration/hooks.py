@@ -433,7 +433,7 @@ add_to_apps_screen = [
     {
         "name": "zatca_integration",
         "logo": "/assets/zatca_integration/images/fatoorah.png",
-        "title": "Saudi Arabia Electronic Invoicing",
+        "title": "ZATCA E-Invoicing",
         "route": "/desk/zatca-integrations"
     }
 ]
