@@ -8,6 +8,9 @@ import frappe
 def validate_sales_invoice(doc, method):
     if not doc.taxes_and_charges:
         frappe.throw("Sales Taxes and Charges Template must be provided.")
+        
+    if doc.is_return and (not doc.return_against and not doc.custom_cn_ref):
+        frappe.throw("Go to credit note details and fetch return invoices")
 
 
 def validate_pos_invoice(doc, method):
