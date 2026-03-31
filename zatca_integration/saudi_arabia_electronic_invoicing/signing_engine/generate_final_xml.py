@@ -311,7 +311,9 @@ def item_data(invoice, sales_invoice_doc):
             if included:
                 rate_to_use = item.rate / (1 + float(tax_rate) / 100)
 
-            price_amt.text = str(round(abs(rate_to_use), 2))
+            #CHanging this on 31/03/2026
+            # price_amt.text = str(round(abs(rate_to_use), 2))
+            price_amt.text = f"{abs(rate_to_use):.6f}"
 
             base_quantity = ET.SubElement(cac_price, "cbc:BaseQuantity", unitCode=str(item.uom))
             base_quantity.text = "1"
