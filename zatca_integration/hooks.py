@@ -143,6 +143,11 @@ fixtures = [
                     # Address
                     "Address-custom_arabic_address",
                     "Address-custom_national_address",
+                    "Address-custom_street_name_arabic",
+                    "Address-custom_district_name_arabic",
+                    "Address-custom_city_arabic",
+                    "Address-custom_country_arabic",
+                    
                     # Customer
                     # "Customer-loan_details_tab",
                     # "Customer-is_npa",
@@ -176,6 +181,9 @@ fixtures = [
                     "Bank Account-custom_account_name_in_arabic",
                     # Tax account
                     "Account-custom_tax_type",
+                    
+                    #Item
+                    "Item-custom_item_name_arabic",
                 ],
             ]
         ],
