@@ -316,7 +316,8 @@ doc_events = {
             "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code",
         ],
         "on_cancel": [
-            "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.delete_qr_code_file"
+            "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.delete_qr_code_file",
+            "zatca_integration.overrides.sales_invoice.on_cancel",
         ],
     },
     "POS Invoice": {
