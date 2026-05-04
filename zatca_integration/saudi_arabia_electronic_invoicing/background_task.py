@@ -29,7 +29,27 @@ def is_zatca_compliance_ready(company_name):
     return compliance_doc, None
 
 
+B2C_COMPLIANCE_BATCH_JOB_ID = "zatca_integration:b2c_compliance_batch_submit"
+B2C_COMPLIANCE_BATCH_TIMEOUT = 30 * 60  # 30 minutes (RQ worker must allow this timeout on `long` queue)
+
+
 def send_multiple_signed_compliance_invoices_to_zatca():
+    """
+    Scheduled Job Type entry point: enqueue the batch job on the background worker.
+
+    The worker runs ``_run_send_multiple_signed_compliance_invoices_to_zatca``, processes
+    all matching invoices until none remain or the 30-minute timeout is reached, then exits.
+    """
+    frappe.enqueue(
+        "zatca_integration.saudi_arabia_electronic_invoicing.background_task._run_send_multiple_signed_compliance_invoices_to_zatca",
+        queue="long",
+        timeout=B2C_COMPLIANCE_BATCH_TIMEOUT,
+        deduplicate=True,
+        job_id=B2C_COMPLIANCE_BATCH_JOB_ID,
+    )
+
+
+def _run_send_multiple_signed_compliance_invoices_to_zatca():
     """
     Automatically send all signed B2C invoices (not yet reported) to ZATCA compliance API.
     """
