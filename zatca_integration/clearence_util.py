@@ -7,6 +7,7 @@ import uuid
 from datetime import date, datetime, timedelta
 
 import frappe
+from frappe import _
 import qrcode
 import requests
 from frappe.utils import get_datetime
@@ -32,7 +33,7 @@ from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
 )
 
 
-def generate_einvoice(doc, submit_now=True):
+def generate_einvoice(doc, submit_now=True, skip_success_message=False):
     company = frappe.get_doc("Company", doc.company)
 
     compliance_csid_doc = None
@@ -98,7 +99,8 @@ def generate_einvoice(doc, submit_now=True):
     validate_invoice_dates(doc, company, customer_type)
     if doc.custom_is_zatca_test:
         return
-    frappe.msgprint("Sales Invoice sent to ZATCA", alert=True)
+    if not skip_success_message and not frappe.flags.get("zatca_bulk_report"):
+        frappe.msgprint("Sales Invoice sent to ZATCA", alert=True)
     try:
         if customer_type == "Company":
             zatca_status_field = "clearanceStatus"
@@ -478,6 +480,8 @@ def display_error_ui(validation_results, doc):
         return frappe.throw(html_output, title="ZATCA Submission Failed")
     elif warning_messages:
         doc.custom_has_warnings = 1
+        if frappe.flags.get("zatca_bulk_report"):
+            return
         return frappe.msgprint(title="ZATCA Warning", msg=html_output, indicator="orange")
 
 
@@ -617,6 +621,100 @@ def resend_einvoice(doc):
     if isinstance(doc, dict):
         doc = frappe.get_doc(doc)
     generate_einvoice(doc)
+
+
+@frappe.whitelist()
+def bulk_resend_einvoices(invoice_names):
+    """Submit multiple Sales Invoices to ZATCA (same flow as ZATCA Actions → Report on the form)."""
+
+    if isinstance(invoice_names, str):
+        invoice_names = json.loads(invoice_names)
+
+    if not invoice_names:
+        frappe.throw(_("Select at least one Sales Invoice"))
+
+    seen = set()
+    unique_names = []
+    for n in invoice_names:
+        if n and n not in seen:
+            seen.add(n)
+            unique_names.append(n)
+
+    success = []
+    failed = []
+    skipped = []
+
+    frappe.flags.zatca_bulk_report = True
+    try:
+        for name in unique_names:
+            try:
+                doc = frappe.get_doc("Sales Invoice", name)
+            except frappe.DoesNotExistError:
+                failed.append({"name": name, "message": _("Not found")})
+                continue
+
+            if not frappe.has_permission("Sales Invoice", "read", doc):
+                failed.append({"name": name, "message": _("No permission")})
+                continue
+
+            if doc.docstatus != 1:
+                skipped.append({"name": name, "message": _("Not submitted")})
+                continue
+
+            status = doc.get("custom_zatca_submit_status")
+            if status in ("REPORTED", "CLEARED"):
+                skipped.append({"name": name, "message": _("Already {0}").format(status)})
+                continue
+
+            company = frappe.get_doc("Company", doc.company)
+            if not doc.custom_is_zatca_test:
+                if not company.get("custom_enable_zatca_e_invoicing"):
+                    skipped.append(
+                        {"name": name, "message": _("ZATCA e-invoicing is not enabled for this company")}
+                    )
+                    continue
+                if company.get("country") != "Saudi Arabia":
+                    skipped.append(
+                        {"name": name, "message": _("Company country is not Saudi Arabia")}
+                    )
+                    continue
+                if company.get("custom_zatca_phase") != "ZATCA Phase 2":
+                    skipped.append(
+                        {"name": name, "message": _("Company is not on ZATCA Phase 2")}
+                    )
+                    continue
+
+            try:
+                generate_einvoice(doc, skip_success_message=True)
+                doc.reload()
+                if doc.custom_zatca_submit_status in ("REPORTED", "CLEARED"):
+                    success.append(name)
+                elif doc.custom_is_zatca_test:
+                    skipped.append(
+                        {
+                            "name": name,
+                            "message": _("ZATCA test invoice (not submitted to production)"),
+                        }
+                    )
+                else:
+                    skipped.append(
+                        {
+                            "name": name,
+                            "message": _(
+                                "Submission did not reach REPORTED/CLEARED; check the invoice and ZATCA settings"
+                            ),
+                        }
+                    )
+            except Exception as e:
+                frappe.log_error(
+                    message=frappe.get_traceback(),
+                    title=f"ZATCA bulk report failed: {name}",
+                )
+                failed.append({"name": name, "message": str(e)})
+    finally:
+        frappe.flags.zatca_bulk_report = False
+
+    return {"success": success, "failed": failed, "skipped": skipped}
 
 
 def _handle_submitted_doc_response(

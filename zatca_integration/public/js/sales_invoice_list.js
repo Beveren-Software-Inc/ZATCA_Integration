@@ -1,4 +1,78 @@
 frappe.listview_settings['Sales Invoice'] = {
+    onload: function (listview) {
+        listview.page.add_inner_button(__('ZATCA Report'), function () {
+            const names = listview.get_checked_items(true) || [];
+            if (!names.length) {
+                frappe.msgprint(__('Select at least one Sales Invoice by ticking the checkboxes.'));
+                return;
+            }
+            frappe.confirm(
+                __('Report {0} selected invoice(s) to ZATCA? This runs the same action as ZATCA Actions → Report on each invoice.', [
+                    names.length,
+                ]),
+                () => {
+                    frappe.dom.freeze(__('Reporting to ZATCA...'));
+                    frappe.call({
+                        method: 'zatca_integration.clearence_util.bulk_resend_einvoices',
+                        args: { invoice_names: names },
+                        callback: function (r) {
+                            frappe.dom.unfreeze();
+                            const result = r.message || {};
+                            const parts = [];
+                            if (result.success && result.success.length) {
+                                parts.push(
+                                    '<p><strong>' +
+                                        __('Succeeded') +
+                                        ` (${result.success.length})</strong><br>` +
+                                        frappe.utils.escape_html(result.success.join(', ')) +
+                                        '</p>'
+                                );
+                            }
+                            if (result.skipped && result.skipped.length) {
+                                const skipLines = result.skipped
+                                    .map(
+                                        (row) =>
+                                            frappe.utils.escape_html(row.name) +
+                                            ': ' +
+                                            frappe.utils.escape_html(row.message || '')
+                                    )
+                                    .join('<br>');
+                                parts.push(
+                                    '<p><strong>' +
+                                        __('Skipped') +
+                                        ` (${result.skipped.length})</strong><br>${skipLines}</p>`
+                                );
+                            }
+                            if (result.failed && result.failed.length) {
+                                const failLines = result.failed
+                                    .map(
+                                        (row) =>
+                                            frappe.utils.escape_html(row.name) +
+                                            ': ' +
+                                            frappe.utils.escape_html(row.message || '')
+                                    )
+                                    .join('<br>');
+                                parts.push(
+                                    '<p><strong>' +
+                                        __('Failed') +
+                                        ` (${result.failed.length})</strong><br>${failLines}</p>`
+                                );
+                            }
+                            frappe.msgprint({
+                                title: __('ZATCA bulk report'),
+                                message: parts.join('<hr>') || __('Finished'),
+                                wide: true,
+                            });
+                            listview.refresh();
+                        },
+                        error: function () {
+                            frappe.dom.unfreeze();
+                        },
+                    });
+                }
+            );
+        });
+    },
     get_indicator: function (doc) {
 		const status_colors = {
 			Draft: "grey",
