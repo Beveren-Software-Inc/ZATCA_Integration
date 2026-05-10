@@ -341,6 +341,66 @@ def invoice_typecode_standard(invoice, sales_invoice_doc):
         return None
 
 
+def order_reference(invoice, sales_invoice_doc):
+    """
+    Adds the <cac:OrderReference> element to the invoice XML using the Sales Invoice
+    `po_no` (Customer's Purchase Order) field.
+
+    This embedding is opt-in per Company: it is only applied when the Company-level
+    checkbox `custom_include_po_no` is ticked. When the checkbox is unticked (default),
+    the XML is generated exactly as before and this function is a no-op.
+
+    Per ZATCA's e-invoicing rules, additional UBL 2.1 elements are permitted as long
+    as the mandatory fields are still present. Customers (e.g. BinDawood / Danube) require
+    the PO Number to be embedded in the signed XML using the standard UBL element:
+
+        <cac:OrderReference>
+            <cbc:ID>{po_no}</cbc:ID>
+            <cbc:SalesOrderID>{po_no}</cbc:SalesOrderID>
+        </cac:OrderReference>
+
+    Constraints enforced by the customer:
+        - Numeric characters only (no letters or special characters)
+        - Exactly 12 numeric digits
+        - Same value in both <cbc:ID> and <cbc:SalesOrderID>
+
+    Per UBL 2.1 sequencing it must be added after the currency codes and before
+    <cac:BillingReference> / <cac:AdditionalDocumentReference>, and before the digital
+    signature is applied.
+    """
+    try:
+        include_po_no = frappe.db.get_value(
+            "Company", sales_invoice_doc.company, "custom_include_po_no"
+        )
+        if not include_po_no:
+            return invoice
+
+        po_no = (getattr(sales_invoice_doc, "po_no", None) or "").strip()
+        if not po_no:
+            return invoice
+
+        if not (len(po_no) == 12 and po_no.isdigit()):
+            frappe.throw(
+                _(
+                    "Customer's Purchase Order No (PO No) on Sales Invoice {0} must be "
+                    "exactly 12 numeric digits (no letters or special characters) to be "
+                    "embedded in the ZATCA e-invoice as <cac:OrderReference>. "
+                    "Current value: {1}"
+                ).format(sales_invoice_doc.name, po_no)
+            )
+
+        cac_orderreference = ET.SubElement(invoice, "cac:OrderReference")
+        cbc_orderref_id = ET.SubElement(cac_orderreference, CBC_ID)
+        cbc_orderref_id.text = po_no
+        cbc_salesorderid = ET.SubElement(cac_orderreference, "cbc:SalesOrderID")
+        cbc_salesorderid.text = po_no
+
+        return invoice
+    except (ET.ParseError, AttributeError, ValueError) as e:
+        frappe.throw(_(f"Error occurred while adding OrderReference (PO No): {e}"))
+        return None
+
+
 def doc_reference(invoice, sales_invoice_doc):
     """
     Adds document reference elements to the XML invoice,
@@ -351,6 +411,9 @@ def doc_reference(invoice, sales_invoice_doc):
         cbc_documentcurrencycode.text = sales_invoice_doc.currency
         cbc_taxcurrencycode = ET.SubElement(invoice, "cbc:TaxCurrencyCode")
         cbc_taxcurrencycode.text = "SAR"  # SAR is as zatca requires tax amount in SAR
+
+        invoice = order_reference(invoice, sales_invoice_doc)
+
         if sales_invoice_doc.is_return == 1 or sales_invoice_doc.is_debit_note:
             invoice = billing_reference_for_credit_and_debit_note(invoice, sales_invoice_doc)
 
@@ -376,6 +439,8 @@ def doc_reference_compliance(invoice, sales_invoice_doc, compliance_type):
         cbc_documentcurrencycode.text = sales_invoice_doc.currency
         cbc_taxcurrencycode = ET.SubElement(invoice, "cbc:TaxCurrencyCode")
         cbc_taxcurrencycode.text = sales_invoice_doc.currency
+
+        invoice = order_reference(invoice, sales_invoice_doc)
 
         if compliance_type in {"3", "4", "5", "6"}:
             cac_billingreference = ET.SubElement(invoice, "cac:BillingReference")

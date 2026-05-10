@@ -176,6 +176,7 @@ fixtures = [
                     "Bank Account-custom_account_name_in_arabic",
                     # Tax account
                     "Account-custom_tax_type",
+                    "Company-custom_include_po_no",
                 ],
             ]
         ],
