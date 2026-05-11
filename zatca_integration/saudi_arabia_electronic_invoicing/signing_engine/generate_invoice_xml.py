@@ -379,15 +379,15 @@ def order_reference(invoice, sales_invoice_doc):
         if not po_no:
             return invoice
 
-        if not (len(po_no) == 12 and po_no.isdigit()):
-            frappe.throw(
-                _(
-                    "Customer's Purchase Order No (PO No) on Sales Invoice {0} must be "
-                    "exactly 12 numeric digits (no letters or special characters) to be "
-                    "embedded in the ZATCA e-invoice as <cac:OrderReference>. "
-                    "Current value: {1}"
-                ).format(sales_invoice_doc.name, po_no)
-            )
+        # if not (len(po_no) == 12 and po_no.isdigit()):
+        #     frappe.throw(
+        #         _(
+        #             "Customer's Purchase Order No (PO No) on Sales Invoice {0} must be "
+        #             "exactly 12 numeric digits (no letters or special characters) to be "
+        #             "embedded in the ZATCA e-invoice as <cac:OrderReference>. "
+        #             "Current value: {1}"
+        #         ).format(sales_invoice_doc.name, po_no)
+        #     )
 
         cac_orderreference = ET.SubElement(invoice, "cac:OrderReference")
         cbc_orderref_id = ET.SubElement(cac_orderreference, CBC_ID)
