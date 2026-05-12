@@ -1,6 +1,7 @@
 # custom_app/overrides/customer.py
 
 import frappe
+from frappe import _
 
 from erpnext.selling.doctype.customer.customer import Customer
 # from erpnext.selling.doctype.customer.customer import make_address
@@ -49,6 +50,10 @@ def make_address(args, is_primary_address=1, is_shipping_address=1):
 			"state": args.get("state"),
 			"pincode": args.get("pincode"),
             "county": args.get("county"), # new field
+			"custom_street_in_arabic": args.get("custom_street_arabic"), # new field
+			"custom_district_in_arabic": args.get("custom_district_arabic"), # new field
+			"custom_city_in_arabic": args.get("custom_city_arabic"), # new field
+			"custom_country_in_arabic": args.get("custom_country_arabic"), # new field
 			"country": args.get("country"),
 			"is_primary_address": is_primary_address,
 			"is_shipping_address": is_shipping_address,
