@@ -11,7 +11,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/zatca_integration/css/zatca_integration.css"
-# app_include_js = "/assets/zatca_integration/js/zatca_integration.js"
+app_include_js = "/assets/zatca_integration/js/customer_address.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/zatca_integration/css/zatca_integration.css"
@@ -168,6 +168,14 @@ fixtures = [
                     "Bank Account-custom_account_name_in_arabic",
                     # Tax account
                     "Account-custom_tax_type",
+                    "Customer-customer_name_in_arabic",
+                    "Supplier-custom_supplier_name_in_arabic",
+                    "Item-custom_item_name_in_arabic",
+                    "Address-custom_street_in_arabic",
+                    "Address-custom_district_in_arabic",
+                    "Address-custom_city_in_arabic",
+                    "Address-custom_country_in_arabic"
+
                 ],
             ]
         ],
@@ -286,6 +294,7 @@ after_app_install = "zatca_integration.saudi_arabia_electronic_invoicing.phase_o
 
 override_doctype_class = {
     "Sales Invoice": "zatca_integration.overrides.sales_invoice.CustomSalesInvoice",
+    "Customer" : "zatca_integration.overrides.customer.CustomCustomer"
 }
 
 # Document Events
