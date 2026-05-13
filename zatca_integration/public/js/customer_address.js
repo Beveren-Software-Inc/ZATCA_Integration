@@ -22,26 +22,6 @@ frappe.ui.form.CustomerQuickEntryForm = class CustomerQuickEntryForm extends (
 			f => f.fieldname === "country_address"
 		);
 
-		// Make existing fields mandatory
-		// [
-		// 	"address_line1",
-		// 	"address_line2",
-		// 	"city",
-		// 	// "state",
-		// 	"country_address",
-		// 	"pincode"
-		// ].forEach(fieldname => {
-
-		// 	let field = variant_fields.find(
-		// 		f => f.fieldname === fieldname
-		// 	);
-
-		// 	if (field) {
-		// 		field.reqd = 1;
-		// 		delete field.mandatory_depends_on;
-		// 	}
-		// });
-
 		// Change label
 		let city_field = variant_fields.find(
 			f => f.fieldname === "city"
@@ -93,7 +73,8 @@ frappe.ui.form.CustomerQuickEntryForm = class CustomerQuickEntryForm extends (
 		}
 
 		if (country_field) {
-			delete country_field.mandatory_depends_on;
+			// delete country_field.mandatory_depends_on;
+			country_field.mandatory_depends_on= "eval:doc.country_address || doc.city || doc.address_line1 || doc.address_line2 || doc.pincode || doc.county";
 			country_field.hidden = 1;
 			country_field.reqd = 0;
 		}
