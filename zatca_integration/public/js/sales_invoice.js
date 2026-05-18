@@ -63,16 +63,7 @@ frappe.ui.form.on('Sales Invoice', {
 },
 
     validate: frm => {
-        if (frm.is_new() && frm.doc.custom_retention_account && frm.doc.custom_retention_amount) {
-            frm.set_value(
-                'grand_total',
-                (frm.doc.net_total + frm.doc.total_taxes_and_charges - frm.doc.custom_retention_amount)            );
-            frm.refresh_field('grand_total');
-            console.log('Retention amount deducted from grand total');
-        }
         create_missing_cn_reference(frm);
-
-
     },
 
 
@@ -106,12 +97,9 @@ frappe.ui.form.on('Sales Invoice', {
     custom_retention_amount: function(frm) {
         if (!frm.doc.custom_retention_account) {
             frappe.throw(__("Please select a Retention Account"));
-        }else {
+        } else {
             let percentage = (frm.doc.custom_retention_amount / frm.doc.net_total) * 100;
             frm.set_value('custom_retention_percentage', percentage);
-            // Update the grand total
-            frm.set_value('grand_total', (frm.doc.net_total + frm.doc.total_taxes_and_charges - frm.doc.custom_retention_amount));
-            frm.refresh_field('grand_total');
         }
     },
     custom_generate_pdf3a_through: function(frm) {
@@ -125,10 +113,6 @@ frappe.ui.form.on('Sales Invoice', {
 
         frm.set_value('custom_retention_amount', retention);
         frm.refresh_field('custom_retention_amount');
-
-        // Update the grand total
-        frm.set_value('grand_total', (frm.doc.net_total + frm.doc.total_taxes_and_charges - retention));
-        frm.refresh_field('grand_total');
     },
     set_custom_payment_method: frm => {
         //check the frm is submitted or not
