@@ -19,6 +19,7 @@ from zatca_integration.common_util import (
     generate_invoice_hash,
     get_buyer_information,
     get_seller_information,
+    get_zatca_invoice_transaction_code,
 )
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import (  # noqa: E501
     process_invoice_for_zatca_submission,
@@ -320,13 +321,7 @@ def _prepare_invoice_data(doc, config):
     """Prepare invoice data for submission"""
     customer = frappe.get_doc("Customer", doc.customer)
     customer_type = customer.customer_type
-
-    if customer_type == "Company":
-        invoice_type = "0100000"
-    elif customer_type == "Individual":
-        invoice_type = "0200000"
-    else:
-        frappe.throw("Customer Type is not Supported")
+    invoice_type = get_zatca_invoice_transaction_code(doc)
 
     # Get seller and buyer information
     seller = get_seller_information(config["compliance_csr"])
