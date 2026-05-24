@@ -10,9 +10,7 @@ from frappe.utils.data import get_time
 
 from zatca_integration.common_util import (
     generate_invoice_hash,
-    get_buyer_party_identification,
     get_registration_scheme_code,
-    get_zatca_invoice_transaction_code,
     validate_company_buyer_identification,
 )
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
@@ -314,7 +312,13 @@ def invoice_typecode_simplified(invoice, sales_invoice_doc):
 
 
 def get_invoice_type_code(invoice):
-    return get_zatca_invoice_transaction_code(invoice)
+    customer = frappe.get_doc("Customer", invoice.customer)
+    customer_type = customer.customer_type
+    if customer_type == "Company":
+        return "0100000"
+    if customer_type == "Individual":
+        return "0200000"
+    frappe.throw("Customer Type is not Supported")
 
 
 def invoice_typecode_standard(invoice, sales_invoice_doc):
@@ -621,16 +625,18 @@ def customer_data(invoice, sales_invoice_doc):
     """
     Add customer data (address, registration, tax info) to the XML invoice.
     Skips <PartyIdentification> if registration scheme or number is missing.
-    BT-46 (buyer ID) is required by BR-KSA-81 when BT-48 (buyer VAT) is absent on standard invoices.
+    Non-KSA buyers may omit VAT and registration (ZATCA export rules, Annex 5.3–5.4).
     """
     try:
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
         vat_registration_validator(customer_doc)
-        scheme_code, customer_registration_number = get_buyer_party_identification(customer_doc)
+        scheme_code = get_registration_scheme_code(customer_doc.custom_registration_scheme) or ""
+        customer_registration_number = customer_doc.custom_registration_number or ""
 
         cac_accountingcustomerparty = ET.SubElement(invoice, "cac:AccountingCustomerParty")
         cac_party_2 = ET.SubElement(cac_accountingcustomerparty, "cac:Party")
 
+        # Only add PartyIdentification if both scheme_code and registration_number are present
         if scheme_code and customer_registration_number:
             cac_partyidentification_1 = ET.SubElement(cac_party_2, "cac:PartyIdentification")
             cbc_id_4 = ET.SubElement(cac_partyidentification_1, CBC_ID)

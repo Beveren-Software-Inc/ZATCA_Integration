@@ -1,6 +1,5 @@
 import base64
 import hashlib
-import re
 import xml.etree.ElementTree as ET
 
 import frappe
@@ -36,97 +35,13 @@ def is_foreign_customer(customer):
     return bool(country) and country != "Saudi Arabia"
 
 
-def _sanitize_party_identification(value):
-    """BR-KSA-14: buyer/seller ID must be alphanumeric."""
-    return re.sub(r"[^A-Za-z0-9]", "", value or "")
-
-
-def _is_export_supply_invoice(invoice):
-    if not invoice.get("taxes_and_charges"):
-        return False
-    template = frappe.get_cached_doc("Sales Taxes and Charges Template", invoice.taxes_and_charges)
-    if template.get("custom_tax_type") != "Zero Rate":
-        return False
-    reason = template.get("custom_zero_rate_reason") or ""
-    export_codes = (
-        "VATEX-SA-32",
-        "VATEX-SA-33",
-        "VATEX-SA-34-1",
-        "VATEX-SA-34-2",
-        "VATEX-SA-34-3",
-        "VATEX-SA-34-4",
-        "VATEX-SA-34-5",
-    )
-    return any(code in reason for code in export_codes)
-
-
-def get_zatca_invoice_transaction_code(invoice):
-    """
-    KSA-2 invoice transaction code (NNPNESB).
-    Sets export flag (position 5) for non-KSA buyers or export zero-rated supplies.
-    """
-    customer = frappe.get_doc("Customer", invoice.customer)
-    if customer.customer_type == "Company":
-        code = list("0100000")
-    elif customer.customer_type == "Individual":
-        code = list("0200000")
-    else:
-        frappe.throw("Customer Type is not Supported")
-
-    if is_foreign_customer(customer) or _is_export_supply_invoice(invoice):
-        code[4] = "1"
-
-    return "".join(code)
-
-
-def get_buyer_party_identification(customer):
-    """
-    BT-46 PartyIdentification for the buyer when BT-48 (buyer VAT) is not in the XML.
-    BR-KSA-81 requires BT-46 on standard tax invoices (subtype 01) without BT-48.
-    Foreign buyers without a Saudi scheme should use OTH with a verifiable company ID.
-    """
-    if customer.customer_type != "Company":
-        return "", ""
-
-    if customer.custom_vat_number and not is_foreign_customer(customer):
-        return "", ""
-
-    scheme_code = ""
-    if customer.custom_registration_scheme:
-        scheme_code = get_registration_scheme_code(customer.custom_registration_scheme)
-
-    reg_number = _sanitize_party_identification(customer.custom_registration_number)
-    tax_id = _sanitize_party_identification(customer.get("tax_id"))
-
-    if scheme_code and reg_number:
-        return scheme_code, reg_number
-    if reg_number:
-        return "OTH", reg_number
-    if tax_id:
-        return "OTH", tax_id
-
-    return "", ""
-
-
 def validate_company_buyer_identification(customer):
     """
     ZATCA E-Invoicing Resolution Annex 5.3–5.4:
-    - Export (non-KSA buyer): buyer VAT and additional buyer ID are not mandatory in ERPNext.
+    - Export (non-KSA buyer): buyer VAT and additional buyer ID are not mandatory.
     - Saudi B2B: buyer VAT if applicable, or registration scheme + number if not VAT-registered.
-    BR-KSA-81: ZATCA still warns on clearance if BT-46 is missing when BT-48 is absent.
     """
-    if customer.customer_type != "Company":
-        return
-
-    if is_foreign_customer(customer):
-        _, party_id = get_buyer_party_identification(customer)
-        if not party_id:
-            frappe.msgprint(
-                "ZATCA warning BR-KSA-81: add the foreign company's registration "
-                "number on the Customer (scheme Other OD is used automatically), "
-                "or set Tax ID.",
-                indicator="orange",
-            )
+    if customer.customer_type != "Company" or is_foreign_customer(customer):
         return
 
     has_vat = bool(customer.custom_vat_number or customer.get("tax_id"))
@@ -150,7 +65,6 @@ def get_buyer_information(customer_name):
             frappe.throw("Customer must have a primary address")
 
         validate_company_buyer_identification(customer)
-        buyer_scheme, buyer_number = get_buyer_party_identification(customer)
 
         # ZATCA Address Validation
         # Address Line 1 is required
@@ -189,8 +103,12 @@ def get_buyer_information(customer_name):
         return {
             "organizationName": customer.customer_name,
             "vatNumber": customer.custom_vat_number,
-            "registrationScheme": buyer_scheme,
-            "registrationNumber": buyer_number,
+            "registrationScheme": (
+                get_registration_scheme_code(customer.custom_registration_scheme)
+                if customer.custom_registration_scheme
+                else ""
+            ),
+            "registrationNumber": customer.custom_registration_number or "",
             "streetName": address.address_line1,
             "buildingNumber": address.address_line2,
             "citySubdivisionName": address.city,
