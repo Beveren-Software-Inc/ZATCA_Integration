@@ -25,6 +25,36 @@ def decode_invoice(encoded_invoice):
     return decoded_string
 
 
+def is_foreign_customer(customer):
+    """Buyer outside KSA. ZATCA does not require buyer VAT or additional ID on export invoices."""
+    country = (
+        customer.get("custom_country")
+        if isinstance(customer, dict)
+        else getattr(customer, "custom_country", None)
+    )
+    return bool(country) and country != "Saudi Arabia"
+
+
+def validate_company_buyer_identification(customer):
+    """
+    ZATCA E-Invoicing Resolution Annex 5.3–5.4:
+    - Export (non-KSA buyer): buyer VAT and additional buyer ID are not mandatory.
+    - Saudi B2B: buyer VAT if applicable, or registration scheme + number if not VAT-registered.
+    """
+    if customer.customer_type != "Company" or is_foreign_customer(customer):
+        return
+
+    has_vat = bool(customer.custom_vat_number or customer.get("tax_id"))
+    has_registration = bool(
+        customer.custom_registration_scheme and customer.custom_registration_number
+    )
+    if not (has_vat or has_registration):
+        frappe.throw(
+            "Saudi company customers must have a VAT Number or both "
+            "Registration Scheme and Registration Number."
+        )
+
+
 def get_buyer_information(customer_name):
     customer = frappe.get_doc("Customer", customer_name)
     country_code = get_country_code(customer.custom_country)
@@ -34,17 +64,7 @@ def get_buyer_information(customer_name):
         if not address:
             frappe.throw("Customer must have a primary address")
 
-        # Either VAT or Registration Scheme and Registration Number are required
-        if not customer.custom_vat_number and not customer.custom_registration_scheme:
-            frappe.throw(
-                "Either VAT Number or Registration Scheme and Registration Number "
-                "are required for Company"
-            )
-        if not customer.custom_vat_number and not customer.custom_registration_number:
-            frappe.throw(
-                "Either VAT Number or Registration Scheme and Registration Number "
-                "are required for Company "
-            )
+        validate_company_buyer_identification(customer)
 
         # ZATCA Address Validation
         # Address Line 1 is required
@@ -55,7 +75,7 @@ def get_buyer_information(customer_name):
         # Building Number must be 4 digits if country_code is SA
         if not address.address_line2:
             frappe.throw("Building Number is required for Company type customer")
-        if country_code == "sa" and len(address.address_line2) != 4:
+        if country_code == "SA" and len(address.address_line2) != 4:
             frappe.throw(
                 "Building Number must be 4 digits for Company type customer in Saudi Arabia"
             )
@@ -83,8 +103,12 @@ def get_buyer_information(customer_name):
         return {
             "organizationName": customer.customer_name,
             "vatNumber": customer.custom_vat_number,
-            "registrationScheme": get_registration_scheme_code(customer.custom_registration_scheme),
-            "registrationNumber": customer.custom_registration_number,
+            "registrationScheme": (
+                get_registration_scheme_code(customer.custom_registration_scheme)
+                if customer.custom_registration_scheme
+                else ""
+            ),
+            "registrationNumber": customer.custom_registration_number or "",
             "streetName": address.address_line1,
             "buildingNumber": address.address_line2,
             "citySubdivisionName": address.city,
