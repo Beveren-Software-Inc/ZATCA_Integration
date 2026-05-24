@@ -90,16 +90,33 @@ frappe.ui.form.on('Sales Invoice', {
         if (!frm.doc.custom_retention_account) {
             frappe.throw(__("Please select a Retention Account"));
         }
-        if ( frm.doc.custom_retention_account && frm.doc.custom_retention_percentage) {
+        if (frm.doc.custom_retention_account && frm.doc.custom_retention_percentage) {
             frm.trigger('set_retention_amount');
         }
     },
     custom_retention_amount: function(frm) {
+        if (frm._updating_retention) {
+            return;
+        }
         if (!frm.doc.custom_retention_account) {
             frappe.throw(__("Please select a Retention Account"));
-        } else {
-            let percentage = (frm.doc.custom_retention_amount / frm.doc.net_total) * 100;
-            frm.set_value('custom_retention_percentage', percentage);
+        }
+        if (!frm.doc.net_total) {
+            return;
+        }
+        let percentage = (frm.doc.custom_retention_amount / frm.doc.net_total) * 100;
+        frm.set_value('custom_retention_percentage', percentage);
+    },
+    calculate: function(frm) {
+        // Recalculate retention when items/taxes change net total (percentage-based retention).
+        frm.trigger('sync_retention_amount');
+    },
+    sync_retention_amount: function(frm) {
+        if (
+            frm.doc.custom_retention_account &&
+            frm.doc.custom_retention_percentage
+        ) {
+            frm.trigger('set_retention_amount');
         }
     },
     custom_generate_pdf3a_through: function(frm) {
@@ -107,12 +124,28 @@ frappe.ui.form.on('Sales Invoice', {
         frm.refresh();
     },
     set_retention_amount: frm => {
-        let retention = frm.doc.custom_retention_percentage
-            ? (frm.doc.net_total * frm.doc.custom_retention_percentage / 100)
-            : frm.doc.custom_retention_amount;
+        if (!frm.doc.custom_retention_account) {
+            return;
+        }
 
+        let retention;
+        if (frm.doc.custom_retention_percentage) {
+            retention = (flt(frm.doc.net_total) * flt(frm.doc.custom_retention_percentage)) / 100;
+        } else if (frm.doc.custom_retention_amount) {
+            retention = frm.doc.custom_retention_amount;
+        } else {
+            return;
+        }
+
+        frm._updating_retention = true;
         frm.set_value('custom_retention_amount', retention);
-        frm.refresh_field('custom_retention_amount');
+        if (frm.doc.conversion_rate) {
+            frm.set_value(
+                'custom_base_retention_amount',
+                flt(retention) * flt(frm.doc.conversion_rate)
+            );
+        }
+        frm._updating_retention = false;
     },
     set_custom_payment_method: frm => {
         //check the frm is submitted or not

@@ -29,6 +29,19 @@ def update_delivery_date(delivery_note):
     return delivery_date
 
 
+def sync_retention_from_percentage(doc, method=None):
+    """Keep retention amount in sync when net total changes but percentage is set."""
+    if not doc.custom_retention_account or not flt(doc.custom_retention_percentage):
+        return
+    if not flt(doc.net_total):
+        return
+
+    doc.custom_retention_amount = flt(
+        flt(doc.net_total) * flt(doc.custom_retention_percentage) / 100,
+        doc.precision("custom_retention_amount"),
+    )
+
+
 def set_base_retention_amount(doc, method):
     if not doc.custom_retention_amount:
         return

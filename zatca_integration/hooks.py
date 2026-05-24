@@ -305,6 +305,7 @@ doc_events = {
         "validate": [
             "zatca_integration.common_util.validate_pos_invoice",
             # "zatca_integration.common_util.update_delivery_date",
+            "zatca_integration.customization.sales_invoice.sales_invoice.sync_retention_from_percentage",
             "zatca_integration.customization.sales_invoice.sales_invoice.set_base_retention_amount",
             "zatca_integration.customization.sales_invoice.sales_invoice.adjust_outstanding_for_retention",
         ],
