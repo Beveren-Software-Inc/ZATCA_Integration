@@ -340,8 +340,10 @@ doc_events = {
 # }
 # }
 
-# TODO: Uncomment when going to simulation or production
 scheduler_events = {
+    "hourly": [
+        "zatca_integration.saudi_arabia_electronic_invoicing.background_task.send_multiple_signed_compliance_invoices_to_zatca",  # noqa: E501
+    ],
     "weekly": [
         "zatca_integration.saudi_arabia_electronic_invoicing.background_task.notify_expiring_csids",  # noqa: E501
     ],
