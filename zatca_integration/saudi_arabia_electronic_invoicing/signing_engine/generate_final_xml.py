@@ -228,6 +228,99 @@ def add_line_item_discount(cac_price, single_item, sales_invoice_doc):
         return None
 
 
+def _quantize_money(value):
+    return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _get_item_unit_net_rate(item, included, tax_rate):
+    rate_to_use = flt(item.rate)
+    if included:
+        rate_to_use = rate_to_use / (1 + flt(tax_rate) / 100)
+    return abs(rate_to_use)
+
+
+def _compute_zatca_line_amounts(qty, unit_net_rate):
+    """BT-131 = BT-129 * (BT-146 / BT-149) with BT-149 fixed to 1."""
+    quantity = _quantize_money(abs(qty))
+    unit_price = _quantize_money(unit_net_rate)
+    line_extension = (quantity * unit_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return quantity, unit_price, line_extension
+
+
+def _get_expected_line_extension_total(sales_invoice_doc, included):
+    if sales_invoice_doc.currency == "SAR":
+        amount = sales_invoice_doc.base_net_total if not included else sales_invoice_doc.net_total
+    else:
+        amount = sales_invoice_doc.net_total if not included else sales_invoice_doc.total
+    return _quantize_money(abs(amount))
+
+
+def _line_item_tax_amount(line_extension, tax_rate, included):
+    line_extension = Decimal(str(line_extension))
+    tax_rate = Decimal(str(tax_rate))
+    if included:
+        tax_amount = line_extension * tax_rate / (Decimal("100") + tax_rate)
+    else:
+        tax_amount = line_extension * tax_rate / Decimal("100")
+    return abs(tax_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def _reconcile_line_extension_entries(line_entries, expected_total):
+    """
+    Keep BR-KSA-EN16931-11 per line (qty * unit price) and match ERPNext net total
+    by absorbing rounding difference on a qty=1 line when possible.
+    """
+    if not line_entries:
+        return
+
+    current_total = sum(entry["line_extension"] for entry in line_entries)
+    difference = expected_total - current_total
+    if difference == 0:
+        return
+
+    adjust_idx = next(
+        (i for i in range(len(line_entries) - 1, -1, -1) if line_entries[i]["quantity"] == 1),
+        len(line_entries) - 1,
+    )
+    entry = line_entries[adjust_idx]
+    target_line_extension = (entry["line_extension"] + difference).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+
+    if entry["quantity"] == 1:
+        entry["unit_price"] = target_line_extension
+        entry["line_extension"] = target_line_extension
+        return
+
+    entry["unit_price"] = (target_line_extension / entry["quantity"]).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    entry["line_extension"] = (entry["quantity"] * entry["unit_price"]).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+
+    remaining = expected_total - sum(e["line_extension"] for e in line_entries)
+    if remaining == 0 or entry["quantity"] != 1:
+        return
+
+    entry["unit_price"] = (entry["line_extension"] + remaining).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    entry["line_extension"] = entry["unit_price"]
+
+
+def _apply_line_entry_to_xml(entry, currency, tax_rate, included):
+    entry["line_ext_elem"].text = f"{entry['line_extension']:.2f}"
+    entry["price_elem"].text = f"{entry['unit_price']:.2f}"
+
+    tax_amount = _line_item_tax_amount(entry["line_extension"], tax_rate, included)
+    entry["tax_amount_elem"].text = f"{tax_amount:.2f}"
+    line_total = (entry["line_extension"] + tax_amount).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    entry["rounding_elem"].text = f"{line_total:.2f}"
+
+
 def item_data(invoice, sales_invoice_doc):
     """
     Create UBL-compliant item-level XML lines without using Item Tax Template.
@@ -235,59 +328,36 @@ def item_data(invoice, sales_invoice_doc):
     """
     try:
         tax_details = get_zatca_tax_category_details(sales_invoice_doc)
-        _rate = Decimal(str(tax_details["rate"]))
         code = tax_details["code"]
+        tax_rate = Decimal(str(sales_invoice_doc.taxes[0].rate))
+        included = sales_invoice_doc.taxes[0].included_in_print_rate
+        line_entries = []
 
         for item in sales_invoice_doc.items:
-            tax_rate = Decimal(str(sales_invoice_doc.taxes[0].rate))
-            included = sales_invoice_doc.taxes[0].included_in_print_rate
+            unit_net_rate = _get_item_unit_net_rate(item, included, tax_rate)
+            quantity, unit_price, line_extension = _compute_zatca_line_amounts(item.qty, unit_net_rate)
 
             cac_invoiceline = ET.SubElement(invoice, "cac:InvoiceLine")
 
-            # ID and Quantity
             ET.SubElement(cac_invoiceline, "cbc:ID").text = str(item.idx)
             invoiced_quantity = ET.SubElement(cac_invoiceline, "cbc:InvoicedQuantity")
             invoiced_quantity.set("unitCode", str(item.uom))
             invoiced_quantity.text = str(abs(item.qty))
 
-            # Line Extension Amount
             line_ext_amt = ET.SubElement(cac_invoiceline, "cbc:LineExtensionAmount")
             line_ext_amt.set("currencyID", sales_invoice_doc.currency)
-            if included:
-                base = item.base_amount if sales_invoice_doc.currency == "SAR" else item.amount
-                line_ext_amt.text = str(round(abs(base / (1 + float(tax_rate) / 100)), 2))
-            else:
-                base = item.base_amount if sales_invoice_doc.currency == "SAR" else item.amount
-                line_ext_amt.text = str(abs(base))
 
-            # Tax Total per Item
             cac_taxtotal = ET.SubElement(cac_invoiceline, "cac:TaxTotal")
             tax_amount_elem = ET.SubElement(cac_taxtotal, "cbc:TaxAmount")
             tax_amount_elem.set("currencyID", sales_invoice_doc.currency)
 
-            item_base_amount = Decimal(str(item.base_amount))
-            item_amount = Decimal(str(item.amount))
-
-            if included:
-                tax_amount = item_base_amount * tax_rate / (Decimal("100") + tax_rate)
-            else:
-                tax_amount = item_amount * tax_rate / Decimal("100")
-
-            tax_amount_elem.text = str(
-                abs(Decimal(tax_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
-            )
-
-            # Optional Rounding Amount
             rounding = ET.SubElement(cac_taxtotal, "cbc:RoundingAmount")
             rounding.set("currencyID", sales_invoice_doc.currency)
-            rounding.text = str(round(float(line_ext_amt.text) + float(tax_amount_elem.text), 2))
 
-            # Item Info
             cac_item = ET.SubElement(cac_invoiceline, "cac:Item")
             name = ET.SubElement(cac_item, "cbc:Name")
             name.text = f"{item.item_code}:{item.item_name}"
 
-            # Classified Tax Category
             classified = ET.SubElement(cac_item, "cac:ClassifiedTaxCategory")
             ET.SubElement(classified, "cbc:ID").text = code
             ET.SubElement(classified, "cbc:Percent").text = f"{float(tax_rate):.2f}"
@@ -301,65 +371,38 @@ def item_data(invoice, sales_invoice_doc):
             tax_scheme = ET.SubElement(classified, "cac:TaxScheme")
             ET.SubElement(tax_scheme, "cbc:ID").text = "VAT"
 
-            # Price
             cac_price = ET.SubElement(cac_invoiceline, "cac:Price")
             price_amt = ET.SubElement(cac_price, "cbc:PriceAmount")
             price_amt.set("currencyID", sales_invoice_doc.currency)
 
-            # Handle price according to nominal flag and included_in_print_rate
-            rate_to_use = item.rate
-            if included:
-                rate_to_use = item.rate / (1 + float(tax_rate) / 100)
-
-            price_amt.text = str(round(abs(rate_to_use), 2))
-
             base_quantity = ET.SubElement(cac_price, "cbc:BaseQuantity", unitCode=str(item.uom))
             base_quantity.text = "1"
-        # I just added this
-        # invoice = adjust_line_extension_totals(invoice, sales_invoice_doc)
+
+            line_entries.append(
+                {
+                    "quantity": quantity,
+                    "unit_price": unit_price,
+                    "line_extension": line_extension,
+                    "line_ext_elem": line_ext_amt,
+                    "price_elem": price_amt,
+                    "tax_amount_elem": tax_amount_elem,
+                    "rounding_elem": rounding,
+                }
+            )
+
+        expected_total = _get_expected_line_extension_total(sales_invoice_doc, included)
+        _reconcile_line_extension_entries(line_entries, expected_total)
+
+        for entry in line_entries:
+            _apply_line_entry_to_xml(
+                entry, sales_invoice_doc.currency, tax_rate, included
+            )
+
         return invoice
 
     except Exception as e:
         frappe.throw(_("Error occurred in item data processing: {0}").format(str(e)))
         return None
-
-
-def adjust_line_extension_totals(invoice, sales_invoice_doc):
-    """
-    Adjust last item's LineExtensionAmount so the total matches ERPNext calculated total.
-    """
-    included = sales_invoice_doc.taxes[0].included_in_print_rate
-
-    # The expected total based on ERPNext doc
-    expected_total = round(
-        abs(sales_invoice_doc.total if included == 0 else sales_invoice_doc.base_net_total), 2
-    )
-
-    # Find all line extension amounts from XML using iter()
-    line_ext_elems = []
-    for elem in invoice.iter():
-        if elem.tag == "cbc:LineExtensionAmount":
-            line_ext_elems.append(elem)
-
-    if not line_ext_elems:
-        frappe.throw("No LineExtensionAmount elements found")
-        return invoice
-
-    # Calculate current total
-    current_total = round(sum(float(el.text) for el in line_ext_elems), 2)
-
-    # If totals differ, adjust the last item's amount
-    difference = round(expected_total - current_total, 2)
-
-    # Remove this debug line once working:
-    frappe.throw(f"Expected: {expected_total}, Current: {current_total}, Difference: {difference}")
-
-    if difference != 0:
-        last_elem = line_ext_elems[-1]
-        last_value = round(float(last_elem.text) + difference, 2)
-        last_elem.text = str(last_value)
-
-    return invoice
 
 
 # --- Helper Function ---

@@ -15,7 +15,6 @@ class CustomSalesInvoice(SalesInvoice):
         gl_entries = []
 
         self.make_retention_gl_entry(gl_entries)
-
         self.make_customer_gl_entry(gl_entries)
 
         self.make_tax_gl_entries(gl_entries)
@@ -67,6 +66,59 @@ class CustomSalesInvoice(SalesInvoice):
                         "debit_in_account_currency": self.custom_base_retention_amount
                         if self.party_account_currency == self.company_currency
                         else self.custom_retention_amount,
+                        "against_voucher": against_voucher,
+                        "against_voucher_type": self.doctype,
+                        "cost_center": self.cost_center,
+                        "project": self.project,
+                    },
+                    self.party_account_currency,
+                    item=self,
+                )
+            )
+
+    def make_customer_gl_entry(self, gl_entries):
+        grand_total = (
+            self.rounded_total
+            if (self.rounding_adjustment and self.rounded_total)
+            else self.grand_total
+        )
+        base_grand_total = flt(
+            self.base_rounded_total
+            if (self.base_rounding_adjustment and self.base_rounded_total)
+            else self.base_grand_total,
+            self.precision("base_grand_total"),
+        )
+
+        if self.custom_retention_account and self.custom_retention_amount:
+            retention = flt(self.custom_retention_amount)
+            base_retention = flt(
+                self.custom_base_retention_amount
+                if self.custom_base_retention_amount
+                else retention * flt(self.conversion_rate)
+            )
+            grand_total = flt(grand_total - retention, self.precision("grand_total"))
+            base_grand_total = flt(
+                base_grand_total - base_retention, self.precision("base_grand_total")
+            )
+
+        if grand_total and not self.is_internal_transfer():
+            against_voucher = self.name
+            if self.is_return and self.return_against and not self.update_outstanding_for_self:
+                against_voucher = self.return_against
+
+            gl_entries.append(
+                self.get_gl_dict(
+                    {
+                        "account": self.debit_to,
+                        "party_type": "Customer",
+                        "party": self.customer,
+                        "due_date": self.due_date,
+                        "against": self.against_income_account,
+                        "debit": base_grand_total,
+                        "debit_in_account_currency": base_grand_total
+                        if self.party_account_currency == self.company_currency
+                        else grand_total,
+                        "debit_in_transaction_currency": grand_total,
                         "against_voucher": against_voucher,
                         "against_voucher_type": self.doctype,
                         "cost_center": self.cost_center,

@@ -305,8 +305,9 @@ doc_events = {
         "validate": [
             "zatca_integration.common_util.validate_pos_invoice",
             # "zatca_integration.common_util.update_delivery_date",
+            "zatca_integration.customization.sales_invoice.sales_invoice.sync_retention_from_percentage",
             "zatca_integration.customization.sales_invoice.sales_invoice.set_base_retention_amount",
-            "zatca_integration.customization.sales_invoice.sales_invoice.set_grand_total_with_retention",
+            "zatca_integration.customization.sales_invoice.sales_invoice.adjust_outstanding_for_retention",
         ],
         "before_submit": [
             "zatca_integration.common_util.validate_sales_invoice",
@@ -339,8 +340,10 @@ doc_events = {
 # }
 # }
 
-# TODO: Uncomment when going to simulation or production
 scheduler_events = {
+    "hourly": [
+        "zatca_integration.saudi_arabia_electronic_invoicing.background_task.send_multiple_signed_compliance_invoices_to_zatca",  # noqa: E501
+    ],
     "weekly": [
         "zatca_integration.saudi_arabia_electronic_invoicing.background_task.notify_expiring_csids",  # noqa: E501
     ],

@@ -29,6 +29,19 @@ def update_delivery_date(delivery_note):
     return delivery_date
 
 
+def sync_retention_from_percentage(doc, method=None):
+    """Keep retention amount in sync when net total changes but percentage is set."""
+    if not doc.custom_retention_account or not flt(doc.custom_retention_percentage):
+        return
+    if not flt(doc.net_total):
+        return
+
+    doc.custom_retention_amount = flt(
+        flt(doc.net_total) * flt(doc.custom_retention_percentage) / 100,
+        doc.precision("custom_retention_amount"),
+    )
+
+
 def set_base_retention_amount(doc, method):
     if not doc.custom_retention_amount:
         return
@@ -37,85 +50,17 @@ def set_base_retention_amount(doc, method):
     doc.custom_base_retention_amount = doc.conversion_rate * doc.custom_retention_amount
 
 
-def set_grand_total_with_retention(doc, method):
-    from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals
-
-    if not doc.doctype == "Sales Invoice":
+def adjust_outstanding_for_retention(doc, method):
+    """Reduce outstanding by retention while keeping grand_total full for ZATCA."""
+    if doc.doctype != "Sales Invoice":
         return
     if not doc.custom_retention_account or not doc.custom_retention_amount:
         return
 
-    # Monkey Patch calculate_totals method
-    calculate_taxes_and_totals.calculate_totals = custom_calculate_totals
-
-
-def custom_calculate_totals(self):
-    if self.doc.get("taxes"):
-        self.doc.grand_total = flt(self.doc.get("taxes")[-1].total) + flt(
-            self.doc.get("grand_total_diff")
-        )
-    else:
-        self.doc.grand_total = flt(self.doc.net_total)
-
-    if self.doc.get("taxes"):
-        self.doc.total_taxes_and_charges = flt(
-            self.doc.grand_total - self.doc.net_total - flt(self.doc.get("grand_total_diff")),
-            self.doc.precision("total_taxes_and_charges"),
-        )
-    else:
-        self.doc.total_taxes_and_charges = 0.0
-
-    # Make Grand Total Less Retention
-    if (
-        self.doc.doctype == "Sales Invoice"
-        and self.doc.custom_retention_account
-        and self.doc.custom_retention_amount
-    ):
-        self.doc.grand_total -= self.doc.custom_retention_amount
-
-    self._set_in_company_currency(self.doc, ["total_taxes_and_charges", "rounding_adjustment"])
-
-    if self.doc.doctype in [
-        "Quotation",
-        "Sales Order",
-        "Delivery Note",
-        "Sales Invoice",
-        "POS Invoice",
-    ]:
-        self.doc.base_grand_total = (
-            flt(
-                self.doc.grand_total * self.doc.conversion_rate,
-                self.doc.precision("base_grand_total"),
-            )
-            if self.doc.total_taxes_and_charges
-            else self.doc.base_net_total
-        )
-    else:
-        self.doc.taxes_and_charges_added = self.doc.taxes_and_charges_deducted = 0.0
-        for tax in self.doc.get("taxes"):
-            if tax.category in ["Valuation and Total", "Total"]:
-                if tax.add_deduct_tax == "Add":
-                    self.doc.taxes_and_charges_added += flt(tax.tax_amount_after_discount_amount)
-                else:
-                    self.doc.taxes_and_charges_deducted += flt(tax.tax_amount_after_discount_amount)
-
-        self.doc.round_floats_in(
-            self.doc, ["taxes_and_charges_added", "taxes_and_charges_deducted"]
-        )
-
-        self.doc.base_grand_total = (
-            flt(self.doc.grand_total * self.doc.conversion_rate)
-            if (self.doc.taxes_and_charges_added or self.doc.taxes_and_charges_deducted)
-            else self.doc.base_net_total
-        )
-
-        self._set_in_company_currency(
-            self.doc, ["taxes_and_charges_added", "taxes_and_charges_deducted"]
-        )
-
-    self.doc.round_floats_in(self.doc, ["grand_total", "base_grand_total"])
-
-    self.set_rounded_total()
+    doc.outstanding_amount = flt(
+        doc.outstanding_amount - flt(doc.custom_retention_amount),
+        doc.precision("outstanding_amount"),
+    )
 
 
 @frappe.whitelist()

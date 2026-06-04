@@ -8,7 +8,11 @@ import frappe
 from frappe import _
 from frappe.utils.data import get_time
 
-from zatca_integration.common_util import generate_invoice_hash, get_registration_scheme_code
+from zatca_integration.common_util import (
+    generate_invoice_hash,
+    get_registration_scheme_code,
+    validate_company_buyer_identification,
+)
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
     get_address,
     get_previous_invoice_counter,
@@ -308,17 +312,13 @@ def invoice_typecode_simplified(invoice, sales_invoice_doc):
 
 
 def get_invoice_type_code(invoice):
-    invoice_type = "0"
-    customer = invoice.customer
     customer = frappe.get_doc("Customer", invoice.customer)
     customer_type = customer.customer_type
     if customer_type == "Company":
-        invoice_type = "0100000"
-    elif customer_type == "Individual":
-        invoice_type = "0200000"
-    else:
-        frappe.throw("Customer Type is not Supported")
-    return invoice_type
+        return "0100000"
+    if customer_type == "Individual":
+        return "0200000"
+    frappe.throw("Customer Type is not Supported")
 
 
 def invoice_typecode_standard(invoice, sales_invoice_doc):
@@ -625,6 +625,7 @@ def customer_data(invoice, sales_invoice_doc):
     """
     Add customer data (address, registration, tax info) to the XML invoice.
     Skips <PartyIdentification> if registration scheme or number is missing.
+    Non-KSA buyers may omit VAT and registration (ZATCA export rules, Annex 5.3–5.4).
     """
     try:
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
@@ -731,16 +732,7 @@ def customer_data(invoice, sales_invoice_doc):
 
 
 def vat_registration_validator(doc):
-    if doc.customer_type == "Company":
-        has_vat = bool(doc.get("custom_vat_number") or doc.get("tax_id"))
-        has_registration_number = bool(doc.get("custom_registration_number"))
-
-        if not (has_vat or has_registration_number):
-            frappe.throw(
-                _(
-                    "Customers of type 'Company' must have at least one of: VAT Number or Registration Number."
-                )
-            )
+    validate_company_buyer_identification(doc)
 
 
 def delivery_and_payment_means(invoice, sales_invoice_doc, is_return):
