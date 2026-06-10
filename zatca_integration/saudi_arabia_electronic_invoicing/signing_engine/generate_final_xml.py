@@ -248,8 +248,24 @@ def _compute_zatca_line_amounts(qty, unit_net_rate):
 
 
 def _get_expected_line_extension_total(sales_invoice_doc, included):
+    """BT-106 must equal the sum of BT-131 before document-level allowances (BT-107)."""
+    discount = flt(sales_invoice_doc.get("discount_amount") or 0)
     if sales_invoice_doc.currency == "SAR":
-        amount = sales_invoice_doc.base_net_total if not included else sales_invoice_doc.net_total
+        if discount > 0:
+            amount = (
+                sales_invoice_doc.base_total
+                if not included
+                else flt(sales_invoice_doc.base_net_total)
+                + flt(sales_invoice_doc.base_discount_amount)
+            )
+        else:
+            amount = sales_invoice_doc.base_net_total if not included else sales_invoice_doc.net_total
+    elif discount > 0:
+        amount = (
+            sales_invoice_doc.total
+            if not included
+            else flt(sales_invoice_doc.net_total) + discount
+        )
     else:
         amount = sales_invoice_doc.net_total if not included else sales_invoice_doc.total
     return _quantize_money(abs(amount))
@@ -279,8 +295,19 @@ def _reconcile_line_extension_entries(line_entries, expected_total):
         return
 
     adjust_idx = next(
-        (i for i in range(len(line_entries) - 1, -1, -1) if line_entries[i]["quantity"] == 1),
-        len(line_entries) - 1,
+        (
+            i
+            for i in range(len(line_entries) - 1, -1, -1)
+            if line_entries[i]["quantity"] == 1 and line_entries[i]["line_extension"] > 0
+        ),
+        next(
+            (
+                i
+                for i in range(len(line_entries) - 1, -1, -1)
+                if line_entries[i]["line_extension"] > 0
+            ),
+            len(line_entries) - 1,
+        ),
     )
     entry = line_entries[adjust_idx]
     target_line_extension = (entry["line_extension"] + difference).quantize(
