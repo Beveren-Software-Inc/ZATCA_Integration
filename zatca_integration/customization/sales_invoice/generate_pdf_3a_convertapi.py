@@ -188,14 +188,30 @@ def _replace_css_urls(css_text: str) -> str:
     return re.sub(r"url\(([^)]+)\)", repl, css_text)
 
 
-def inline_all_images(html: str) -> str:
+def prepare_html_for_convertapi(html: str) -> str:
     """
-    Embed all local/site images as base64 data URIs.
+    Clean printview chrome and inline local images for ConvertAPI.
 
-    ConvertAPI renders HTML on remote Chrome and cannot reach private Frappe
-    file URLs, so logos/QR/letterhead images must be inlined before upload.
+    Frappe printview includes a Print / Get PDF action banner (class print-hide)
+    that is normally hidden by @media print CSS. ConvertAPI often cannot load
+    that CSS from the site, so the banner text would otherwise appear in the PDF.
     """
     soup = BeautifulSoup(html, "html.parser")
+
+    # Remove print preview action UI ("Print", "Get PDF")
+    for banner in soup.select(".action-banner"):
+        banner.decompose()
+
+    for tag in soup.select(".print-hide"):
+        tag.decompose()
+
+    # Match frappe.utils.pdf.toggle_visible_pdf behaviour
+    for tag in soup.select(".visible-pdf"):
+        classes = [c for c in (tag.get("class") or []) if c != "visible-pdf"]
+        tag["class"] = classes
+
+    for tag in soup.select(".hidden-pdf"):
+        tag.decompose()
 
     for img in soup.find_all("img"):
         src = img.get("src")
@@ -228,7 +244,7 @@ def generate_pdf_from_print_format(invoice_doc, print_format: str, token: str) -
         if not html:
             frappe.throw("Failed to generate HTML content from print format")
 
-        html = inline_all_images(html)
+        html = prepare_html_for_convertapi(html)
         _set_convertapi_credentials(token)
 
         html_path = None
