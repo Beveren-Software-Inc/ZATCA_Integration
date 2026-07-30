@@ -5,14 +5,21 @@ Generate PDF/A-3A compliant PDF for Frappe Sales Invoice with embedded XML
 This method uses the first approach: get print format HTML, attach to PDF, attach XML, create PDF3A
 """
 
+import base64
+import mimetypes
 import os
+import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
 
 import convertapi
 import frappe
 import pikepdf
+from bs4 import BeautifulSoup
+from frappe.core.doctype.file.utils import find_file_by_url
+from frappe.utils import get_bench_path, get_url
 from pikepdf import Array, Dictionary, Name, String
 
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_pdf_3a_token
@@ -84,8 +91,132 @@ def _set_convertapi_credentials(token: str) -> None:
     convertapi.api_credentials = token
 
 
+def _normalize_data_uri(src: str) -> str:
+    """Fix common data-URI quirks (e.g. space after ';base64,')."""
+    if src.startswith("data:") and ";base64, " in src:
+        return src.replace(";base64, ", ";base64,", 1)
+    return src
+
+
+def _local_paths_for_src(path: str) -> list[str]:
+    """Map a site-relative image path to possible on-disk locations."""
+    path = unquote(path or "")
+    if not path:
+        return []
+
+    if not path.startswith("/"):
+        path = "/" + path
+
+    candidates = []
+    site_path = frappe.local.site_path
+
+    if path.startswith("/files/"):
+        candidates.append(os.path.join(site_path, "public", path.lstrip("/")))
+    elif path.startswith("/private/files/"):
+        candidates.append(os.path.join(site_path, path.lstrip("/")))
+    elif path.startswith("/assets/"):
+        candidates.append(os.path.join(get_bench_path(), "sites", path.lstrip("/")))
+        # Fallback: app public assets under sites/assets already covered above
+    else:
+        # Generic public path under the site
+        candidates.append(os.path.join(site_path, "public", path.lstrip("/")))
+
+    return candidates
+
+
+def _src_to_base64(src: str) -> str | None:
+    """Load any printable image src as a data URI so ConvertAPI does not need network access."""
+    if not src:
+        return None
+
+    src = src.strip()
+    if src.startswith("data:"):
+        return _normalize_data_uri(src)
+
+    site_url = get_url().rstrip("/")
+    path = src
+    if src.startswith(site_url):
+        path = src[len(site_url) :]
+    elif "://" in src:
+        # External absolute URL — leave for ConvertAPI to fetch
+        return None
+
+    parsed = urlparse(path if "://" in path else f"file://{path}")
+    path_only = unquote(parsed.path or path)
+    query = parse_qs(parsed.query)
+    fid = (query.get("fid") or [None])[0]
+
+    # Prefer File doctype content (covers renamed / private files)
+    try:
+        file_doc = find_file_by_url(path_only, name=fid)
+        if not file_doc and path_only.startswith("/"):
+            # Sometimes file_url is stored without leading host but with /files/...
+            file_doc = find_file_by_url(path_only)
+        if file_doc:
+            content = file_doc.get_content()
+            if content:
+                mime = (
+                    mimetypes.guess_type(file_doc.file_name or path_only)[0]
+                    or mimetypes.guess_type(path_only)[0]
+                    or "image/png"
+                )
+                return f"data:{mime};base64,{base64.b64encode(content).decode()}"
+    except Exception:
+        frappe.logger("pdf3a").error("Failed File lookup for image inline", exc_info=True)
+
+    # Fallback: read from disk under the site/bench
+    for local_path in _local_paths_for_src(path_only):
+        try:
+            if os.path.isfile(local_path):
+                mime = mimetypes.guess_type(local_path)[0] or "image/png"
+                with open(local_path, "rb") as fh:
+                    return f"data:{mime};base64,{base64.b64encode(fh.read()).decode()}"
+        except Exception:
+            continue
+
+    return None
+
+
+def _replace_css_urls(css_text: str) -> str:
+    def repl(match):
+        raw = match.group(1).strip().strip("'\"")
+        b64 = _src_to_base64(raw)
+        if not b64:
+            return match.group(0)
+        return f"url('{b64}')"
+
+    return re.sub(r"url\(([^)]+)\)", repl, css_text)
+
+
+def inline_all_images(html: str) -> str:
+    """
+    Embed all local/site images as base64 data URIs.
+
+    ConvertAPI renders HTML on remote Chrome and cannot reach private Frappe
+    file URLs, so logos/QR/letterhead images must be inlined before upload.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    for img in soup.find_all("img"):
+        src = img.get("src")
+        if not src:
+            continue
+        b64 = _src_to_base64(src)
+        if b64:
+            img["src"] = b64
+
+    for tag in soup.find_all(style=True):
+        tag["style"] = _replace_css_urls(tag["style"])
+
+    for style_tag in soup.find_all("style"):
+        if style_tag.string:
+            style_tag.string.replace_with(_replace_css_urls(str(style_tag.string)))
+
+    return str(soup)
+
+
 def generate_pdf_from_print_format(invoice_doc, print_format: str, token: str) -> bytes:
-    """Generate PDF from print format HTML via ConvertAPI (avoids broken wkhtmltopdf)."""
+    """Generate PDF from print format via ConvertAPI after inlining images."""
     try:
         html = frappe.get_print(
             doctype="Sales Invoice",
@@ -97,6 +228,7 @@ def generate_pdf_from_print_format(invoice_doc, print_format: str, token: str) -
         if not html:
             frappe.throw("Failed to generate HTML content from print format")
 
+        html = inline_all_images(html)
         _set_convertapi_credentials(token)
 
         html_path = None
@@ -114,11 +246,12 @@ def generate_pdf_from_print_format(invoice_doc, print_format: str, token: str) -
                 {
                     "File": html_path,
                     "PageSize": "a4",
-                    "MarginTop": 20,
-                    "MarginRight": 20,
-                    "MarginBottom": 20,
-                    "MarginLeft": 20,
+                    "MarginTop": 10,
+                    "MarginRight": 10,
+                    "MarginBottom": 10,
+                    "MarginLeft": 10,
                     "CssMediaType": "print",
+                    "LoadLazy": True,
                 },
                 from_format="html",
             )

@@ -329,7 +329,7 @@ def get_qr_code(data: str) -> str:
 
 def add_file_info(data: str) -> str:
     """Add info about the file type and encoding."""
-    return f"data:image/png;base64, {data}"
+    return f"data:image/png;base64,{data}"
 
 
 def get_qr_code_bytes(data: bytes | str) -> bytes:
