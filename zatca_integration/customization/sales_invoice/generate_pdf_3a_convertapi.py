@@ -13,7 +13,6 @@ from pathlib import Path
 import convertapi
 import frappe
 import pikepdf
-from frappe.utils.pdf import get_pdf
 from pikepdf import Array, Dictionary, Name, String
 
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_pdf_3a_token
@@ -79,10 +78,15 @@ def ensure_assets():
     )
 
 
-def generate_pdf_from_print_format(invoice_doc, print_format: str) -> bytes:
-    """Generate PDF from print format HTML using default Zatca PDF-A 3B format."""
+def _set_convertapi_credentials(token: str) -> None:
+    if not token:
+        frappe.throw("ConvertAPI token is missing. Set it on Company → ConvertAPI Token.")
+    convertapi.api_credentials = token
+
+
+def generate_pdf_from_print_format(invoice_doc, print_format: str, token: str) -> bytes:
+    """Generate PDF from print format HTML via ConvertAPI (avoids broken wkhtmltopdf)."""
     try:
-        print("Generating PDF from print format...", print_format)
         html = frappe.get_print(
             doctype="Sales Invoice",
             name=invoice_doc.name,
@@ -93,36 +97,50 @@ def generate_pdf_from_print_format(invoice_doc, print_format: str) -> bytes:
         if not html:
             frappe.throw("Failed to generate HTML content from print format")
 
-        # Use wkhtmltopdf to preserve print format design, then convert to PDF/A-3A with ConvertAPI
-        pdf_content = None
+        _set_convertapi_credentials(token)
 
+        html_path = None
+        out_dir = None
         try:
-            pdf_content = get_pdf(
-                html,
-                options={
-                    "page-size": "A4",
-                    "margin-top": "1.5in",
-                    "margin-right": "0.75in",
-                    "margin-bottom": "0.75in",
-                    "margin-left": "0.75in",
-                    "header-spacing": "1",
-                    "encoding": "UTF-8",
-                    "no-outline": None,
-                    "enable-local-file-access": None,
-                    "print-media-type": None,
-                    "disable-smart-shrinking": None,
-                    "dpi": 300,
-                    "image-quality": 100,
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".html", delete=False, encoding="utf-8"
+            ) as html_file:
+                html_file.write(html)
+                html_path = html_file.name
+
+            out_dir = tempfile.mkdtemp()
+            result = convertapi.convert(
+                "pdf",
+                {
+                    "File": html_path,
+                    "PageSize": "a4",
+                    "MarginTop": 20,
+                    "MarginRight": 20,
+                    "MarginBottom": 20,
+                    "MarginLeft": 20,
+                    "CssMediaType": "print",
                 },
+                from_format="html",
             )
+            saved_files = result.save_files(out_dir)
+            if not saved_files:
+                frappe.throw("ConvertAPI HTML→PDF returned no file")
 
-        except Exception as e:
-            frappe.log_error(f"wkhtmltopdf generation failed: {e}", "PDF3A Generator")
-
-        if not pdf_content:
-            frappe.throw("Failed to create PDF/A compliant PDF")
-
-        return pdf_content
+            with open(saved_files[0], "rb") as pdf_file:
+                return pdf_file.read()
+        finally:
+            if html_path and os.path.exists(html_path):
+                os.remove(html_path)
+            if out_dir and os.path.isdir(out_dir):
+                for name in os.listdir(out_dir):
+                    try:
+                        os.remove(os.path.join(out_dir, name))
+                    except OSError:
+                        pass
+                try:
+                    os.rmdir(out_dir)
+                except OSError:
+                    pass
 
     except Exception as e:
         frappe.log_error(f"Error generating PDF from print format: {e}", "PDF3A Generator")
@@ -169,10 +187,10 @@ def build_xmp_metadata(invoice_doc) -> bytes:
 
 def convert_to_pdfa3a(pdf_path: str, token: str) -> None:
     """Convert PDF to PDF/A-3A using ConvertAPI."""
+    out_dir = None
     try:
+        _set_convertapi_credentials(token)
         out_dir = tempfile.mkdtemp()
-
-        convertapi.api_credentials = token
         result = convertapi.convert(
             "pdfa",
             {
@@ -182,14 +200,26 @@ def convert_to_pdfa3a(pdf_path: str, token: str) -> None:
             from_format="pdf",
         )
         saved_files = result.save_files(out_dir)
-        if saved_files:
-            converted_path = saved_files[0]
-            # Replace pdf_path contents with converted file
-            with open(converted_path, "rb") as src, open(pdf_path, "wb") as dst:
-                dst.write(src.read())
+        if not saved_files:
+            frappe.throw("ConvertAPI PDF/A conversion returned no file")
+
+        with open(saved_files[0], "rb") as src, open(pdf_path, "wb") as dst:
+            dst.write(src.read())
 
     except Exception as e:
         frappe.log_error(f"ConvertAPI PDF/A conversion failed: {e}", "PDF3A Generator")
+        frappe.throw(f"ConvertAPI PDF/A conversion failed: {e}")
+    finally:
+        if out_dir and os.path.isdir(out_dir):
+            for name in os.listdir(out_dir):
+                try:
+                    os.remove(os.path.join(out_dir, name))
+                except OSError:
+                    pass
+            try:
+                os.rmdir(out_dir)
+            except OSError:
+                pass
 
 
 def finalize_pdfa(
@@ -265,6 +295,9 @@ def generate_pdf3a_with_xml(invoice_name, print_format):
         # Get invoice document
         invoice_doc = frappe.get_doc("Sales Invoice", invoice_name)
         token = get_pdf_3a_token(invoice_doc.company)
+        if not token:
+            frappe.throw("ConvertAPI token is missing. Set it on Company → ConvertAPI Token.")
+
         # Check if custom_invoice_xml field exists and has value
         if not hasattr(invoice_doc, "custom_invoice_xml") or not invoice_doc.custom_invoice_xml:
             frappe.throw("No XML file path found in custom_invoice_xml field")
@@ -290,7 +323,7 @@ def generate_pdf3a_with_xml(invoice_name, print_format):
         # Ensure assets exist
         icc_path = ensure_assets()
 
-        pdf_content = generate_pdf_from_print_format(invoice_doc, print_format)
+        pdf_content = generate_pdf_from_print_format(invoice_doc, print_format, token)
 
         # Create temporary PDF file
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_pdf:
