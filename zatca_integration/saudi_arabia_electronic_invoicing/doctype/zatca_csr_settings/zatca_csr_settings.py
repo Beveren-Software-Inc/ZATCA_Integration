@@ -4,7 +4,10 @@
 import uuid
 
 import frappe
+from frappe import _
 from frappe.model.document import Document
+
+from zatca_integration.common_util import validate_ksa_vat_number
 
 
 class ZatcaCSRSettings(Document):
@@ -13,61 +16,16 @@ class ZatcaCSRSettings(Document):
             self.csrserialnumber = self.generate_serial_number()
 
         if not isinstance(self.building_number, int) or not (1000 <= self.building_number <= 9999):
-            frappe.throw("Building Number must be a 4-digit integer")
+            frappe.throw(_("Building Number must be a 4-digit integer"))
 
         if not isinstance(self.postal_zone, int) or not (10000 <= self.postal_zone <= 99999):
-            frappe.throw("Postal Zone must be a 5-digit integer")
+            frappe.throw(_("Postal Zone must be a 5-digit integer"))
+
+        validate_ksa_vat_number(
+            self.csrorganizationidentifier,
+            field_label=_("VAT or Group VAT Registration Number"),
+        )
 
     def generate_serial_number(self):
         serial_number = str(uuid.uuid4())
         return "1-ERPNext|2-V15|3-" + serial_number
-
-    # @frappe.whitelist()
-    # def genereate_csr(self):
-
-    # 	# Get ZATCA Environment
-    # 	zatca_environment = frappe.get_doc("Zatca Environment", self.zatca_environment)
-
-    # 	# Beveren Zatca Backend URL
-    # 	url = zatca_environment.csr_generate_api + 'generateCSR'
-
-    # 	# Set the headers
-    # 	headers = {
-    # 		'clientId': zatca_environment.client_id,
-    # 		'clientSecret': zatca_environment.client_secret,
-    # 		'isNonPrd': str(zatca_environment.non_production),
-    # 		'isSim': str(zatca_environment.simulation),
-    # 		'Content-Type': 'application/json'
-    # 	}
-
-    # 	# Encode the string into bytes, then encode it using base64
-    # 	data = {
-    # 		'commonName': self.csrcommonname,
-    # 		'serialNumber': self.csrserialnumber,
-    # 		'organizationIdentifier': self.csrorganizationidentifier,
-    # 		'organizationUnitName': self.csrorganizationunitname,
-    # 		'organizationName': self.csrorganizationname,
-    # 		'countryName': self.csrcountryname,
-    # 		'invoiceType': self.csrinvoicetype,
-    # 		'location': self.csrlocationaddress,
-    # 		'industry': self.csrindustrybusinesscategory,
-    # 	}
-
-    # 	response = requests.post(url, headers=headers, json=data)
-
-    # 	try:
-    # 		response_json = response.json()
-    # 	except ValueError:
-    # 		# Handle the case where response is not in JSON format
-    # 		response_json = None
-
-    # 	if response.status_code == 200 and response_json is not None:
-    # 		# Save the CSR and Private Key
-    # 		self.csr = response_json['csr']
-    # 		self.csr_pem_format = response_json['csrPemFormat']
-    # 		self.private_key = response_json['privateKey']
-    # 		self.private_key_pem_format = response_json['privateKeyPemFormat']
-    # 		self.created_time = frappe.utils.now_datetime()
-    # 		self.save()
-    # 	else:
-    # 		frappe.throw(f"Error in generating CSR: {response.text}")

@@ -3,6 +3,7 @@ import hashlib
 import xml.etree.ElementTree as ET
 
 import frappe
+from frappe import _
 
 
 def validate_sales_invoice(doc, method):
@@ -26,28 +27,65 @@ def decode_invoice(encoded_invoice):
 
 
 def is_foreign_customer(customer):
-    """Buyer outside KSA. ZATCA does not require buyer VAT or additional ID on export invoices."""
+    """Buyer outside KSA, or Export / Non-Resident VAT category."""
     country = (
         customer.get("custom_country")
         if isinstance(customer, dict)
         else getattr(customer, "custom_country", None)
     )
+    vat_category = (
+        customer.get("tax_category")
+        if isinstance(customer, dict)
+        else getattr(customer, "tax_category", None)
+    ) or (
+        customer.get("custom_vat_category")
+        if isinstance(customer, dict)
+        else getattr(customer, "custom_vat_category", None)
+    )
+    if vat_category == "Export / Non-Resident":
+        return True
     return bool(country) and country != "Saudi Arabia"
+
+
+def validate_ksa_vat_number(vat_number, field_label=None):
+    """
+    KSA VAT / Group VAT Registration Number:
+    exactly 15 digits and must start with 3.
+    """
+    vat = (vat_number or "").strip()
+    if not vat:
+        return
+
+    label = field_label or _("VAT Number")
+    if not (vat.isdigit() and len(vat) == 15 and vat.startswith("3")):
+        frappe.throw(
+            _("{0} must be exactly 15 digits and start with 3.").format(label),
+            title=_("Invalid VAT Number"),
+        )
 
 
 def validate_company_buyer_identification(customer):
     """
     ZATCA E-Invoicing Resolution Annex 5.3–5.4:
-    - Export (non-KSA buyer): buyer VAT and additional buyer ID are not mandatory.
-    - Saudi B2B: buyer VAT if applicable, or registration scheme + number if not VAT-registered.
+    - Individual: buyer company identification not required.
+    - Export / non-KSA buyer: buyer VAT not mandatory.
+    - Saudi B2B/company: VAT if applicable, or registration scheme + number.
     """
-    if customer.customer_type != "Company" or is_foreign_customer(customer):
+    if customer.customer_type != "Company":
+        return
+
+    if is_foreign_customer(customer):
         return
 
     has_vat = bool(customer.custom_vat_number or customer.get("tax_id"))
     has_registration = bool(
         customer.custom_registration_scheme and customer.custom_registration_number
     )
+    if has_vat:
+        validate_ksa_vat_number(
+            customer.custom_vat_number or customer.get("tax_id"),
+            field_label=_("VAT Number"),
+        )
     if not (has_vat or has_registration):
         frappe.throw(
             "Saudi company customers must have a VAT Number or both "

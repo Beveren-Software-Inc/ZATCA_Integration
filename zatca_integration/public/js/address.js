@@ -2,10 +2,10 @@ frappe.ui.form.on("Address", {
 	setup(frm) {
 		// Keep last auto-filled values so we can refresh Arabic when English changes
 		frm._zatca_arabic_autofilled = frm._zatca_arabic_autofilled || {};
+		frm._zatca_party_context = frm._zatca_party_context || {};
 	},
 
 	refresh(frm) {
-		toggle_saudi_address_requirements(frm);
 		prefill_tax_category_from_party(frm);
 		frm.add_custom_button(__("Translate Arabic Fields"), () => {
 			translate_all_arabic_fields(frm, true);
@@ -18,6 +18,10 @@ frappe.ui.form.on("Address", {
 	},
 
 	tax_category(frm) {
+		toggle_saudi_address_requirements(frm);
+	},
+
+	custom_vat_category(frm) {
 		toggle_saudi_address_requirements(frm);
 	},
 
@@ -34,35 +38,87 @@ frappe.ui.form.on("Address", {
 	},
 
 	links_add(frm) {
-		prefill_tax_category_from_party(frm);
+		prefill_tax_category_from_party(frm, true);
 	},
 });
 
 frappe.ui.form.on("Dynamic Link", {
 	link_name(frm) {
-		prefill_tax_category_from_party(frm);
+		prefill_tax_category_from_party(frm, true);
 	},
 	link_doctype(frm) {
-		prefill_tax_category_from_party(frm);
+		prefill_tax_category_from_party(frm, true);
 	},
 });
 
-function toggle_saudi_address_requirements(frm) {
-	const is_sa = frm.doc.country === "Saudi Arabia";
-	const is_export = frm.doc.tax_category === "Export / Non-Resident";
-	const required = is_sa && !is_export;
+const SA_ADDRESS_FIELDS = [
+	"address_line1",
+	"address_line2",
+	"city",
+	"county",
+	"pincode",
+	"custom_additional_no",
+];
 
-	[
-		"address_line1",
-		"address_line2",
-		"custom_additional_no",
-		"city",
-		"county",
-		"pincode",
-	].forEach((field) => {
-		if (frm.fields_dict[field]) {
-			frm.toggle_reqd(field, required);
+const OVERSEAS_VAT_CATEGORIES = [
+	"Oversees",
+	"Overseas",
+	"Export / Non-Resident",
+	"Deemed Export",
+];
+
+const REGISTERED_VAT_CATEGORIES = ["Registered", "B2B", "B2G", "Tax Deductors"];
+
+function get_linked_party(frm) {
+	const link = (frm.doc.links || []).find(
+		(row) => ["Customer", "Supplier"].includes(row.link_doctype) && row.link_name
+	);
+	return link || null;
+}
+
+function get_vat_category(frm) {
+	return (frm.doc.tax_category || frm.doc.custom_vat_category || "").trim();
+}
+
+function requires_saudi_national_address(frm) {
+	if ((frm.doc.country || "").trim() !== "Saudi Arabia") {
+		return false;
+	}
+
+	const vat_category = get_vat_category(frm);
+	if (OVERSEAS_VAT_CATEGORIES.includes(vat_category)) {
+		return false;
+	}
+
+	const entity_type = (frm._zatca_party_context || {}).entity_type;
+	if (entity_type === "Individual") {
+		return REGISTERED_VAT_CATEGORIES.includes(vat_category);
+	}
+	if (entity_type === "Company") {
+		return true;
+	}
+	return REGISTERED_VAT_CATEGORIES.includes(vat_category);
+}
+
+function toggle_saudi_address_requirements(frm) {
+	const entity_type = (frm._zatca_party_context || {}).entity_type;
+	const is_individual = entity_type === "Individual";
+	const national_required = requires_saudi_national_address(frm);
+
+	// Individuals: only Country is mandatory (unless Registered + SA)
+	if (frm.fields_dict.country) {
+		frm.toggle_reqd("country", true);
+	}
+
+	SA_ADDRESS_FIELDS.forEach((field) => {
+		if (!frm.fields_dict[field]) {
+			return;
 		}
+		if (is_individual && !national_required) {
+			frm.toggle_reqd(field, false);
+			return;
+		}
+		frm.toggle_reqd(field, national_required && field !== "custom_additional_no");
 	});
 
 	if (frm.fields_dict.custom_national_address) {
@@ -131,22 +187,34 @@ function autofill_arabic(frm, source_field, target_field, force = false) {
 	});
 }
 
-function prefill_tax_category_from_party(frm) {
-	if (frm.doc.tax_category || !frm.doc.links || !frm.doc.links.length) {
-		return;
-	}
-
-	const link = (frm.doc.links || []).find(
-		(row) => ["Customer", "Supplier"].includes(row.link_doctype) && row.link_name
-	);
+function prefill_tax_category_from_party(frm, force = false) {
+	const link = get_linked_party(frm);
 	if (!link) {
 		return;
 	}
 
-	frappe.db.get_value(link.link_doctype, link.link_name, "tax_category").then((r) => {
-		const tax_category = r && r.message && r.message.tax_category;
-		if (tax_category && !frm.doc.tax_category) {
-			frm.set_value("tax_category", tax_category);
-		}
+	frappe.call({
+		method: "zatca_integration.overrides.address.get_address_party_context",
+		args: {
+			link_doctype: link.link_doctype,
+			link_name: link.link_name,
+		},
+		callback(r) {
+			const ctx = r.message || {};
+			frm._zatca_party_context = ctx;
+
+			if (ctx.tax_category && (force || !frm.doc.tax_category)) {
+				frm.set_value("tax_category", ctx.tax_category);
+			}
+			if (
+				frm.fields_dict.custom_vat_category &&
+				ctx.custom_vat_category &&
+				(force || !frm.doc.custom_vat_category)
+			) {
+				frm.set_value("custom_vat_category", ctx.custom_vat_category);
+			}
+
+			toggle_saudi_address_requirements(frm);
+		},
 	});
 }
