@@ -17,6 +17,7 @@ from lxml import etree
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import (
     get_pem_compliance_details,
     get_pem_details,
+    normalize_private_key_pem,
 )
 
 
@@ -88,10 +89,7 @@ def digital_signature(hash1, sales_invoice_doc, is_zatca_test=0, compliance_csid
         pem_details = get_pem_compliance_details(compliance_csid)
     else:
         pem_details = get_pem_details(sales_invoice_doc)
-    private_key_pem = pem_details.get("private_key")
-
-    if isinstance(private_key_pem, str):
-        private_key_pem = private_key_pem.encode("utf-8")
+    private_key_pem = normalize_private_key_pem(pem_details.get("private_key"))
     private_key = serialization.load_pem_private_key(
         private_key_pem, password=None, backend=default_backend()
     )

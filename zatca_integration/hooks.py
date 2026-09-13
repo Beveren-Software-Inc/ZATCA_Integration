@@ -54,6 +54,7 @@ fixtures = [
     {"dt": "Print Format", "filters": {"name": "ZATCA"}},
     {"dt": "Workspace", "filters": {"name": "ZATCA Integrations"}},
     {"dt": "Print Format", "filters": {"name": "ZATCA"}},
+    {"dt": "VAT Category"},
     # Custom Fields
     {
         "doctype": "Custom Field",
@@ -349,6 +350,7 @@ doc_events = {
         "validate": "zatca_integration.overrides.address.validate",
     },
     "Customer": {
+        "validate": "zatca_integration.overrides.customer.validate",
         "on_update": "zatca_integration.overrides.address.sync_party_tax_category_to_addresses",
     },
     "Supplier": {

@@ -1,5 +1,4 @@
 import base64
-import textwrap
 import uuid
 from datetime import datetime, timedelta
 
@@ -176,21 +175,66 @@ def save_and_return_csr(doc, private_key_pem, csr):
 
 
 def format_private_key_pem(private_key_pem: bytes) -> str:
-    """Ensure the EC private key is in proper PEM format with line breaks."""
-    pem_str = private_key_pem.decode("utf-8").strip()
+    """Ensure private key PEM is loadable (SEC1 or PKCS#8) with correct headers."""
+    if isinstance(private_key_pem, bytes):
+        pem_str = private_key_pem.decode("utf-8")
+    else:
+        pem_str = private_key_pem or ""
 
-    if "BEGIN EC PRIVATE KEY" in pem_str:
-        # Remove header/footer and line breaks
-        raw = pem_str.replace("-----BEGIN EC PRIVATE KEY-----", "")
-        raw = raw.replace("-----END EC PRIVATE KEY-----", "")
-        raw = raw.replace("\n", "").strip()
+    return normalize_private_key_pem(pem_str).decode("utf-8")
 
-        # Re-wrap to 64-char lines
-        wrapped = "\n".join(textwrap.wrap(raw, 64))
 
-        return f"-----BEGIN EC PRIVATE KEY-----\n{wrapped}\n-----END EC PRIVATE KEY-----\n"
+def normalize_private_key_pem(private_key_value) -> bytes:
+    """
+    Return a loadable PEM private key.
 
-    return pem_str
+    Some CSR settings store PKCS#8 material under BEGIN EC PRIVATE KEY
+    (SEC1) headers. Detect DER and re-export as TraditionalOpenSSL PEM so
+    both formats work at signing time.
+    """
+    import re
+
+    if private_key_value is None:
+        frappe.throw(_("Private key is missing in Zatca CSR Settings."))
+
+    if isinstance(private_key_value, bytes):
+        text = private_key_value.decode("utf-8", errors="ignore")
+    else:
+        text = str(private_key_value)
+
+    text = text.strip()
+    if not text:
+        frappe.throw(_("Private key is missing in Zatca CSR Settings."))
+
+    # Already a valid PEM (SEC1 or PKCS#8 with matching headers)
+    try:
+        serialization.load_pem_private_key(
+            text.encode("utf-8"), password=None, backend=default_backend()
+        )
+        return text.encode("utf-8")
+    except Exception:
+        pass
+
+    raw = re.sub(r"-----BEGIN [^-]+-----", "", text)
+    raw = re.sub(r"-----END [^-]+-----", "", raw)
+    raw = "".join(raw.split())
+
+    try:
+        der = base64.b64decode(raw)
+        key = serialization.load_der_private_key(der, password=None, backend=default_backend())
+    except Exception as e:
+        frappe.throw(
+            _(
+                "Could not load ZATCA private key. Check Zatca CSR Settings private key "
+                "format (PKCS#8 vs EC PRIVATE KEY). Error: {0}"
+            ).format(str(e))
+        )
+
+    return key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
 
 
 def handle_csr_error(doc_name, error):
@@ -381,7 +425,9 @@ def get_pem_details(invoice):
     compliance_csid = frappe.get_doc("Compliance CSID", production_csid.compliance_csid)
     csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
 
-    private_key = csr_settings.private_key_pem_format
+    private_key = normalize_private_key_pem(
+        csr_settings.private_key_pem_format or csr_settings.private_key
+    ).decode("utf-8")
     public_key = clean_pem_key(production_csid.public_key, "PUBLIC KEY")
     certificate = (production_csid.certificate or "").strip().replace("\n", "")
 
@@ -392,7 +438,9 @@ def get_pem_compliance_details(csr):
     compliance_csid = frappe.get_doc("Compliance CSID", csr)
     csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
 
-    private_key = csr_settings.private_key_pem_format
+    private_key = normalize_private_key_pem(
+        csr_settings.private_key_pem_format or csr_settings.private_key
+    ).decode("utf-8")
 
     public_key = clean_pem_key(compliance_csid.public_key, "PUBLIC KEY")
     certificate = (compliance_csid.certificate or "").strip().replace("\n", "")
@@ -576,8 +624,7 @@ def get_exemption_reason_map():
         "VATEX-SA-HEA": "Private healthcare to citizen.",
         "VATEX-SA-MLTRY": "Supply of qualified military goods",
         "VATEX-SA-OOS": (
-            "The reason is a free text, has to be provided by the taxpayer on a "
-            "case-by-case basis."
+            "The reason is a free text, has to be provided by the taxpayer on a case-by-case basis."
         ),
     }
 

@@ -1,0 +1,44 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "VAT Category",
+  "modified": "2026-09-13 14:53:33.712192",
+  "name": "Registered",
+  "vat_category": "Registered"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "VAT Category",
+  "modified": "2026-09-13 14:53:52.466798",
+  "name": "Unregistered",
+  "vat_category": "Unregistered"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "VAT Category",
+  "modified": "2026-09-13 14:54:04.026029",
+  "name": "Oversees",
+  "vat_category": "Oversees"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "VAT Category",
+  "modified": "2026-09-13 14:54:17.495783",
+  "name": "Deemed Export",
+  "vat_category": "Deemed Export"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "VAT Category",
+  "modified": "2026-09-13 14:54:35.371616",
+  "name": "Tax Deductors",
+  "vat_category": "Tax Deductors"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "VAT Category",
+  "modified": "2026-09-13 17:10:11.748436",
+  "name": "Government",
+  "vat_category": "Government"
+ }
+]

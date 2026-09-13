@@ -160,6 +160,8 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "VAT or Group VAT Registration Number",
+   "description": "Exactly 15 digits, starting with 3",
+   "length": 15,
    "reqd": 1
   },
   {
