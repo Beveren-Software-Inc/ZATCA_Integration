@@ -5,6 +5,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 from zatca_integration.saudi_arabia_electronic_invoicing.utils import get_zatca_tax_category_details
 
@@ -29,33 +30,44 @@ def extract_tax_details_for_item(full_string, item):
         return None
 
 
+def _get_legacy_item_wise_tax_detail_json(sales_invoice_doc):
+    """ERPNext <=15: JSON on Sales Taxes and Charges row."""
+    taxes = sales_invoice_doc.get("taxes") or []
+    if not taxes:
+        return None
+    return getattr(taxes[0], "item_wise_tax_detail", None) or taxes[0].get("item_wise_tax_detail")
+
+
 def calculate_total_item_tax(sales_invoice_doc):
-    """Getting tax total for items"""
+    """Total VAT from item-wise breakdown (supports ERPNext 15+ child table)."""
     TAX_ERROR_MESSAGE = "Tax Calculation Error"
-    try:
-        total_tax = 0
-        for single_item in sales_invoice_doc.items:
-            _item_tax_amount, tax_percent = extract_tax_details_for_item(
-                sales_invoice_doc.taxes[0].item_wise_tax_detail, single_item.item_code
-            )
-            total_tax = total_tax + (single_item.net_amount * (tax_percent / 100))
-        return total_tax
-    except AttributeError as e:
-        frappe.throw(
-            _(
-                f"AttributeError in get_tax_total_from_items: {str(e)}",
-                TAX_ERROR_MESSAGE,
-            )
-        )
-        return None
-    except KeyError as e:
-        frappe.throw(_(f"KeyError in get_tax_total_from_items: {str(e)}", TAX_ERROR_MESSAGE))
 
-        return None
-    except TypeError as e:
-        frappe.throw(_(f"KeyError in get_tax_total_from_items: {str(e)}", TAX_ERROR_MESSAGE))
+    # ERPNext 16+: Item Wise Tax Detail child table on the invoice
+    item_wise_rows = sales_invoice_doc.get("item_wise_tax_details") or []
+    if item_wise_rows:
+        return flt(sum(flt(row.get("amount")) for row in item_wise_rows))
 
-        return None
+    detail_json = _get_legacy_item_wise_tax_detail_json(sales_invoice_doc)
+    if detail_json:
+        try:
+            total_tax = 0
+            for single_item in sales_invoice_doc.items:
+                _item_tax_amount, tax_percent = extract_tax_details_for_item(
+                    detail_json, single_item.item_code
+                )
+                total_tax += flt(single_item.net_amount) * (flt(tax_percent) / 100)
+            return total_tax
+        except (AttributeError, KeyError, TypeError) as e:
+            frappe.throw(_(f"Error in get_tax_total_from_items: {str(e)}"), TAX_ERROR_MESSAGE)
+
+    if sales_invoice_doc.get("total_taxes_and_charges") is not None:
+        return flt(sales_invoice_doc.total_taxes_and_charges)
+
+    taxes = sales_invoice_doc.get("taxes") or []
+    if taxes:
+        return flt(sum(flt(t.tax_amount) for t in taxes))
+
+    frappe.throw(_("No tax data found on Sales Invoice."), TAX_ERROR_MESSAGE)
 
 
 # def build_zatca_tax_section(invoice, sales_invoice_doc):
@@ -217,7 +229,7 @@ def build_zatca_tax_section(invoice, sales_invoice_doc):
 
         # --- VAT accounting currency (SAR) total (BT-111) ---
         # Check o this
-        if doc_currency != "SDAR":
+        if doc_currency != "SAR":
             sar_taxtotal = ET.SubElement(invoice, "cac:TaxTotal")
             sar_taxamount = ET.SubElement(sar_taxtotal, "cbc:TaxAmount")
             sar_taxamount.set("currencyID", "SAR")
