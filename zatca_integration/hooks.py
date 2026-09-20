@@ -191,6 +191,7 @@ fixtures = [
                     "Company-custom_zatca_setup",
                     "Company-custom_zatca_vat_setup_done",
                     "Address-custom_additional_no",
+                    "Sales Invoice-custom_invoice_qr_codesar",
                 ],
             ]
         ],
