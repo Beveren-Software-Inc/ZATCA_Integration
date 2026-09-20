@@ -10,7 +10,7 @@ import frappe
 import qrcode
 import requests
 from frappe import _
-from frappe.utils import get_datetime
+from frappe.utils import flt, get_datetime
 from lxml import etree
 from requests.auth import HTTPBasicAuth
 
@@ -275,6 +275,15 @@ def _handle_success_response(doc, response_json, invoice_data, invoice_request, 
     )
     _save_invoice_xml(doc, cleared_invoice_xml)
     _save_qr_code(doc, cleared_invoice_xml)
+    # B2B (Standard) invoices in a foreign currency additionally get a QR whose
+    # tags 4 & 5 carry the SAR (tax currency) totals. Invoices already in SAR
+    # need no extra QR.
+    currency_info = invoice_data.get("currency_info") or {}
+    if invoice_data["customer_type"] == "Company" and _needs_sar_qr_code(
+        currency_info.get("document_currency_code"),
+        currency_info.get("tax_currency_code"),
+    ):
+        _save_sar_qr_code(doc, cleared_invoice_xml)
     display_error_ui(response_json.get("validationResults", ""), doc)
 
 
@@ -300,6 +309,155 @@ def _save_qr_code(doc, cleared_invoice_xml):
     )
     qr_doc.insert()
     doc.custom_invoice_qr_code = qr_doc.file_url
+
+
+# ZATCA Phase-2 QR (TLV) tags for the invoice totals
+QR_TAG_TOTAL_WITH_VAT = 4
+QR_TAG_VAT_TOTAL = 5
+
+
+def _format_qr_amount(amount):
+    """ZATCA QR amounts are plain decimal strings (no currency code)."""
+    return f"{flt(amount):.2f}"
+
+
+def _parse_tlv_fields(tlv_bytes):
+    """Split a ZATCA TLV byte string into an ordered list of (tag, value) tuples."""
+    fields = []
+    index = 0
+    total = len(tlv_bytes)
+    while index < total:
+        tag = tlv_bytes[index]
+        index += 1
+        if index >= total:
+            break
+
+        length = tlv_bytes[index]
+        index += 1
+        if length == 0xFF:
+            if index + 2 > total:
+                break
+            length = int.from_bytes(tlv_bytes[index : index + 2], "big")
+            index += 2
+
+        fields.append((tag, tlv_bytes[index : index + length]))
+        index += length
+    return fields
+
+
+def _encode_tlv_fields(fields):
+    """Encode (tag, value) tuples back into a ZATCA TLV byte string."""
+    buffer = bytearray()
+    for tag, value in fields:
+        if isinstance(value, str):
+            value = value.encode("utf-8")
+        buffer.append(tag)
+        if len(value) < 256:
+            buffer.append(len(value))
+        else:
+            buffer.append(0xFF)
+            buffer.extend(len(value).to_bytes(2, "big"))
+        buffer.extend(value)
+    return bytes(buffer)
+
+
+def build_sar_qr_code_base64(cleared_invoice_xml, sar_total, sar_vat):
+    """
+    Rebuild the cleared-invoice QR TLV with tags 4 & 5 replaced by SAR amounts.
+
+    Tags 1, 2, 3, 6, 7, 8 and 9 (seller, VAT number, timestamp, invoice hash,
+    signature, public key and certificate signature) are kept exactly as signed
+    by ZATCA; only the totals are swapped so the QR reflects company-currency
+    (SAR) values instead of the document currency.
+    """
+    qr_code_data = _extract_qr_code_payload(cleared_invoice_xml)
+    if not qr_code_data:
+        return None
+
+    try:
+        tlv_bytes = base64.b64decode(qr_code_data)
+    except Exception:
+        frappe.log_error(
+            title="ZATCA SAR QR: unable to decode QR payload",
+            message=frappe.get_traceback(),
+        )
+        return None
+
+    fields = _parse_tlv_fields(tlv_bytes)
+    if not fields:
+        return None
+
+    sar_amounts = {
+        QR_TAG_TOTAL_WITH_VAT: _format_qr_amount(sar_total),
+        QR_TAG_VAT_TOTAL: _format_qr_amount(sar_vat),
+    }
+    sar_fields = [(tag, sar_amounts.get(tag, value)) for tag, value in fields]
+
+    return base64.b64encode(_encode_tlv_fields(sar_fields)).decode("utf-8")
+
+
+def _needs_sar_qr_code(document_currency, tax_currency="SAR"):
+    """
+    Whether an additional SAR-amount QR is needed for this invoice.
+
+    ZATCA embeds QR tags 4 & 5 in the document currency, so a separate QR is
+    only useful for foreign-currency invoices — i.e. when the document currency
+    differs from the tax currency (SAR). Invoices already in SAR need no
+    additional QR because the regular QR already carries SAR amounts.
+    """
+    return bool(document_currency) and document_currency != (tax_currency or "SAR")
+
+
+def _save_sar_qr_code(doc, cleared_invoice_xml):
+    """
+    Attach a SAR-amount version of the cleared-invoice QR.
+
+    Only called for Company (B2B) invoices issued in a foreign currency, where
+    the ZATCA QR would otherwise show the document-currency totals. Tags 1, 2,
+    3, 6, 7, 8 and 9 are kept exactly as signed; tags 4 & 5 are rewritten with
+    the company-currency (SAR) totals and stored in
+    ``custom_invoice_qr_codesar``. Any failure here is logged and swallowed so
+    it can never block the actual ZATCA clearance flow.
+    """
+    try:
+        if not frappe.db.has_column(doc.doctype, "custom_invoice_qr_codesar"):
+            return None
+
+        sar_qr_base64 = build_sar_qr_code_base64(
+            cleared_invoice_xml,
+            doc.get("base_grand_total"),
+            doc.get("base_total_taxes_and_charges"),
+        )
+        if not sar_qr_base64:
+            return None
+
+        qr_doc = frappe.get_doc(
+            {
+                "doctype": "File",
+                "file_name": doc.name + "-SAR.png",
+                "content": _qr_code_image_bytes(sar_qr_base64),
+                "is_private": False,
+            }
+        )
+        qr_doc.insert()
+
+        doc.custom_invoice_qr_codesar = qr_doc.file_url
+        if doc.get("docstatus") == 1:
+            # Resends operate on submitted documents, so persist the value directly.
+            frappe.db.set_value(
+                doc.doctype,
+                doc.name,
+                "custom_invoice_qr_codesar",
+                qr_doc.file_url,
+                update_modified=False,
+            )
+        return qr_doc.file_url
+    except Exception:
+        frappe.log_error(
+            title=f"ZATCA SAR QR generation failed: {doc.name}",
+            message=frappe.get_traceback(),
+        )
+        return None
 
 
 def _get_cleared_invoice_xml(response_json, invoice_request, customer_type):
@@ -509,7 +667,8 @@ def get_clearence_headers():
     }
 
 
-def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
+def _extract_qr_code_payload(cleared_invoice_xml):
+    """Return the base64 TLV payload of the QR embedded in a signed invoice XML."""
     # Define the namespaces used in the XML
     namespaces = {
         "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
@@ -520,7 +679,6 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
     xml_tree = etree.fromstring(cleared_invoice_xml.encode("utf-8"))
 
     # Search for the QR Code text using relative paths
-    qr_code_data = None
     for additional_document_reference in xml_tree.findall(
         ".//cac:AdditionalDocumentReference", namespaces
     ):
@@ -530,17 +688,13 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
                 "./cac:Attachment/cbc:EmbeddedDocumentBinaryObject", namespaces
             )
             if embedded_document is not None:
-                qr_code_data = embedded_document.text
-                break
+                return (embedded_document.text or "").strip()
 
-    if qr_code_data is not None:
-        try:
-            qr_code_text = base64.b64decode(qr_code_data).decode("utf-8")
-        except Exception:
-            # If there's an error in decoding, use the original data
-            qr_code_text = qr_code_data
+    return None
 
-    # Generate QR code image
+
+def _qr_code_image_bytes(qr_code_text):
+    """Render `qr_code_text` as a QR code and return the PNG bytes."""
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -555,9 +709,23 @@ def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
     # Save the QR code image to a byte stream
     img_byte_arr = io.BytesIO()
     img.save(img_byte_arr, format="PNG")
-    img_byte_arr = img_byte_arr.getvalue()
+    return img_byte_arr.getvalue()
 
-    return img_byte_arr
+
+def extract_qr_code_from_cleared_invoice(cleared_invoice_xml):
+    qr_code_data = _extract_qr_code_payload(cleared_invoice_xml)
+
+    if qr_code_data is None:
+        frappe.throw(_("QR code not found in the cleared invoice XML"))
+
+    try:
+        qr_code_text = base64.b64decode(qr_code_data).decode("utf-8")
+    except Exception:
+        # If there's an error in decoding, use the original data
+        qr_code_text = qr_code_data
+
+    # Generate QR code image
+    return _qr_code_image_bytes(qr_code_text)
 
 
 def validate_delivery_date(delivery_date, invoice_date, customer_type, posting_time):
