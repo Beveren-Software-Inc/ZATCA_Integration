@@ -1,8 +1,164 @@
 frappe.ui.form.on("Company", {
+	refresh(frm) {
+		// TEMPORARY — remove after QR currency check
+		if (!frm.is_new()) {
+			frm.add_custom_button(__("Temp: Generate Invoice QR (SAR)"), () => {
+				open_temp_sar_qr_dialog(frm);
+			});
+		}
+	},
+
 	custom_zatca_setup(frm) {
 		run_zatca_vat_setup(frm);
 	},
 });
+
+async function open_temp_sar_qr_dialog(frm) {
+	let defaults = {};
+	try {
+		defaults = await frappe.xcall(
+			"zatca_integration.saudi_arabia_electronic_invoicing.temp_qr_generator.get_temp_qr_defaults"
+		);
+	} catch (e) {
+		defaults = {};
+	}
+
+	const d = new frappe.ui.Dialog({
+		title: __("Temp: Phase-2 QR with SAR amounts"),
+		size: "large",
+		fields: [
+			{
+				fieldtype: "HTML",
+				options: `<p class="text-muted">${__(
+					"Rebuilds INV-20133496 QR (Individual). Tags 4 & 5 use SAR base amounts from the invoice (no conversion)."
+				)}</p>`,
+			},
+			{
+				fieldname: "seller_name",
+				label: __("Seller Name"),
+				fieldtype: "Data",
+				default: defaults.seller_name,
+				reqd: 1,
+			},
+			{
+				fieldname: "vat_number",
+				label: __("VAT Number"),
+				fieldtype: "Data",
+				default: defaults.vat_number,
+				reqd: 1,
+			},
+			{
+				fieldname: "timestamp",
+				label: __("Timestamp"),
+				fieldtype: "Data",
+				default: defaults.timestamp,
+				reqd: 1,
+			},
+			{ fieldtype: "Section Break", label: __("Amounts in SAR (for QR)") },
+			{
+				fieldname: "sar_total",
+				label: __("SAR Total — base_grand_total (QR Tag 4)"),
+				fieldtype: "Data",
+				default: defaults.sar_total || "220210.25",
+				reqd: 1,
+			},
+			{
+				fieldname: "sar_vat",
+				label: __("SAR VAT — base_total_taxes_and_charges (QR Tag 5)"),
+				fieldtype: "Data",
+				default: defaults.sar_vat || "0.00",
+				reqd: 1,
+			},
+			{
+				fieldtype: "HTML",
+				options: `<p class="text-muted">${__(
+					"USD on invoice was 59037.60 — QR must show SAR 220210.25 instead."
+				)}</p>`,
+			},
+			{ fieldtype: "Section Break", label: __("Signature (from signed XML)") },
+			{
+				fieldname: "invoice_hash",
+				label: __("Invoice Hash"),
+				fieldtype: "Small Text",
+				default: defaults.invoice_hash,
+			},
+			{
+				fieldname: "signature_value",
+				label: __("Signature Value"),
+				fieldtype: "Small Text",
+				default: defaults.signature_value,
+			},
+			{ fieldtype: "Section Break", label: __("Result") },
+			{ fieldname: "result_html", fieldtype: "HTML" },
+		],
+		primary_action_label: __("Generate QR"),
+		primary_action(values) {
+			frappe.call({
+				method:
+					"zatca_integration.saudi_arabia_electronic_invoicing.temp_qr_generator.generate_temp_invoice_qr",
+				args: {
+					company: frm.doc.name,
+					seller_name: values.seller_name,
+					vat_number: values.vat_number,
+					timestamp: values.timestamp,
+					sar_total: values.sar_total,
+					sar_vat: values.sar_vat,
+					invoice_hash: values.invoice_hash,
+					signature_value: values.signature_value,
+				},
+				freeze: true,
+				freeze_message: __("Generating QR…"),
+				callback(r) {
+					if (!r.message) {
+						return;
+					}
+					const m = r.message;
+					const file_name = `INV-20133496-QR-SAR-${m.sar_total}.png`;
+					d.get_field("result_html").$wrapper.html(`
+						<div style="text-align:center;margin-top:12px;">
+							<img src="${m.image_data_url}"
+								style="max-width:280px;border:1px solid #ddd;padding:8px;"/>
+							<p><b>${__("SAR Total")}:</b> ${m.sar_total} &nbsp;|&nbsp;
+							<b>${__("SAR VAT")}:</b> ${m.sar_vat}</p>
+							<p style="margin-top:12px;">
+								<button class="btn btn-primary btn-sm" id="temp-qr-download-btn">
+									${__("Download QR PNG")}
+								</button>
+								<a class="btn btn-default btn-sm" href="${m.file_url}" target="_blank"
+									style="margin-left:8px;">
+									${__("Open in browser")}
+								</a>
+							</p>
+							<details style="text-align:left;margin-top:8px;">
+								<summary>${__("QR Base64 payload")}</summary>
+								<code style="word-break:break-all;font-size:11px;">${frappe.utils.escape_html(
+									m.qr_base64
+								)}</code>
+							</details>
+						</div>
+					`);
+
+					d.get_field("result_html")
+						.$wrapper.find("#temp-qr-download-btn")
+						.on("click", () => {
+							const link = document.createElement("a");
+							link.href = m.image_data_url;
+							link.download = file_name;
+							document.body.appendChild(link);
+							link.click();
+							document.body.removeChild(link);
+						});
+
+					frappe.show_alert({
+						message: __("QR generated with SAR amounts"),
+						indicator: "green",
+					});
+				},
+			});
+		},
+	});
+	d.show();
+}
 
 async function run_zatca_vat_setup(frm) {
 	if (frm.is_new()) {

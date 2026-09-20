@@ -195,7 +195,7 @@ fixtures = [
             ]
         ],
     },
-    # Property Setters
+    # Property Setter
     # {"doctype": "Property Setter", "filters": [["doc_type", "in", [
     #     "Address",
     #     "Company",
