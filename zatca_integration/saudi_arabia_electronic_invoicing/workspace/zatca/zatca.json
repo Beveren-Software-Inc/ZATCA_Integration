@@ -1,0 +1,269 @@
+{
+ "app": "zatca_integration",
+ "charts": [
+  {
+   "chart_name": "Document Submission Status",
+   "label": "Document Submission Status"
+  },
+  {
+   "chart_name": "Document Submission Time Analysis",
+   "label": "Document Submission Time Analysis"
+  },
+  {
+   "chart_name": "Monthly Submission Summary",
+   "label": "Monthly Submission Summary"
+  }
+ ],
+ "content": "[{\"id\": \"ztcaBlk01\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Document Submission Status\", \"col\": 6}}, {\"id\": \"ztcaBlk02\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Document Submission Time Analysis\", \"col\": 6}}, {\"id\": \"ztcaBlk03\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Monthly Submission Summary\", \"col\": 12}}, {\"id\": \"ztcaBlk04\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ztcaBlk05\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"PENDING INVOICES\", \"col\": 4}}, {\"id\": \"ztcaBlk06\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"CLEARED INVOICES\", \"col\": 4}}, {\"id\": \"ztcaBlk07\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"FAILED CLEARED INVOICES\", \"col\": 4}}, {\"id\": \"ztcaBlk08\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"NOT REPORTED INVOICES\", \"col\": 4}}, {\"id\": \"ztcaBlk09\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"NOT CLEARED INVOICES\", \"col\": 4}}, {\"id\": \"ztcaBlk10\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"REPORTED INVOICES\", \"col\": 4}}, {\"id\": \"ztcaBlk11\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"PENDING CREDIT NOTE\", \"col\": 4}}, {\"id\": \"ztcaBlk12\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"CLEARED CREDIT NOTE\", \"col\": 4}}, {\"id\": \"ztcaBlk13\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"FAILED CLEARED CREDIT NOTE\", \"col\": 4}}, {\"id\": \"ztcaBlk14\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"NOT REPORTED CREDIT NOTE\", \"col\": 4}}, {\"id\": \"ztcaBlk15\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"NOT CLEARED CREDIT NOTE\", \"col\": 4}}, {\"id\": \"ztcaBlk16\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"REPORTED CREDIT NOTE\", \"col\": 4}}, {\"id\": \"ztcaBlk17\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"WEEKLY PENDING INVOICES\", \"col\": 4}}, {\"id\": \"ztcaBlk18\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"WEEKLY CLEARED INVOICES\", \"col\": 4}}, {\"id\": \"ztcaBlk19\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"WEEKLY FAILED CLEARED INVOICES\", \"col\": 4}}, {\"id\": \"ztcaBlk20\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"WEEKLY FAILED REPORTED INVOICES\", \"col\": 4}}, {\"id\": \"ztcaBlk21\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Masters &amp; Reports</b></span>\", \"col\": 12}}, {\"id\": \"ztcaBlk22\", \"type\": \"card\", \"data\": {\"card_name\": \"Transactions\", \"col\": 4}}, {\"id\": \"ztcaBlk23\", \"type\": \"card\", \"data\": {\"card_name\": \"ZATCA Setup\", \"col\": 4}}, {\"id\": \"ztcaBlk24\", \"type\": \"card\", \"data\": {\"card_name\": \"Reports\", \"col\": 4}}]",
+ "creation": "2026-09-21 11:43:42.241063",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "legal-document",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "ZATCA",
+ "link_type": "DocType",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transactions",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Zatca Transactions",
+   "link_count": 0,
+   "link_to": "Zatca Transactions",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "CSID Transactions",
+   "link_count": 0,
+   "link_to": "CSID Transactions",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Compliance CSID",
+   "link_count": 0,
+   "link_to": "Compliance CSID",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Production CSID",
+   "link_count": 0,
+   "link_to": "Production CSID",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "ZATCA Setup",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Zatca Environment",
+   "link_count": 0,
+   "link_to": "Zatca Environment",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Zatca CSR Settings",
+   "link_count": 0,
+   "link_to": "Zatca CSR Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "VAT Category",
+   "link_count": 0,
+   "link_to": "VAT Category",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 6,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Document Submission Status Summary",
+   "link_count": 0,
+   "link_to": "Document Submission Status Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Document Submission Time Analysis",
+   "link_count": 0,
+   "link_to": "Document Submission Time Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Monthly Submission Summary",
+   "link_count": 0,
+   "link_to": "Monthly Submission Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Zatca VAT",
+   "link_count": 0,
+   "link_to": "Zatca VAT",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Zatca VAT Report",
+   "link_count": 0,
+   "link_to": "Zatca VAT Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Zatca VAT Detailed Report",
+   "link_count": 0,
+   "link_to": "Zatca VAT Detailed Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-09-21 11:43:42.241063",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "ZATCA",
+ "number_cards": [
+  {
+   "label": "PENDING INVOICES",
+   "number_card_name": "PENDING INVOICES"
+  },
+  {
+   "label": "CLEARED INVOICES",
+   "number_card_name": "CLEARED INVOICES"
+  },
+  {
+   "label": "FAILED CLEARED INVOICES",
+   "number_card_name": "FAILED CLEARED INVOICES"
+  },
+  {
+   "label": "FAILED REPORTED INVOICES",
+   "number_card_name": "NOT REPORTED INVOICES"
+  },
+  {
+   "label": "NOT CLEARED INVOICES",
+   "number_card_name": "NOT CLEARED INVOICES"
+  },
+  {
+   "label": "REPORTED INVOICES",
+   "number_card_name": "REPORTED INVOICES"
+  },
+  {
+   "label": "PENDING CREDIT NOTE",
+   "number_card_name": "PENDING CREDIT NOTE"
+  },
+  {
+   "label": "CLEARED CREDIT NOTE",
+   "number_card_name": "CLEARED CREDIT NOTE"
+  },
+  {
+   "label": "FAILED CLEARED CREDIT NOTE",
+   "number_card_name": "FAILED CLEARED CREDIT NOTE"
+  },
+  {
+   "label": "NOT REPORTED CREDIT NOTE",
+   "number_card_name": "NOT REPORTED CREDIT NOTE"
+  },
+  {
+   "label": "NOT CLEARED CREDIT NOTE",
+   "number_card_name": "NOT CLEARED CREDIT NOTE"
+  },
+  {
+   "label": "REPORTED CREDIT NOTE",
+   "number_card_name": "REPORTED CREDIT NOTE"
+  },
+  {
+   "label": "WEEKLY PENDING INVOICES",
+   "number_card_name": "WEEKLY PENDING INVOICES"
+  },
+  {
+   "label": "WEEKLY CLEARED INVOICES",
+   "number_card_name": "WEEKLY CLEARED INVOICES"
+  },
+  {
+   "label": "WEEKLY FAILED CLEARED INVOICES",
+   "number_card_name": "WEEKLY FAILED CLEARED INVOICES"
+  },
+  {
+   "label": "WEEKLY FAILED REPORTED INVOICES",
+   "number_card_name": "WEEKLY FAILED REPORTED INVOICES"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 1.0,
+ "shortcuts": [],
+ "title": "ZATCA",
+ "type": "Workspace"
+}

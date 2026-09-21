@@ -46,13 +46,15 @@ doctype_list_js = {"Sales Invoice": "public/js/sales_invoice_list.js"}
 # Svg Icons
 # ------------------
 # include app icons in desk
-# app_include_icons = "zatca_integration/public/icons.svg"
+app_include_icons = [
+    "/assets/zatca_integration/icons/zatca-icons.svg",
+]
 
 # bench --site zatca.local export-fixtures
 fixtures = [
     "Zatca Environment",
     {"dt": "Print Format", "filters": {"name": "ZATCA"}},
-    {"dt": "Workspace", "filters": {"name": "ZATCA Integrations"}},
+    {"dt": "Workspace", "filters": {"name": "ZATCA"}},
     {"dt": "Print Format", "filters": {"name": "ZATCA"}},
     {"dt": "VAT Category"},
     # Custom Fields

@@ -1,0 +1,157 @@
+{
+ "app": "zatca_integration",
+ "creation": "2025-07-14 14:09:39.059336",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "legal-document",
+ "idx": 0,
+ "items": [
+  {
+   "icon": "home",
+   "idx": 1,
+   "label": "Home",
+   "link_to": "ZATCA",
+   "link_type": "Workspace",
+   "type": "Link"
+  },
+  {
+   "idx": 2,
+   "label": "Compliance",
+   "type": "Section Break"
+  },
+  {
+   "child": 1,
+   "icon": "receipt-text",
+   "idx": 3,
+   "label": "Zatca Transactions",
+   "link_to": "Zatca Transactions",
+   "link_type": "DocType",
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "icon": "key-round",
+   "idx": 4,
+   "label": "CSID Transactions",
+   "link_to": "CSID Transactions",
+   "link_type": "DocType",
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "icon": "badge-check",
+   "idx": 5,
+   "label": "Compliance CSID",
+   "link_to": "Compliance CSID",
+   "link_type": "DocType",
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "icon": "badge-check",
+   "idx": 6,
+   "label": "Production CSID",
+   "link_to": "Production CSID",
+   "link_type": "DocType",
+   "type": "Link"
+  },
+  {
+   "idx": 7,
+   "label": "Setup",
+   "type": "Section Break"
+  },
+  {
+   "child": 1,
+   "icon": "settings",
+   "idx": 8,
+   "label": "Zatca Environment",
+   "link_to": "Zatca Environment",
+   "link_type": "DocType",
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "icon": "settings",
+   "idx": 9,
+   "label": "Zatca CSR Settings",
+   "link_to": "Zatca CSR Settings",
+   "link_type": "DocType",
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "icon": "scale",
+   "idx": 10,
+   "label": "VAT Category",
+   "link_to": "VAT Category",
+   "link_type": "DocType",
+   "type": "Link"
+  },
+  {
+   "idx": 11,
+   "label": "Reports",
+   "type": "Section Break"
+  },
+  {
+   "child": 1,
+   "icon": "file-text",
+   "idx": 12,
+   "label": "Document Submission Status Summary",
+   "link_to": "Document Submission Status Summary",
+   "link_type": "Report",
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "icon": "file-text",
+   "idx": 13,
+   "label": "Document Submission Time Analysis",
+   "link_to": "Document Submission Time Analysis",
+   "link_type": "Report",
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "icon": "file-text",
+   "idx": 14,
+   "label": "Monthly Submission Summary",
+   "link_to": "Monthly Submission Summary",
+   "link_type": "Report",
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "icon": "file-text",
+   "idx": 15,
+   "label": "Zatca VAT",
+   "link_to": "Zatca VAT",
+   "link_type": "Report",
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "icon": "file-text",
+   "idx": 16,
+   "label": "Zatca VAT Report",
+   "link_to": "Zatca VAT Report",
+   "link_type": "Report",
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "icon": "file-text",
+   "idx": 17,
+   "label": "Zatca VAT Detailed Report",
+   "link_to": "Zatca VAT Detailed Report",
+   "link_type": "Report",
+   "type": "Link"
+  }
+ ],
+ "modified": "2025-07-14 14:09:39.059336",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "ZATCA",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "ZATCA"
+}

@@ -1,0 +1,21 @@
+{
+ "app": "zatca_integration",
+ "bg_color": "blue",
+ "creation": "2026-09-21 11:43:42.257580",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "legal-document",
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "ZATCA",
+ "link_to": "ZATCA",
+ "link_type": "Workspace Sidebar",
+ "modified": "2026-09-21 11:43:42.257580",
+ "modified_by": "Administrator",
+ "name": "ZATCA",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}

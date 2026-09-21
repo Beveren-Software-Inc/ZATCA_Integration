@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
+from frappe.utils import flt
 
 
 # Report Script (Python)
@@ -18,13 +19,15 @@ def execute(filters=None):
         as_dict=True,
     )
 
-    # ✅ Get the first (and only) row
-    row = result[0]
+    # ✅ Get the first (and only) row.
+    # Aggregates are NULL when no transaction has a recorded elapsed time,
+    # so fall back to 0 to keep the report (and its dashboard chart) working.
+    row = result[0] if result else {}
 
     data = [
-        ["Min Time", row["min_time"]],
-        ["Max Time", row["max_time"]],
-        ["Avg Time", round(row["avg_time"], 2)],
+        ["Min Time", int(flt(row.get("min_time")))],
+        ["Max Time", int(flt(row.get("max_time")))],
+        ["Avg Time", round(flt(row.get("avg_time")), 2)],
     ]
 
     columns = ["Metric", "Value"]
