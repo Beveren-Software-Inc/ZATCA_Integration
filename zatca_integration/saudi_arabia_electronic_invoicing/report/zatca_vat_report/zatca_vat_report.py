@@ -12,13 +12,7 @@ def execute(filters=None):
     append_heading("Sales Invoices and VAT", data)
     sales_invoices = frappe.get_all(
         "Sales Invoice",
-        fields=[
-            "SUM(base_total) AS base_total",
-            "SUM(base_total_taxes_and_charges) AS base_total_taxes_and_charges",
-            "SUM(base_grand_total) AS base_grand_total",
-            "is_return",
-            "taxes_and_charges.custom_tax_type",
-        ],
+        fields=get_invoice_fields(),
         group_by="custom_tax_type, is_return",
         ignore_permissions=True,
     )
@@ -69,13 +63,7 @@ def execute(filters=None):
     append_heading("Purchase Invoices and VAT", data)
     purchase_invoices = frappe.get_all(
         "Purchase Invoice",
-        fields=[
-            "SUM(base_total) AS base_total",
-            "SUM(base_total_taxes_and_charges) AS base_total_taxes_and_charges",
-            "SUM(base_grand_total) AS base_grand_total",
-            "is_return",
-            "taxes_and_charges.custom_tax_type",
-        ],
+        fields=get_invoice_fields(),
         group_by="custom_tax_type, is_return",
         ignore_permissions=True,
     )
@@ -123,6 +111,24 @@ def execute(filters=None):
     append_data("Zero Rate", data, zero_rate_sum, zero_rate_adjustment_sum)
 
     return columns, data
+
+
+def get_invoice_fields():
+    """Fields for the Sales/Purchase Invoice aggregation.
+
+    v16 notes:
+    - SQL functions must use the dict syntax ({"SUM": "field", "as": "alias"});
+      plain strings like "SUM(base_total) AS base_total" are rejected.
+    - the linked tax template field must carry an explicit alias so that
+      `group_by="custom_tax_type"` can resolve it (SELECT aliases are tracked).
+    """
+    return [
+        {"SUM": "base_total", "as": "base_total"},
+        {"SUM": "base_total_taxes_and_charges", "as": "base_total_taxes_and_charges"},
+        {"SUM": "base_grand_total", "as": "base_grand_total"},
+        "is_return",
+        "taxes_and_charges.custom_tax_type as custom_tax_type",
+    ]
 
 
 def get_tax_sum(input):

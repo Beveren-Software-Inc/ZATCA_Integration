@@ -1,0 +1,15 @@
+<svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="zatca_icon_bg_subtle" x1="4" y1="2" x2="50" y2="52" gradientUnits="userSpaceOnUse">
+<stop offset="0" stop-color="#12B981"/>
+<stop offset="0.5" stop-color="#0E9C9C"/>
+<stop offset="1" stop-color="#0289F7"/>
+</linearGradient>
+</defs>
+<path d="M38.5714 0H15.4286C6.90761 0 0 6.90761 0 15.4286V38.5714C0 47.0924 6.90761 54 15.4286 54H38.5714C47.0924 54 54 47.0924 54 38.5714V15.4286C54 6.90761 47.0924 0 38.5714 0Z" fill="url(#zatca_icon_bg_subtle)" fill-opacity="0.12"/>
+<g transform="translate(12 12) scale(1.25)" fill="none" stroke="#0E9C9C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+<path d="M3 14v-4c0-3.771 0-5.657 1.172-6.828S7.229 2 11 2h2c3.771 0 5.657 0 6.828 1.172S21 6.229 21 10v4c0 3.771 0 5.657-1.172 6.828S16.771 22 13 22h-2c-3.771 0-5.657 0-6.828-1.172S3 17.771 3 14Z"/>
+<path d="M11.333 10.667c1.055 1.055 2.445 2.127 2.445 2.127l1.904-1.905s-1.072-1.39-2.126-2.445C12.5 7.39 11.11 6.317 11.11 6.317L9.206 8.222s1.072 1.39 2.127 2.445m0 0L8 14m8-3.429l-2.54 2.54M11.43 6L8.89 8.54"/>
+<path d="M8 18h8"/>
+</g>
+</svg>
