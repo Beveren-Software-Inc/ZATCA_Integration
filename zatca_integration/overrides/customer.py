@@ -5,7 +5,11 @@ from __future__ import annotations
 import frappe
 from frappe import _
 
-from zatca_integration.common_util import validate_ksa_vat_number
+from zatca_integration.common_util import (
+    get_vat_validation_settings,
+    is_vat_number_required,
+    validate_ksa_vat_number,
+)
 
 EXPORT_VAT_CATEGORIES = {"Export / Non-Resident"}
 
@@ -78,8 +82,15 @@ def validate(doc, method=None):
             )
         return
 
-    # Saudi Arabia + Company + domestic/registered VAT category
-    if is_saudi_registered_company(doc) and not (has_vat_number(doc) or has_registration(doc)):
+    # Saudi Arabia + Company + domestic VAT category.
+    # Whether a VAT Number is mandatory is controlled by "Zatca Settings":
+    # - Validate VAT No Against All Company: every company must provide one
+    # - Validate VAT No Against Registered Company: only VAT-registered companies
+    if (
+        is_saudi_registered_company(doc)
+        and is_vat_number_required(doc)
+        and not (has_vat_number(doc) or has_registration(doc))
+    ):
         frappe.throw(
             _(
                 "Saudi company customers must have a VAT Number, or both "
@@ -87,3 +98,9 @@ def validate(doc, method=None):
             ),
             title=_("ZATCA Details Required"),
         )
+
+
+@frappe.whitelist()
+def get_customer_vat_validation_settings():
+    """Expose the VAT Number validation switches to the Customer form."""
+    return get_vat_validation_settings()

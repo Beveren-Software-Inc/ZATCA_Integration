@@ -1,6 +1,9 @@
 frappe.ui.form.on("Customer", {
 	refresh(frm) {
+		// Always re-read the switches so a settings change is picked up on next open
+		zatca_vat_settings = null;
 		toggle_customer_zatca_requirements(frm);
+		load_zatca_vat_settings(frm);
 		set_vat_number_input_limits(frm);
 	},
 
@@ -57,12 +60,66 @@ function is_overseas(frm) {
 	return (country && country !== "Saudi Arabia") || vat_category === "Export / Non-Resident";
 }
 
-function is_saudi_registered_company(frm) {
-	return (
-		frm.doc.customer_type === "Company" &&
-		(frm.doc.custom_country || "").trim() === "Saudi Arabia" &&
-		get_vat_category(frm) !== "Export / Non-Resident"
-	);
+// Keep in sync with zatca_integration/common_util.py REGISTERED_VAT_CATEGORIES
+const ZATCA_REGISTERED_VAT_CATEGORIES = [
+	"Registered",
+	"Registered Regular",
+	"Registered Composition",
+	"B2B",
+	"B2G",
+	"Tax Deductors",
+	"Tax Deductor",
+	"Tax Collector",
+	"SEZ",
+	"UIN Holders",
+	"Input Service Distributor",
+];
+
+let zatca_vat_settings = null;
+let zatca_vat_settings_request = null;
+
+// Switches live on "Zatca Settings":
+// - validate_vat_no_against_all_company: every Company customer needs a VAT No
+// - validate_vat_no_against_registered_company: only VAT-registered companies do
+function load_zatca_vat_settings(frm) {
+	return fetch_zatca_vat_settings().then(() => {
+		toggle_customer_zatca_requirements(frm);
+		return zatca_vat_settings;
+	});
+}
+
+function fetch_zatca_vat_settings() {
+	if (zatca_vat_settings) {
+		return Promise.resolve(zatca_vat_settings);
+	}
+	if (!zatca_vat_settings_request) {
+		zatca_vat_settings_request = frappe
+			.xcall("zatca_integration.overrides.customer.get_customer_vat_validation_settings")
+			.then((settings) => {
+				zatca_vat_settings = settings || {};
+				return zatca_vat_settings;
+			})
+			.catch(() => {
+				zatca_vat_settings = {};
+				return zatca_vat_settings;
+			})
+			.then((settings) => {
+				zatca_vat_settings_request = null;
+				return settings;
+			});
+	}
+	return zatca_vat_settings_request;
+}
+
+function is_vat_number_validation_enabled(frm) {
+	const settings = zatca_vat_settings || {};
+	if (Number(settings.validate_vat_no_against_all_company)) {
+		return true;
+	}
+	if (Number(settings.validate_vat_no_against_registered_company)) {
+		return ZATCA_REGISTERED_VAT_CATEGORIES.includes(get_vat_category(frm));
+	}
+	return false;
 }
 
 function is_valid_ksa_vat_number(value) {
@@ -122,7 +179,6 @@ function warn_overseas_missing_registration(frm) {
 function toggle_customer_zatca_requirements(frm) {
 	const is_company = frm.doc.customer_type === "Company";
 	const overseas = is_overseas(frm);
-	const sa_registered = is_saudi_registered_company(frm);
 
 	const has_vat = !!(frm.doc.custom_vat_number || frm.doc.tax_id);
 	const has_reg_scheme = !!(frm.doc.custom_registration_scheme || "").trim();
@@ -164,7 +220,14 @@ function toggle_customer_zatca_requirements(frm) {
 		return;
 	}
 
-	if (sa_registered) {
+	// VAT Number is mandatory only when switched on in "Zatca Settings".
+	// Wait for the switches before deciding, otherwise leave the current state untouched.
+	if (!zatca_vat_settings) {
+		load_zatca_vat_settings(frm);
+		return;
+	}
+
+	if (is_vat_number_validation_enabled(frm)) {
 		// Need VAT OR (scheme + number). Require whichever side is still missing.
 		if (frm.fields_dict.custom_vat_number) {
 			frm.toggle_reqd("custom_vat_number", !has_registration);
@@ -178,7 +241,7 @@ function toggle_customer_zatca_requirements(frm) {
 		return;
 	}
 
-	// Company with no country yet / edge cases
+	// Validation switched off: VAT Number / registration details stay optional
 	["custom_vat_number", "custom_registration_scheme", "custom_registration_number"].forEach(
 		(field) => {
 			if (frm.fields_dict[field]) {

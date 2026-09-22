@@ -67,7 +67,20 @@ const OVERSEAS_VAT_CATEGORIES = [
 	"Deemed Export",
 ];
 
-const REGISTERED_VAT_CATEGORIES = ["Registered", "B2B", "B2G", "Tax Deductors"];
+// Keep in sync with zatca_integration/common_util.py REGISTERED_VAT_CATEGORIES
+const REGISTERED_VAT_CATEGORIES = [
+	"Registered",
+	"Registered Regular",
+	"Registered Composition",
+	"B2B",
+	"B2G",
+	"Tax Deductors",
+	"Tax Deductor",
+	"Tax Collector",
+	"SEZ",
+	"UIN Holders",
+	"Input Service Distributor",
+];
 
 function get_linked_party(frm) {
 	const link = (frm.doc.links || []).find(

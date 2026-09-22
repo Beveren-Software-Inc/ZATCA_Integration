@@ -8,6 +8,11 @@ import re
 import frappe
 from frappe import _
 
+# Categories treated as VAT-registered for address rules — shared with
+# ``common_util.REGISTERED_VAT_CATEGORIES`` so the VAT Number validation and the
+# Address rules never drift apart.
+from zatca_integration.common_util import REGISTERED_VAT_CATEGORIES
+
 # English Address field → Arabic custom field
 ARABIC_FIELD_MAP = {
     "address_line1": "custom_street_in_arabic",
@@ -31,14 +36,6 @@ OVERSEAS_VAT_CATEGORIES = {
     "Overseas",
     "Export / Non-Resident",
     "Deemed Export",
-}
-
-# Categories treated as VAT-registered for address rules
-REGISTERED_VAT_CATEGORIES = {
-    "Registered",
-    "B2B",
-    "B2G",
-    "Tax Deductors",
 }
 
 COUNTRY_ARABIC = {
