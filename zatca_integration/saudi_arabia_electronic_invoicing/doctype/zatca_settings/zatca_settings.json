@@ -1,0 +1,60 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-09-22 16:08:38.794384",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "validation_section",
+  "validate_vat_no_against_registered_company",
+  "validate_vat_no_against_all_company"
+ ],
+ "fields": [
+  {
+   "fieldname": "validation_section",
+   "fieldtype": "Section Break",
+   "label": "Validation"
+  },
+  {
+   "default": "0",
+   "description": "Require a VAT Number (or Registration Scheme + Registration Number) only for VAT registered companies (VAT Category: Registered, Registered Regular, Registered Composition, SEZ, Tax Deductor, Tax Collector, UIN Holders, Input Service Distributor or B2B/B2G). Applied only while \"Validate VAT No Against All Company\" is unchecked.",
+   "fieldname": "validate_vat_no_against_registered_company",
+   "fieldtype": "Check",
+   "label": "Validate VAT No Against Registered Company"
+  },
+  {
+   "default": "0",
+   "description": "Require a VAT Number (or Registration Scheme + Registration Number) for every Company customer in Saudi Arabia, including companies that are not VAT registered.",
+   "fieldname": "validate_vat_no_against_all_company",
+   "fieldtype": "Check",
+   "label": "Validate VAT No Against All Company"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-22 19:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Zatca Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

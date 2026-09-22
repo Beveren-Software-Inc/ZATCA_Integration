@@ -4,6 +4,35 @@ import xml.etree.ElementTree as ET
 
 import frappe
 from frappe import _
+from frappe.utils import cint
+
+# Single DocType holding the VAT Number validation switches
+ZATCA_SETTINGS = "Zatca Settings"
+
+# Switches that control whether a Company customer must carry a VAT Number
+VAT_VALIDATION_FIELDS = (
+    "validate_vat_no_against_all_company",
+    "validate_vat_no_against_registered_company",
+)
+
+# VAT categories that mean the customer is VAT-registered. Single source of truth
+# for the server-side checks (``overrides/address.py`` imports this set).
+# Covers both the "VAT Category" DocType records (Registered / Tax Deductors) and
+# the GST-style options used on the Customer "VAT Category" select
+# (Registered Regular, Registered Composition, SEZ, Tax Deductor, ...).
+REGISTERED_VAT_CATEGORIES = {
+    "Registered",
+    "Registered Regular",
+    "Registered Composition",
+    "B2B",
+    "B2G",
+    "Tax Deductors",
+    "Tax Deductor",
+    "Tax Collector",
+    "SEZ",
+    "UIN Holders",
+    "Input Service Distributor",
+}
 
 
 def validate_sales_invoice(doc, method):
@@ -64,12 +93,63 @@ def validate_ksa_vat_number(vat_number, field_label=None):
         )
 
 
+def get_customer_vat_category(customer) -> str:
+    """VAT Category of a Customer (Document or dict), Tax Category taking precedence."""
+    return (customer.get("tax_category") or customer.get("custom_vat_category") or "").strip()
+
+
+def is_vat_registered_customer(customer) -> bool:
+    """True when the customer's VAT Category marks them as VAT-registered."""
+    return get_customer_vat_category(customer) in REGISTERED_VAT_CATEGORIES
+
+
+def get_vat_validation_settings() -> dict:
+    """
+    Read the VAT Number validation switches from "Zatca Settings".
+
+    - validate_vat_no_against_all_company: a VAT Number is mandatory for every
+      Company customer (in scope of ZATCA rules).
+    - validate_vat_no_against_registered_company: a VAT Number is mandatory only
+      when the customer's VAT Category is a registered one.
+
+    Missing DocType / record / empty values fall back to 0 (validation off), so
+    unregistered companies below the VAT threshold are never blocked by default.
+    """
+    values = frappe.db.get_singles_dict(ZATCA_SETTINGS) or {}
+    return {fieldname: cint(values.get(fieldname)) for fieldname in VAT_VALIDATION_FIELDS}
+
+
+def is_vat_number_required(customer) -> bool:
+    """
+    Whether this customer must provide a VAT Number (or registration details).
+
+    Companies outside Saudi Arabia / Export category are never forced (ZATCA
+    Annex 5.3-5.4). Individuals are never forced. Everything else is decided by
+    the switches on "Zatca Settings".
+    """
+    if customer.get("customer_type") != "Company":
+        return False
+
+    if is_foreign_customer(customer):
+        return False
+
+    settings = get_vat_validation_settings()
+    if settings["validate_vat_no_against_all_company"]:
+        return True
+
+    if settings["validate_vat_no_against_registered_company"]:
+        return is_vat_registered_customer(customer)
+
+    return False
+
+
 def validate_company_buyer_identification(customer):
     """
     ZATCA E-Invoicing Resolution Annex 5.3–5.4:
     - Individual: buyer company identification not required.
     - Export / non-KSA buyer: buyer VAT not mandatory.
     - Saudi B2B/company: VAT if applicable, or registration scheme + number.
+      Whether a VAT Number is mandatory is controlled by "Zatca Settings".
     """
     if customer.customer_type != "Company":
         return
@@ -86,6 +166,8 @@ def validate_company_buyer_identification(customer):
             customer.custom_vat_number or customer.get("tax_id"),
             field_label=_("VAT Number"),
         )
+    if not is_vat_number_required(customer):
+        return
     if not (has_vat or has_registration):
         frappe.throw(
             "Saudi company customers must have a VAT Number or both "
