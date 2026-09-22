@@ -173,6 +173,7 @@ fixtures = [
                     "Customer-customer_name_in_arabic",
                     "Customer-custom_payment_method",
                     "Customer-custom_column_break_uvb47",
+                    "Customer-custom_vat_category",
                     # Purchase taxes Charges
                     "Purchase Taxes and Charges Template-custom_country",
                     "Purchase Taxes and Charges Template-custom_except_rate_reason",
@@ -195,6 +196,7 @@ fixtures = [
                     "Address-custom_additional_no",
                     "Sales Invoice-custom_invoice_qr_codesar",
                     "Supplier-custom_cr_no",
+                    "Supplier-custom_vat_category",
                 ],
             ]
         ],
