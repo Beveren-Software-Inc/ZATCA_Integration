@@ -198,6 +198,35 @@ class TestCustomerCategoryHelpers(unittest.TestCase):
         self.assertIn("outside Saudi Arabia", reason)
 
 
+class TestFixVatCategoryOptionsPatch(unittest.TestCase):
+    """The patch must survive a site where the field/column is not installed yet.
+
+    Fixtures are synced after the post-model-sync patches, so on a site that has
+    never had the Address field, ``SELECT custom_vat_category`` raised
+    ``Unknown column ... in 'SELECT'`` and aborted ``bench migrate``.
+    """
+
+    def test_missing_field_or_column_is_skipped_not_fatal(self):
+        from zatca_integration.saudi_arabia_electronic_invoicing.patches import (
+            fix_vat_category_options as patch,
+        )
+
+        original = patch.DOCTYPE_FIELD
+        patch.DOCTYPE_FIELD = original + (("Sales Invoice", "custom_vat_category"),)
+        try:
+            patch.fix_stored_values()  # must not raise
+        finally:
+            patch.DOCTYPE_FIELD = original
+
+    def test_patch_is_idempotent(self):
+        from zatca_integration.saudi_arabia_electronic_invoicing.patches import (
+            fix_vat_category_options as patch,
+        )
+
+        patch.rewrite_select_options()
+        patch.fix_stored_values()
+
+
 class TestSupplierVatCategory(unittest.TestCase):
     """A VAT registered supplier must carry a Tax ID (VAT Number)."""
 
