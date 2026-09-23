@@ -194,6 +194,7 @@ fixtures = [
                     "Company-custom_zatca_setup",
                     "Company-custom_zatca_vat_setup_done",
                     "Address-custom_additional_no",
+                    "Address-custom_vat_category",
                     "Sales Invoice-custom_invoice_qr_codesar",
                     "Supplier-custom_cr_no",
                     "Supplier-custom_vat_category",
@@ -360,6 +361,7 @@ doc_events = {
         "on_update": "zatca_integration.overrides.address.sync_party_tax_category_to_addresses",
     },
     "Supplier": {
+        "validate": "zatca_integration.overrides.supplier.validate",
         "on_update": "zatca_integration.overrides.address.sync_party_tax_category_to_addresses",
     },
 }

@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import re
 import xml.etree.ElementTree as ET
 
 import frappe
@@ -15,24 +16,137 @@ VAT_VALIDATION_FIELDS = (
     "validate_vat_no_against_registered_company",
 )
 
-# VAT categories that mean the customer is VAT-registered. Single source of truth
-# for the server-side checks (``overrides/address.py`` imports this set).
-# Covers both the "VAT Category" DocType records (Registered / Tax Deductors) and
-# the GST-style options used on the Customer "VAT Category" select
-# (Registered Regular, Registered Composition, SEZ, Tax Deductor, ...).
+# ---------------------------------------------------------------- VAT Category
+# Two fields carry a "VAT Category" in this app, and both are understood here:
+#   * ``custom_vat_category`` — Select on Customer / Supplier / Address:
+#     Registered, Unregistered, Overseas, Government, Exempt
+#   * ``tax_category`` — Link to ERPNext "Tax Category", seeded by
+#     ``vat_setup.TAX_CATEGORIES``: B2B, B2C, B2G, Export / Non-Resident,
+#     Exempt Entity
+# ``get_customer_vat_category`` prefers the link, then falls back to the select.
+#
+# Names are matched case-insensitively and ignoring extra spaces, so renaming an
+# option ("registered", "Overseas ") can never silently break the VAT checks.
+
+# Party IS VAT-registered: a VAT Number is expected when the
+# "Validate VAT No Against Registered Company" switch is on.
 REGISTERED_VAT_CATEGORIES = {
-    "Registered",
-    "Registered Regular",
-    "Registered Composition",
-    "B2B",
-    "B2G",
-    "Tax Deductors",
+    "Registered",  # select
+    "B2B",  # tax_category
+    "B2G",  # tax_category
+    "Tax Deductors",  # VAT Category record
     "Tax Deductor",
-    "Tax Collector",
-    "SEZ",
-    "UIN Holders",
-    "Input Service Distributor",
 }
+
+# Party is NOT VAT-registered: a VAT Number is never forced (switch or not).
+UNREGISTERED_VAT_CATEGORIES = {
+    "Unregistered",  # select
+    "B2C",  # tax_category (consumer)
+    "Government",  # select
+    "Exempt",  # select
+    "Exempt Entity",  # tax_category
+}
+
+# Overseas / export-style: buyer VAT is not mandatory and the full Saudi
+# national address is not required (ZATCA Annex 5.3-5.4).
+EXPORT_VAT_CATEGORIES = {
+    "Overseas",  # select
+    "Oversees",  # VAT Category record spelling
+    "Deemed Export",  # VAT Category record
+    "Export / Non-Resident",  # tax_category
+    "Export",
+}
+
+
+# Zero-width / invisible characters that sneak into Select option strings and
+# stored values: U+2060 WORD JOINER, U+200B ZWSP, U+FEFF BOM, U+200C/U+200D.
+# They make a stored value stop matching its option, which makes the Select show
+# blank and save blank.
+INVISIBLE_VAT_CHARS = dict.fromkeys(map(ord, "\u2060\u200b\ufeff\u200c\u200d"))
+
+
+def normalize_vat_category(value) -> str:
+    """Case-folded, whitespace- and invisible-character-insensitive form."""
+    return clean_vat_category(value).casefold()
+
+
+def clean_vat_category(value) -> str:
+    """
+    Drop invisible characters and collapse/trim whitespace.
+
+    The Select options once shipped with a U+2060 WORD JOINER before
+    "Unregistered", "Overseas", "Government" and "Exempt" and a trailing TAB on
+    some of them. A Select field whose stored value is not byte-identical to an
+    option renders blank and then saves blank, so these never survive here.
+    """
+    text = str(value or "").translate(INVISIBLE_VAT_CHARS)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def get_vat_category_options(doctype="Customer", fieldname="custom_vat_category"):
+    """Select options of the VAT Category field, cleaned and de-duplicated."""
+    meta = frappe.get_meta(doctype)
+    df = meta.get_field(fieldname) if meta else None
+    if not df or not df.options:
+        return []
+
+    options = []
+    for option in df.options.split("\n"):
+        cleaned = clean_vat_category(option).strip()
+        if cleaned and cleaned not in options:
+            options.append(cleaned)
+    return options
+
+
+def canonical_vat_category(value, options):
+    """Return the exact Select option matching ``value`` (case/space/invisible safe)."""
+    if value in (None, ""):
+        return None
+
+    normalized = normalize_vat_category(value)
+    for option in options or []:
+        if normalize_vat_category(option) == normalized:
+            return option
+    return None
+
+
+def canonicalize_vat_category_field(doc, fieldname="custom_vat_category"):
+    """
+    Rewrite ``doc.<fieldname>`` to the exact Select option when it matches.
+
+    Guards the "VAT Category goes blank on save" problem: Select fields only show
+    a value that is byte-identical to one of their options. Returns the new value
+    when it was rewritten, ``None`` when nothing changed (values that match no
+    option are left untouched so nothing is lost silently).
+    """
+    value = doc.get(fieldname)
+    if not value:
+        return None
+
+    doctype = getattr(doc, "doctype", None) or doc.get("doctype")
+    canonical = canonical_vat_category(value, get_vat_category_options(doctype, fieldname))
+    if canonical and canonical != value:
+        # Document objects expose .set(); plain dicts only support item assignment
+        if hasattr(doc, "set"):
+            doc.set(fieldname, canonical)
+        else:
+            doc[fieldname] = canonical
+        return canonical
+    return None
+
+
+_REGISTERED_VAT_NORMALIZED = {normalize_vat_category(name) for name in REGISTERED_VAT_CATEGORIES}
+_EXPORT_VAT_NORMALIZED = {normalize_vat_category(name) for name in EXPORT_VAT_CATEGORIES}
+
+
+def is_registered_vat_category(value) -> bool:
+    """True when the VAT Category marks the party as VAT-registered."""
+    return normalize_vat_category(value) in _REGISTERED_VAT_NORMALIZED
+
+
+def is_export_vat_category(value) -> bool:
+    """True for Overseas / Export / Deemed Export style VAT Categories."""
+    return normalize_vat_category(value) in _EXPORT_VAT_NORMALIZED
 
 
 def validate_sales_invoice(doc, method):
@@ -55,25 +169,13 @@ def decode_invoice(encoded_invoice):
     return decoded_string
 
 
-def is_foreign_customer(customer):
-    """Buyer outside KSA, or Export / Non-Resident VAT category."""
-    country = (
-        customer.get("custom_country")
-        if isinstance(customer, dict)
-        else getattr(customer, "custom_country", None)
-    )
-    vat_category = (
-        customer.get("tax_category")
-        if isinstance(customer, dict)
-        else getattr(customer, "tax_category", None)
-    ) or (
-        customer.get("custom_vat_category")
-        if isinstance(customer, dict)
-        else getattr(customer, "custom_vat_category", None)
-    )
-    if vat_category == "Export / Non-Resident":
+def is_foreign_customer(customer) -> bool:
+    """Buyer outside KSA, or an Overseas / Export / Deemed Export VAT category."""
+    if is_export_vat_category(get_customer_vat_category(customer)):
         return True
-    return bool(country) and country != "Saudi Arabia"
+
+    country = str(customer.get("custom_country") or "").strip()
+    return bool(country) and country.casefold() != "saudi arabia"
 
 
 def validate_ksa_vat_number(vat_number, field_label=None):
@@ -100,7 +202,7 @@ def get_customer_vat_category(customer) -> str:
 
 def is_vat_registered_customer(customer) -> bool:
     """True when the customer's VAT Category marks them as VAT-registered."""
-    return get_customer_vat_category(customer) in REGISTERED_VAT_CATEGORIES
+    return is_registered_vat_category(get_customer_vat_category(customer))
 
 
 def get_vat_validation_settings() -> dict:

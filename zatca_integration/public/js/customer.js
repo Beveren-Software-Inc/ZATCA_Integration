@@ -54,26 +54,47 @@ function get_vat_category(frm) {
 	return (frm.doc.tax_category || frm.doc.custom_vat_category || "").trim();
 }
 
-function is_overseas(frm) {
-	const country = (frm.doc.custom_country || "").trim();
-	const vat_category = get_vat_category(frm);
-	return (country && country !== "Saudi Arabia") || vat_category === "Export / Non-Resident";
+// Keep in sync with zatca_integration/common_util.py:
+// - custom_vat_category select: Registered / Unregistered / Overseas / Government / Exempt
+// - tax_category link: B2B / B2C / B2G / Export / Non-Resident / Exempt Entity
+function normalize_vat_category(value) {
+	return String(value || "")
+		.trim()
+		.replace(/\s+/g, " ")
+		.toLowerCase();
 }
 
-// Keep in sync with zatca_integration/common_util.py REGISTERED_VAT_CATEGORIES
-const ZATCA_REGISTERED_VAT_CATEGORIES = [
-	"Registered",
-	"Registered Regular",
-	"Registered Composition",
-	"B2B",
-	"B2G",
-	"Tax Deductors",
-	"Tax Deductor",
-	"Tax Collector",
-	"SEZ",
-	"UIN Holders",
-	"Input Service Distributor",
+// VAT-registered buyers (a VAT Number applies when the "registered" switch is on)
+const ZATCA_REGISTERED_VAT_CATEGORIES = ["Registered", "B2B", "B2G", "Tax Deductors", "Tax Deductor"];
+
+// Overseas / export-style buyers: no VAT Number, no Saudi national address
+const ZATCA_EXPORT_VAT_CATEGORIES = [
+	"Overseas",
+	"Oversees",
+	"Deemed Export",
+	"Export / Non-Resident",
+	"Export",
 ];
+
+function is_registered_vat_category(value) {
+	const category = normalize_vat_category(value);
+	return ZATCA_REGISTERED_VAT_CATEGORIES.some(
+		(name) => normalize_vat_category(name) === category
+	);
+}
+
+function is_export_vat_category(value) {
+	const category = normalize_vat_category(value);
+	return ZATCA_EXPORT_VAT_CATEGORIES.some((name) => normalize_vat_category(name) === category);
+}
+
+function is_overseas(frm) {
+	if (is_export_vat_category(get_vat_category(frm))) {
+		return true;
+	}
+	const country = (frm.doc.custom_country || "").trim();
+	return !!country && country.toLowerCase() !== "saudi arabia";
+}
 
 let zatca_vat_settings = null;
 let zatca_vat_settings_request = null;
@@ -117,7 +138,7 @@ function is_vat_number_validation_enabled(frm) {
 		return true;
 	}
 	if (Number(settings.validate_vat_no_against_registered_company)) {
-		return ZATCA_REGISTERED_VAT_CATEGORIES.includes(get_vat_category(frm));
+		return is_registered_vat_category(get_vat_category(frm));
 	}
 	return false;
 }
@@ -160,6 +181,18 @@ function validate_customer_vat_number_input(frm) {
 	}
 }
 
+// Mirrors zatca_integration.overrides.customer.get_overseas_reason: never tell a
+// Saudi Arabia customer that they are abroad — name the VAT Category instead.
+function overseas_reason(frm) {
+	const country = (frm.doc.custom_country || "").trim();
+	if (country && country.toLowerCase() !== "saudi arabia") {
+		return __("Country is {0} (outside Saudi Arabia)", [country]);
+	}
+	return __("VAT Category is {0} (overseas / export)", [
+		get_vat_category(frm) || "Overseas",
+	]);
+}
+
 function warn_overseas_missing_registration(frm) {
 	if (frm.doc.customer_type !== "Company" || !is_overseas(frm)) {
 		return;
@@ -170,7 +203,8 @@ function warn_overseas_missing_registration(frm) {
 	}
 	frappe.show_alert({
 		message: __(
-			"Overseas / Export company: Registration Number is recommended. You can still save without it."
+			"Registration Number recommended: {0}. You can still save without it.",
+			[overseas_reason(frm)]
 		),
 		indicator: "orange",
 	});

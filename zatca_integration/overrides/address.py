@@ -8,10 +8,14 @@ import re
 import frappe
 from frappe import _
 
-# Categories treated as VAT-registered for address rules — shared with
-# ``common_util.REGISTERED_VAT_CATEGORIES`` so the VAT Number validation and the
-# Address rules never drift apart.
-from zatca_integration.common_util import REGISTERED_VAT_CATEGORIES
+# Categories treated as VAT-registered / overseas for address rules — shared with
+# ``common_util`` so the VAT Number validation and the Address rules never drift
+# apart (see common_util.REGISTERED_VAT_CATEGORIES / EXPORT_VAT_CATEGORIES).
+from zatca_integration.common_util import (
+    canonicalize_vat_category_field,
+    is_export_vat_category,
+    is_registered_vat_category,
+)
 
 # English Address field → Arabic custom field
 ARABIC_FIELD_MAP = {
@@ -29,14 +33,6 @@ SA_REQUIRED_FIELDS = [
     ("county", _("City Name")),
     ("pincode", _("Postal Code")),
 ]
-
-# VAT categories that mean overseas / export-style (full SA national address not required)
-OVERSEAS_VAT_CATEGORIES = {
-    "Oversees",
-    "Overseas",
-    "Export / Non-Resident",
-    "Deemed Export",
-}
 
 COUNTRY_ARABIC = {
     "Saudi Arabia": "المملكة العربية السعودية",
@@ -97,6 +93,10 @@ def before_save(doc, method=None):
 
 
 def validate(doc, method=None):
+    # Keep the VAT Category Select matching its options (invisible characters or
+    # a different case make the field render blank and save blank again).
+    canonicalize_vat_category_field(doc)
+
     # Local maps only — never call external translate APIs during save
     autofill_arabic_fields(doc, allow_network=False)
     sync_tax_category_from_party(doc)
@@ -169,18 +169,18 @@ def requires_saudi_national_address(doc, party=None) -> bool:
 
     party = party if party is not None else _get_linked_party_values(doc)
     vat_category = get_address_vat_category(doc, party=party)
-    if vat_category in OVERSEAS_VAT_CATEGORIES:
+    if is_export_vat_category(vat_category):
         return False
 
     entity_type = get_party_entity_type(doc, party=party)
     if entity_type == "Individual":
-        return vat_category in REGISTERED_VAT_CATEGORIES
+        return is_registered_vat_category(vat_category)
 
     if entity_type == "Company":
         return True
 
     # No party linked: require full SA address only when clearly Registered
-    return vat_category in REGISTERED_VAT_CATEGORIES
+    return is_registered_vat_category(vat_category)
 
 
 def validate_address_by_party(doc):
