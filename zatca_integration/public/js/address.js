@@ -60,27 +60,39 @@ const SA_ADDRESS_FIELDS = [
 	"custom_additional_no",
 ];
 
-const OVERSEAS_VAT_CATEGORIES = [
-	"Oversees",
+// Keep in sync with zatca_integration/common_util.py:
+// - custom_vat_category select: Registered / Unregistered / Overseas / Government / Exempt
+// - tax_category link: B2B / B2C / B2G / Export / Non-Resident / Exempt Entity
+function normalize_vat_category(value) {
+	return String(value || "")
+		.trim()
+		.replace(/\s+/g, " ")
+		.toLowerCase();
+}
+
+// VAT-registered buyers (national address required for Individuals)
+const ZATCA_REGISTERED_VAT_CATEGORIES = ["Registered", "B2B", "B2G", "Tax Deductors", "Tax Deductor"];
+
+// Overseas / export-style buyers: full Saudi national address not required
+const ZATCA_EXPORT_VAT_CATEGORIES = [
 	"Overseas",
-	"Export / Non-Resident",
+	"Oversees",
 	"Deemed Export",
+	"Export / Non-Resident",
+	"Export",
 ];
 
-// Keep in sync with zatca_integration/common_util.py REGISTERED_VAT_CATEGORIES
-const REGISTERED_VAT_CATEGORIES = [
-	"Registered",
-	"Registered Regular",
-	"Registered Composition",
-	"B2B",
-	"B2G",
-	"Tax Deductors",
-	"Tax Deductor",
-	"Tax Collector",
-	"SEZ",
-	"UIN Holders",
-	"Input Service Distributor",
-];
+function is_registered_vat_category(value) {
+	const category = normalize_vat_category(value);
+	return ZATCA_REGISTERED_VAT_CATEGORIES.some(
+		(name) => normalize_vat_category(name) === category
+	);
+}
+
+function is_export_vat_category(value) {
+	const category = normalize_vat_category(value);
+	return ZATCA_EXPORT_VAT_CATEGORIES.some((name) => normalize_vat_category(name) === category);
+}
 
 function get_linked_party(frm) {
 	const link = (frm.doc.links || []).find(
@@ -99,18 +111,18 @@ function requires_saudi_national_address(frm) {
 	}
 
 	const vat_category = get_vat_category(frm);
-	if (OVERSEAS_VAT_CATEGORIES.includes(vat_category)) {
+	if (is_export_vat_category(vat_category)) {
 		return false;
 	}
 
 	const entity_type = (frm._zatca_party_context || {}).entity_type;
 	if (entity_type === "Individual") {
-		return REGISTERED_VAT_CATEGORIES.includes(vat_category);
+		return is_registered_vat_category(vat_category);
 	}
 	if (entity_type === "Company") {
 		return true;
 	}
-	return REGISTERED_VAT_CATEGORIES.includes(vat_category);
+	return is_registered_vat_category(vat_category);
 }
 
 function toggle_saudi_address_requirements(frm) {

@@ -18,7 +18,7 @@
   },
   {
    "default": "0",
-   "description": "Require a VAT Number (or Registration Scheme + Registration Number) only for VAT registered companies (VAT Category: Registered, Registered Regular, Registered Composition, SEZ, Tax Deductor, Tax Collector, UIN Holders, Input Service Distributor or B2B/B2G). Applied only while \"Validate VAT No Against All Company\" is unchecked.",
+   "description": "Require a VAT Number (or Registration Scheme + Registration Number) only for VAT registered buyers — VAT Category: Registered, B2B or B2G (see common_util.REGISTERED_VAT_CATEGORIES). Applied only while \"Validate VAT No Against All Company\" is unchecked.",
    "fieldname": "validate_vat_no_against_registered_company",
    "fieldtype": "Check",
    "label": "Validate VAT No Against Registered Company"
