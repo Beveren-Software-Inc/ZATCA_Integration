@@ -30,9 +30,10 @@ app_license = "mit"
 # include js in doctype views
 # doctype_js = {"doctype" : "public/js/doctype.js"}
 doctype_js = {
-    "Sales Invoice": "public/js/sales_invoice.js",
+    # TEMPORARY temp-SAR-QR tool: shared by the Sales Invoice and Company forms.
+    "Sales Invoice": ["public/js/temp_sar_qr.js", "public/js/sales_invoice.js"],
     "CSID Transactions": "public/js/csid_transactions_list.js",
-    "Company": "public/js/company.js",
+    "Company": ["public/js/temp_sar_qr.js", "public/js/company.js"],
     "Address": "public/js/address.js",
     "Customer": "public/js/customer.js",
     "Supplier": "public/js/supplier.js",

@@ -18,9 +18,11 @@ TEST_ITEM_DATA = {
     "net_amount": 6000,
 }
 
+TEST_CUSTOMER_GROUP = "Test Customer Group"
+
 TEST_CUSTOMER_DATA = {
     "customer_name": "TEST-1 Customer",
-    "customer_group": "All Customer Groups",
+    "customer_group": TEST_CUSTOMER_GROUP,
     # "territory": "Saudi Arabia",
     "custom_country": "Saudi Arabia",
     "customer_name_short": "S-CHEM",
@@ -73,10 +75,33 @@ def create_test_item(company):
     return item_data
 
 
+def ensure_test_customer_group():
+    """ERPNext v16 rejects group-type Customer Groups on Customer (e.g. All Customer Groups)."""
+    if frappe.db.exists("Customer Group", TEST_CUSTOMER_GROUP):
+        if frappe.db.get_value("Customer Group", TEST_CUSTOMER_GROUP, "is_group"):
+            frappe.db.set_value("Customer Group", TEST_CUSTOMER_GROUP, "is_group", 0)
+        return TEST_CUSTOMER_GROUP
+
+    parent = "All Customer Groups"
+    if not frappe.db.exists("Customer Group", parent):
+        parent = None
+
+    frappe.get_doc(
+        {
+            "doctype": "Customer Group",
+            "customer_group_name": TEST_CUSTOMER_GROUP,
+            "parent_customer_group": parent,
+            "is_group": 0,
+        }
+    ).insert(ignore_permissions=True)
+    return TEST_CUSTOMER_GROUP
+
+
 def create_test_customer(
     customer_type="Individual", tax_id="300450349600003", vat_number="300450349600003"
 ):
     """Create test customer if it doesn't exist"""
+    ensure_test_customer_group()
 
     base_name = TEST_CUSTOMER_DATA["customer_name"]
     customer_name = f"{base_name} ({customer_type})"
@@ -86,6 +111,7 @@ def create_test_customer(
         customer_data.update(
             {
                 "doctype": "Customer",
+                "customer_group": TEST_CUSTOMER_GROUP,
                 "customer_type": customer_type,
                 "tax_id": tax_id,
                 "custom_vat_number": vat_number,
@@ -97,10 +123,22 @@ def create_test_customer(
         return customer
     else:
         customer = frappe.get_doc("Customer", customer_name)
+        changed = False
+        if _customer_group_is_group(customer.customer_group):
+            customer.customer_group = TEST_CUSTOMER_GROUP
+            changed = True
         if customer.customer_type != customer_type:
             customer.customer_type = customer_type
+            changed = True
+        if changed:
             customer.save(ignore_permissions=True)
         return customer
+
+
+def _customer_group_is_group(customer_group):
+    if not customer_group or not frappe.db.exists("Customer Group", customer_group):
+        return True
+    return bool(frappe.db.get_value("Customer Group", customer_group, "is_group"))
 
 
 def create_base_invoice_data(company, csr_data, compliance_name, customer, item_data):
