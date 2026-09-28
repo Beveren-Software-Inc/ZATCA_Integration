@@ -444,20 +444,65 @@ def get_tax_template_with_15_percent(company):
     frappe.throw("No Taxes and Charges Template found with 15% rate.")
 
 
+def _clean_company_label(value):
+    return re.sub(r"[.,]", "", (value or "")).strip().casefold()
+
+
+def _company_by_organization_tin(csr_data):
+    """Match Company.tax_id to CSR VAT number or Organization Unit / TIN."""
+    identifiers = []
+    for field in ("csrorganizationidentifier", "csrorganizationunitname"):
+        value = (getattr(csr_data, field, None) or "").strip()
+        if value and value not in identifiers:
+            identifiers.append(value)
+    if not identifiers:
+        return None
+
+    for company in frappe.get_all("Company", fields=["name", "tax_id"]):
+        tax_id = (company.tax_id or "").strip()
+        if tax_id and tax_id in identifiers:
+            return company.name
+    return None
+
+
 def sanitize_company_name(csr_data):
-    company_name = csr_data.csrorganizationname
+    """
+    Resolve the ERPNext Company for this CSR.
 
-    # Clean unwanted characters
-    if company_name:
-        company_name = re.sub(r"[.,]", "", company_name).strip()
+    Order: CSR link, name match, Company tax ID vs organization VAT/TIN,
+    then the first Company.
+    """
+    csr_name = getattr(csr_data, "name", None)
+    if csr_name and frappe.get_meta("Company").has_field("custom_csr_settings"):
+        linked = frappe.db.get_value("Company", {"custom_csr_settings": csr_name}, "name")
+        if linked:
+            return linked
 
-    # Get list of existing company names
-    existing_companies = [c.name for c in frappe.get_all("Company", fields=["name"])]
+    raw_name = (getattr(csr_data, "csrorganizationname", None) or "").strip()
+    cleaned = re.sub(r"[.,]", "", raw_name).strip()
+    if cleaned and frappe.db.exists("Company", cleaned):
+        return cleaned
+    if raw_name and frappe.db.exists("Company", raw_name):
+        return raw_name
 
-    # If company_name is missing or doesn't exist in the system, use the first available one
-    if not company_name or company_name not in existing_companies:
-        company_name = existing_companies[0]
-    return company_name
+    target = _clean_company_label(raw_name)
+    if target:
+        for company in frappe.get_all("Company", fields=["name", "company_name"]):
+            labels = {
+                _clean_company_label(company.name),
+                _clean_company_label(company.company_name),
+            }
+            if target in labels:
+                return company.name
+
+    matched_by_tin = _company_by_organization_tin(csr_data)
+    if matched_by_tin:
+        return matched_by_tin
+
+    existing_companies = frappe.get_all("Company", pluck="name")
+    if not existing_companies:
+        frappe.throw("No Company found to create the compliance test invoice.")
+    return existing_companies[0]
 
 
 def create_item_if_missing(item_data):
