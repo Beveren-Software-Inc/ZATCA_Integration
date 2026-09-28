@@ -1,5 +1,8 @@
 import base64
+import re
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from zatca_integration.clearence_util import (
     _encode_tlv_fields,
@@ -7,11 +10,15 @@ from zatca_integration.clearence_util import (
     _parse_tlv_fields,
     build_sar_qr_code_base64,
 )
+from zatca_integration.saudi_arabia_electronic_invoicing import temp_qr_generator
 from zatca_integration.saudi_arabia_electronic_invoicing.temp_qr_generator import (
+    DEFAULT_INVOICE,
     SAMPLE_INVOICE,
+    SAMPLE_INVOICES,
     _format_amount,
     build_sar_qr_from_original,
     describe_qr_change,
+    get_invoice_defaults,
     parse_qr_tags,
 )
 
@@ -213,7 +220,7 @@ class TestTempSarQrGenerator(unittest.TestCase):
 
     def test_describe_qr_change_flags_a_foreign_hash(self):
         change = describe_qr_change(self._original_qr(), self._sar_qr())
-        # The sample QR carries the INV-20133496 hash, not INV-20134837's.
+        # The synthetic QR carries INV-20133496's hash, not the known invoice's.
         self.assertFalse(change["hash_matches_invoice"])
 
     def test_missing_or_unusable_qr_returns_none(self):
@@ -254,7 +261,7 @@ class TestTempSarQrGenerator(unittest.TestCase):
         self.assertEqual(_format_amount(None), "0.00")
         self.assertEqual(_format_amount("44052.78"), "44052.78")
 
-    def test_live_inv_20134837_qr_is_parsed_correctly(self):
+    def test_live_inv_20135424_qr_is_parsed_correctly(self):
         """The baked-in payload is the real QR from the live signed XML."""
         tags = parse_qr_tags(SAMPLE_INVOICE["original_qr"])
         self.assertEqual(sorted(tags), [1, 2, 3, 4, 5, 6, 7, 8, 9])
@@ -271,7 +278,7 @@ class TestTempSarQrGenerator(unittest.TestCase):
         before = dict(_parse_tlv_fields(base64.b64decode(original_qr)))
         after = dict(_parse_tlv_fields(base64.b64decode(sar_qr)))
 
-        self.assertEqual(after[4], b"164316.87")
+        self.assertEqual(after[4], b"224234.17")
         for tag in (1, 2, 3, 5, 6, 7, 8, 9):
             self.assertEqual(after[tag], before[tag], f"tag {tag} must stay identical")
 
@@ -280,12 +287,326 @@ class TestTempSarQrGenerator(unittest.TestCase):
         self.assertTrue(change["only_amounts_changed"])
         self.assertTrue(change["preserved_tags_ok"])
         self.assertTrue(change["hash_matches_invoice"])
-        self.assertEqual(change["original_total"], "44052.78")
+        self.assertEqual(change["original_total"], "60116.40")
         self.assertEqual(change["original_vat"], "0.00")
-        self.assertEqual(change["sar_total"], "164316.87")
+        self.assertEqual(change["sar_total"], "224234.17")
         self.assertEqual(change["hash"], SAMPLE_INVOICE["qr_hash"])
 
-    def test_qr_hash_is_not_the_recorded_invoice_hash(self):
-        """custom_invoice_hash holds the cleared-invoice hash, not QR tag 6."""
+    def test_qr_hash_is_the_signed_xml_digest(self):
+        """Tag 6 is the signed XML's digest, never Sales Invoice.custom_invoice_hash.
+
+        ``custom_invoice_hash`` holds the hash of the *cleared* invoice and is
+        only used by the app's PIH chain, so it must never reach the snapshot.
+        """
         tags = parse_qr_tags(SAMPLE_INVOICE["original_qr"])
-        self.assertNotEqual(tags[6], "KZpJY3uNAnGpNG3XTKC6dOYAEQw+VBqiJb2FyU2gaas=")
+        self.assertEqual(tags[6], SAMPLE_INVOICE["qr_hash"])
+        self.assertNotIn("custom_invoice_hash", SAMPLE_INVOICE)
+
+
+class TestTempSarQrSingleKnownInvoice(unittest.TestCase):
+    """Only the recent live invoice (INV-20135424) is registered.
+
+    The temp tool used to know two invoices, which is how one invoice's QR
+    could end up in a file named after another one. Now a single snapshot is
+    registered, the dialog falls back to it and the one-click buttons use it —
+    an invoice the tool does not know is never prefilled from a snapshot.
+    """
+
+    def test_only_the_recent_invoice_is_known(self):
+        self.assertEqual(list(SAMPLE_INVOICES), ["INV-20135424"])
+        self.assertEqual(DEFAULT_INVOICE, "INV-20135424")
+        self.assertEqual(SAMPLE_INVOICE["invoice"], DEFAULT_INVOICE)
+        self.assertEqual(SAMPLE_INVOICES[DEFAULT_INVOICE], SAMPLE_INVOICE)
+
+    def test_known_invoices_hint_lists_only_that_invoice(self):
+        stub = mock.MagicMock()
+        stub.db.exists.return_value = False  # not on this site -> manual
+
+        with mock.patch.object(temp_qr_generator, "frappe", stub):
+            defaults = temp_qr_generator.get_temp_qr_defaults("INV-NOT-HERE")
+
+        self.assertEqual(defaults["known_invoices"], ["INV-20135424"])
+        self.assertEqual(defaults["default_invoice"], "INV-20135424")
+
+    def test_another_invoice_is_not_prefilled_from_the_snapshot(self):
+        """The invoice the mix-up came from must not be prefilled any more."""
+        stub = mock.MagicMock()
+        stub.db.exists.return_value = False
+
+        with mock.patch.object(temp_qr_generator, "frappe", stub):
+            defaults = get_invoice_defaults("INV-20134837")
+
+        self.assertEqual(defaults["source"], "manual")
+        self.assertEqual(defaults["invoice"], "INV-20134837")
+        self.assertEqual(defaults["original_qr"], "")
+        self.assertEqual(defaults["sar_total"], "")
+        self.assertEqual(defaults["qr_hash"], "")
+
+    def test_sar_total_is_the_usd_total_converted(self):
+        usd_total = float(SAMPLE_INVOICE["usd_total"])
+        rate = float(SAMPLE_INVOICE["conversion_rate"])
+        self.assertAlmostEqual(
+            usd_total * rate,
+            float(SAMPLE_INVOICE["sar_total"]),
+            places=2,
+        )
+
+    def test_known_invoice_defaults_come_from_the_snapshot(self):
+        defaults = get_invoice_defaults("INV-20135424")
+        self.assertEqual(defaults["source"], "snapshot")
+        self.assertEqual(defaults["invoice"], "INV-20135424")
+        self.assertEqual(defaults["sar_total"], "224234.17")
+        self.assertEqual(defaults["sar_vat"], "0.00")
+        self.assertEqual(defaults["original_qr"], SAMPLE_INVOICE["original_qr"])
+        self.assertEqual(defaults["qr_hash"], SAMPLE_INVOICE["qr_hash"])
+
+    def test_blank_invoice_falls_back_to_the_default_snapshot(self):
+        self.assertEqual(get_invoice_defaults()["invoice"], DEFAULT_INVOICE)
+        self.assertEqual(get_invoice_defaults("")["invoice"], DEFAULT_INVOICE)
+        self.assertEqual(get_invoice_defaults("   ")["invoice"], DEFAULT_INVOICE)
+
+    def test_unknown_hash_skips_the_warning(self):
+        """An invoice the backend cannot verify must not raise a false alarm."""
+        original_qr = SAMPLE_INVOICE["original_qr"]
+        change = describe_qr_change(
+            original_qr,
+            build_sar_qr_from_original(original_qr, "1.00", "0.00"),
+            None,
+        )
+        self.assertTrue(change["hash_matches_invoice"])
+
+    def test_a_foreign_hash_is_still_flagged(self):
+        original_qr = SAMPLE_INVOICE["original_qr"]
+        change = describe_qr_change(
+            original_qr,
+            build_sar_qr_from_original(original_qr, "1.00", "0.00"),
+            "another-invoice-hash=",
+        )
+        self.assertFalse(change["hash_matches_invoice"])
+
+    def test_quick_button_label_names_the_backend_invoice(self):
+        """The button label and the invoice the backend generates for agree."""
+        js_file = Path(temp_qr_generator.__file__).parents[1] / "public" / "js" / "temp_sar_qr.js"
+        match = re.search(r'quick_invoice\s*=\s*"([^"]+)"', js_file.read_text(encoding="utf-8"))
+        self.assertIsNotNone(match, "temp_sar_qr.js must define frappe.zatca_temp_qr.quick_invoice")
+        self.assertEqual(match.group(1), DEFAULT_INVOICE)
+
+
+class _StubDoc:
+    """Minimal stand-in for a frappe document (no DB needed for these tests)."""
+
+    def __init__(self, **values):
+        self._values = values
+
+    def get(self, fieldname):
+        return self._values.get(fieldname)
+
+
+class _StubFile:
+    def __init__(self, content):
+        self._content = content
+
+    def get_content(self):
+        return self._content
+
+
+def _stub_frappe(invoice_doc, xml):
+    """A frappe whose ``get_doc`` returns ``invoice_doc`` and the XML File."""
+    stub = mock.MagicMock()
+    stub.db.exists.return_value = True
+    stub.get_doc.side_effect = lambda doctype, *args: (
+        invoice_doc if doctype == "Sales Invoice" else _StubFile(xml)
+    )
+    return stub
+
+
+class TestInvoiceQrFromSite(unittest.TestCase):
+    """The site branch: any invoice that carries its own ``custom_invoice_xml``.
+
+    These tests stub out ``frappe``, so they run without a bench/site; the real
+    end-to-end path is checked against a live site separately.
+    """
+
+    @staticmethod
+    def _invoice_doc():
+        return _StubDoc(
+            custom_invoice_xml="/files/INV-20135424.xml",
+            currency="USD",
+            conversion_rate=3.73,
+            base_grand_total=224234.172,
+            base_total_taxes_and_charges=0.0,
+            customer="Mazare Al Nakheel Company for Dates",
+        )
+
+    def test_site_invoice_is_read_from_its_own_xml(self):
+        payload = SAMPLE_INVOICE["original_qr"]
+        stub = _stub_frappe(self._invoice_doc(), _wrap_in_invoice_xml(payload))
+
+        with mock.patch.object(temp_qr_generator, "frappe", stub):
+            defaults = temp_qr_generator.get_invoice_defaults("INV-XYZ-0001")
+
+        self.assertEqual(defaults["source"], "site")
+        self.assertEqual(defaults["invoice"], "INV-XYZ-0001")
+        self.assertEqual(defaults["original_qr"], payload)
+        self.assertEqual(defaults["seller_name"], SAMPLE_INVOICE["seller_name"])
+        self.assertEqual(defaults["vat_number"], SAMPLE_INVOICE["vat_number"])
+        self.assertEqual(defaults["timestamp"], SAMPLE_INVOICE["timestamp"])
+        self.assertEqual(defaults["document_currency"], "USD")
+        self.assertEqual(defaults["conversion_rate"], "3.73")
+        self.assertEqual(defaults["usd_total"], SAMPLE_INVOICE["usd_total"])
+        self.assertEqual(defaults["usd_vat"], SAMPLE_INVOICE["usd_vat"])
+        self.assertEqual(defaults["sar_total"], SAMPLE_INVOICE["sar_total"])
+        self.assertEqual(defaults["sar_vat"], SAMPLE_INVOICE["sar_vat"])
+        self.assertEqual(defaults["qr_hash"], SAMPLE_INVOICE["qr_hash"])
+
+    def test_site_defaults_can_be_generated_without_an_explicit_qr(self):
+        """The dialog may post only the invoice: the QR then comes from the site."""
+        payload = SAMPLE_INVOICE["original_qr"]
+        stub = _stub_frappe(self._invoice_doc(), _wrap_in_invoice_xml(payload))
+
+        with mock.patch.object(temp_qr_generator, "frappe", stub):
+            defaults = temp_qr_generator.get_temp_qr_defaults("INV-XYZ-0005")
+
+        self.assertEqual(defaults["source"], "site")
+        self.assertEqual(defaults["known_invoices"], list(SAMPLE_INVOICES))
+        self.assertEqual(defaults["default_invoice"], DEFAULT_INVOICE)
+
+    def test_invoice_without_qr_xml_falls_back_to_manual(self):
+        invoice_doc = _StubDoc(custom_invoice_xml=None, currency="USD")
+        stub = _stub_frappe(invoice_doc, "")
+
+        with mock.patch.object(temp_qr_generator, "frappe", stub):
+            defaults = temp_qr_generator.get_invoice_defaults("INV-XYZ-0002")
+
+        self.assertEqual(defaults["source"], "manual")
+        self.assertEqual(defaults["original_qr"], "")
+        # Blank on purpose: an unverifiable payload must not warn about the hash.
+        self.assertEqual(defaults["qr_hash"], "")
+
+    def test_invoice_that_is_not_on_this_site_falls_back_to_manual(self):
+        stub = mock.MagicMock()
+        stub.db.exists.return_value = False
+
+        with mock.patch.object(temp_qr_generator, "frappe", stub):
+            defaults = temp_qr_generator.get_invoice_defaults("INV-XYZ-0003")
+
+        self.assertEqual(defaults["source"], "manual")
+        self.assertEqual(defaults["original_qr"], "")
+        stub.get_doc.assert_not_called()
+        stub.log_error.assert_not_called()
+
+    def test_unreadable_xml_is_logged_and_falls_back_to_manual(self):
+        stub = _stub_frappe(self._invoice_doc(), None)  # get_content() -> None
+
+        with mock.patch.object(temp_qr_generator, "frappe", stub):
+            defaults = temp_qr_generator.get_invoice_defaults("INV-XYZ-0004")
+
+        self.assertEqual(defaults["source"], "manual")
+        self.assertEqual(defaults["original_qr"], "")
+        stub.log_error.assert_called_once()
+
+
+class _StubGeneratedFile:
+    """Stands in for the File doc ``frappe.get_doc({...})`` builds."""
+
+    def __init__(self, file_url):
+        self.file_url = file_url
+        self.saved = False
+
+    def save(self, **kwargs):
+        self.saved = True
+        self.save_kwargs = kwargs
+
+
+class TestGenerateDefaultTempQr(unittest.TestCase):
+    """The one-click button (INV-20135424): nothing is typed in the browser.
+
+    ``generate_default_temp_qr`` resolves the invoice, its original QR and the
+    SAR amounts itself, so the button cannot produce another invoice's QR.
+    """
+
+    def _generate(self, invoice_on_site, **kwargs):
+        self.file_doc = _StubGeneratedFile("/files/TEMP-INV-20135424-QR-SAR-abc123.png")
+        self.spec = {}
+
+        def _get_doc(spec, *_args, **_ignored):
+            if isinstance(spec, dict):
+                self.spec = spec
+            return self.file_doc
+
+        stub = mock.MagicMock()
+        stub.db.exists.return_value = invoice_on_site
+        stub.generate_hash.return_value = "abc123"
+        stub.get_doc.side_effect = _get_doc
+
+        with mock.patch.object(temp_qr_generator, "frappe", stub):
+            result = temp_qr_generator.generate_default_temp_qr(**kwargs)
+
+        self.stub = stub
+        return result
+
+    def test_no_input_is_needed(self):
+        result = self._generate(False, company="Rqeem Ltd")
+
+        self.assertEqual(result["invoice"], "INV-20135424")
+        self.assertEqual(result["source"], "snapshot")
+        self.assertEqual(result["sar_total"], "224234.17")
+        self.assertEqual(result["sar_vat"], "0.00")
+        self.assertEqual(result["hash"], SAMPLE_INVOICE["qr_hash"])
+        self.assertTrue(result["hash_matches_invoice"])
+        self.assertTrue(result["only_amounts_changed"])
+        self.assertTrue(result["preserved_tags_ok"])
+        self.assertEqual(result["changed_tags"], [4])
+
+    def test_only_tags_4_and_5_differ_from_the_invoice_qr(self):
+        result = self._generate(False)
+        before = dict(_parse_tlv_fields(base64.b64decode(SAMPLE_INVOICE["original_qr"])))
+        after = dict(_parse_tlv_fields(base64.b64decode(result["qr_base64"])))
+
+        self.assertEqual(after[4], b"224234.17")
+        for tag in (1, 2, 3, 6, 7, 8, 9):
+            self.assertEqual(after[tag], before[tag], f"tag {tag} must stay identical")
+
+        self.assertTrue(result["image_data_url"].startswith("data:image/png;base64,"))
+        self.assertTrue(result["file_url"].endswith(".png"))
+        self.assertTrue(self.file_doc.saved)
+
+    def test_file_name_names_the_invoice(self):
+        self._generate(False)
+
+        self.assertEqual(self.spec["file_name"], "TEMP-INV-20135424-QR-SAR-abc123.png")
+        self.assertEqual(self.spec["is_private"], 0)
+
+    def test_file_goes_to_the_invoice_when_the_site_has_it(self):
+        # Clicked on the Company form, but the invoice exists here: the file
+        # belongs on the invoice.
+        result = self._generate(
+            True,
+            company="Rqeem Ltd",
+            attach_to_doctype="Company",
+            attach_to_name="Rqeem Ltd",
+        )
+
+        self.assertEqual(result["attach_to_doctype"], "Sales Invoice")
+        self.assertEqual(result["attach_to_name"], "INV-20135424")
+        self.assertEqual(self.spec["attached_to_name"], "INV-20135424")
+
+    def test_file_never_lands_on_another_sales_invoice(self):
+        result = self._generate(
+            False,
+            company="Rqeem Ltd",
+            attach_to_doctype="Sales Invoice",
+            attach_to_name="INV-XYZ-0001",
+        )
+
+        self.assertEqual(result["attach_to_doctype"], "Company")
+        self.assertEqual(result["attach_to_name"], "Rqeem Ltd")
+        self.assertEqual(self.spec["attached_to_name"], "Rqeem Ltd")
+
+    def test_file_falls_back_to_the_company(self):
+        result = self._generate(False, company="Rqeem Ltd")
+
+        self.assertEqual(result["attach_to_doctype"], "Company")
+        self.assertEqual(result["attach_to_name"], "Rqeem Ltd")
+        self.assertEqual(self.spec["attached_to_doctype"], "Company")
+        self.assertEqual(self.spec["attached_to_name"], "Rqeem Ltd")

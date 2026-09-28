@@ -41,6 +41,29 @@ frappe.ui.form.on('Sales Invoice', {
             frm.trigger('add_submit_button');
         });
 
+        // TEMPORARY — remove after the SAR QR backfill is done. Opens the shared
+        // temp-QR dialog (public/js/temp_sar_qr.js) prefilled for this invoice.
+        if (!frm.is_new()) {
+            frm.add_custom_button(__('Temp: Generate SAR QR'), () => {
+                if (!frappe.zatca_temp_qr) {
+                    frappe.throw(__("temp_sar_qr.js is not loaded — run 'bench clear-cache' and reload."));
+                    return;
+                }
+                frappe.zatca_temp_qr.open_dialog(frm, frm.doc.name);
+            }, __('ZATCA Actions'));
+
+            // One-click, right next to it (same group): the backend rebuilds
+            // INV-20135424's QR from its own snapshot, so there is nothing to
+            // type and nothing to mix up.
+            if (frappe.zatca_temp_qr) {
+                frm.add_custom_button(
+                    frappe.zatca_temp_qr.quick_button_label(),
+                    () => frappe.zatca_temp_qr.quick_generate(frm),
+                    __('ZATCA Actions')
+                );
+            }
+        }
+
         check_multi_sales_invoice_enabled(frm, (enabled) => {
         frm.zatca_enabled = enabled;
         frm.toggle_display("custom_credit_details", enabled);
