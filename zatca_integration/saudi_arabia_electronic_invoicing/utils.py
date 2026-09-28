@@ -830,9 +830,20 @@ def delete_gl_and_payment_ledgers(invoice_name):
 
 
 def delete_zatca_transaction(invoice_name):
-    zatca_txn_name = frappe.get_value("ZATCA Transaction", {"sales_invoice": invoice_name}, "name")
-    if zatca_txn_name:
-        frappe.delete_doc("ZATCA Transaction", zatca_txn_name, force=1)
+    """Remove Zatca Transactions rows for a test invoice.
+
+    The DocType is "Zatca Transactions" and the invoice link is invoice_id.
+    """
+    if not frappe.db.exists("DocType", "Zatca Transactions"):
+        return
+
+    txn_names = frappe.get_all(
+        "Zatca Transactions",
+        filters={"invoice_id": invoice_name},
+        pluck="name",
+    )
+    for txn_name in txn_names:
+        frappe.delete_doc("Zatca Transactions", txn_name, force=1, ignore_permissions=True)
 
 
 def delete_return_invoice(original_invoice_name):
