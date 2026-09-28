@@ -150,8 +150,8 @@ def create_base_invoice_data(company, csr_data, compliance_name, customer, item_
     invoice_data.update(
         {
             "doctype": "Sales Invoice",
-            "customer": customer,
-            "customer_name": customer.customer_name,
+            "customer": customer.name if hasattr(customer, "name") else customer,
+            "customer_name": customer.customer_name if hasattr(customer, "customer_name") else None,
             "company": company,
             "company_tax_id": csr_data.csrorganizationidentifier,
             "custom_delivery_date": today,
