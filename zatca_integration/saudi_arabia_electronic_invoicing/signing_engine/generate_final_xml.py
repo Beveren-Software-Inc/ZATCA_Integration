@@ -240,11 +240,33 @@ def _get_item_unit_net_rate(item, included, tax_rate):
 
 
 def _compute_zatca_line_amounts(qty, unit_net_rate):
-    """BT-131 = BT-129 * (BT-146 / BT-149) with BT-149 fixed to 1."""
-    quantity = _quantize_money(abs(qty))
-    unit_price = _quantize_money(unit_net_rate)
-    line_extension = (quantity * unit_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    """BT-131 = quantity * unit net price.
+
+    Line net is 2 decimals. Unit price keeps extra decimals so
+    quantity * price still equals that net (VAT-inclusive unit rates).
+    """
+    quantity = Decimal(str(abs(flt(qty))))
+    line_extension = (quantity * Decimal(str(unit_net_rate))).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    if quantity == 0:
+        unit_price = Decimal("0")
+    else:
+        unit_price = line_extension / quantity
     return quantity, unit_price, line_extension
+
+
+def _format_unit_price(unit_price):
+    """Write at least 2 decimals, and more when needed to keep qty * price exact."""
+    text = format(Decimal(str(unit_price)), "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    if "." not in text:
+        return f"{text}.00"
+    decimals = text.split(".", 1)[1]
+    if len(decimals) < 2:
+        return f"{Decimal(text):.2f}"
+    return text
 
 
 def _get_expected_line_extension_total(sales_invoice_doc, included):
@@ -271,13 +293,11 @@ def _get_expected_line_extension_total(sales_invoice_doc, included):
     return _quantize_money(abs(amount))
 
 
-def _line_item_tax_amount(line_extension, tax_rate, included):
+def _line_item_tax_amount(line_extension, tax_rate, _included):
+    """VAT on a line whose extension is already VAT-exclusive."""
     line_extension = Decimal(str(line_extension))
     tax_rate = Decimal(str(tax_rate))
-    if included:
-        tax_amount = line_extension * tax_rate / (Decimal("100") + tax_rate)
-    else:
-        tax_amount = line_extension * tax_rate / Decimal("100")
+    tax_amount = line_extension * tax_rate / Decimal("100")
     return abs(tax_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
@@ -338,7 +358,7 @@ def _reconcile_line_extension_entries(line_entries, expected_total):
 
 def _apply_line_entry_to_xml(entry, currency, tax_rate, included):
     entry["line_ext_elem"].text = f"{entry['line_extension']:.2f}"
-    entry["price_elem"].text = f"{entry['unit_price']:.2f}"
+    entry["price_elem"].text = _format_unit_price(entry["unit_price"])
 
     tax_amount = _line_item_tax_amount(entry["line_extension"], tax_rate, included)
     entry["tax_amount_elem"].text = f"{tax_amount:.2f}"

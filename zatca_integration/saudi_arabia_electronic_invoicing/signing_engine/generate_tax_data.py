@@ -227,21 +227,22 @@ def build_zatca_tax_section(invoice, sales_invoice_doc):
         tax_scheme_id = ET.SubElement(tax_scheme, "cbc:ID")
         tax_scheme_id.text = "VAT"
 
-        # --- VAT accounting currency (SAR) total (BT-111) ---
-        # Check o this
-        if doc_currency != "SAR":
-            sar_taxtotal = ET.SubElement(invoice, "cac:TaxTotal")
-            sar_taxamount = ET.SubElement(sar_taxtotal, "cbc:TaxAmount")
-            sar_taxamount.set("currencyID", "SAR")
-
-            # Convert VAT to SAR using conversion_rate from invoice
+        # BR-KSA-EN16931-09: TaxCurrencyCode is always SAR, so always emit one
+        # TaxTotal with only TaxAmount (no TaxSubtotal). For SAR invoices this
+        # amount is the same VAT; for other currencies convert with the invoice rate.
+        sar_taxtotal = ET.SubElement(invoice, "cac:TaxTotal")
+        sar_taxamount = ET.SubElement(sar_taxtotal, "cbc:TaxAmount")
+        sar_taxamount.set("currencyID", "SAR")
+        if doc_currency == "SAR":
+            sar_vat_amount = tax_amount
+        else:
             conversion_rate = Decimal(str(sales_invoice_doc.get("conversion_rate", 1))) or Decimal(
                 "1"
             )
             sar_vat_amount = (tax_amount * conversion_rate).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
-            sar_taxamount.text = str(sar_vat_amount)
+        sar_taxamount.text = str(sar_vat_amount)
 
         # --- Legal Monetary Total ---
         legal_total = ET.SubElement(invoice, "cac:LegalMonetaryTotal")
