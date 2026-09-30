@@ -142,6 +142,8 @@ def get_sales_invoice_lines(company, from_date, to_date, tax_id=None):
 		tax_id,
 		extra_fields="inv.customer AS party, inv.customer_name AS party_name",
 		tax_template="Sales Taxes and Charges Template",
+		tax_table="Sales Taxes and Charges",
+		signed_tax_amount="tax.base_tax_amount_after_discount_amount",
 	)
 
 
@@ -154,16 +156,42 @@ def get_purchase_invoice_lines(company, from_date, to_date, tax_id=None):
 		tax_id,
 		extra_fields="inv.supplier AS party, inv.supplier_name AS party_name, tt.custom_country",
 		tax_template="Purchase Taxes and Charges Template",
+		tax_table="Purchase Taxes and Charges",
+		# Same sign ERPNext uses in the item-wise tax breakup
+		signed_tax_amount=(
+			"IF(tax.add_deduct_tax = 'Deduct', -1, 1) * tax.base_tax_amount_after_discount_amount"
+		),
 	)
 
 
-def _get_invoice_lines(doctype, company, from_date, to_date, tax_id, extra_fields, tax_template):
-	"""Item lines of submitted invoices with their line VAT from Item Wise Tax Detail."""
+def _get_invoice_lines(
+	doctype,
+	company,
+	from_date,
+	to_date,
+	tax_id,
+	extra_fields,
+	tax_template,
+	tax_table,
+	signed_tax_amount,
+):
+	"""Item lines of submitted invoices with their line VAT from Item Wise Tax Detail.
+
+	The line VAT of every invoice always adds up to the invoice's tax rows, so no
+	VAT charged on an invoice is left out of the return (see _reconcile_line_vat).
+	"""
 	params = {"company": company, "from_date": from_date, "to_date": to_date, "doctype": doctype}
 	condition = ""
 	if tax_id:
 		condition = "AND (SELECT tax_id FROM `tabCompany` WHERE name = inv.company) = %(tax_id)s"
 		params["tax_id"] = tax_id
+
+	invoice_filters = f"""
+		inv.company = %(company)s
+		AND inv.docstatus = 1
+		AND inv.posting_date BETWEEN %(from_date)s AND %(to_date)s
+		{condition}
+	"""
 
 	lines = frappe.db.sql(
 		f"""
@@ -177,10 +205,7 @@ def _get_invoice_lines(doctype, company, from_date, to_date, tax_id, extra_field
 			ON item.parent = inv.name AND item.parenttype = %(doctype)s
 		LEFT JOIN `tab{tax_template}` tt ON tt.name = inv.taxes_and_charges
 		LEFT JOIN `tabItem Tax Template` itt ON itt.name = item.item_tax_template
-		WHERE inv.company = %(company)s
-		  AND inv.docstatus = 1
-		  AND inv.posting_date BETWEEN %(from_date)s AND %(to_date)s
-		  {condition}
+		WHERE {invoice_filters}
 		ORDER BY inv.posting_date, inv.name, item.idx
 		""",
 		params,
@@ -195,11 +220,7 @@ def _get_invoice_lines(doctype, company, from_date, to_date, tax_id, extra_field
 			SELECT iwtd.item_row, SUM(iwtd.amount) AS amount, MAX(iwtd.rate) AS rate
 			FROM `tabItem Wise Tax Detail` iwtd
 			INNER JOIN `tab{doctype}` inv ON inv.name = iwtd.parent
-			WHERE iwtd.parenttype = %(doctype)s
-			  AND inv.company = %(company)s
-			  AND inv.docstatus = 1
-			  AND inv.posting_date BETWEEN %(from_date)s AND %(to_date)s
-			  {condition}
+			WHERE iwtd.parenttype = %(doctype)s AND {invoice_filters}
 			GROUP BY iwtd.item_row
 			""",
 			params,
@@ -207,33 +228,83 @@ def _get_invoice_lines(doctype, company, from_date, to_date, tax_id, extra_field
 		)
 	}
 
+	# Total of each invoice's tax rows, the figure the line VAT must add up to.
+	invoice_tax = dict(
+		frappe.db.sql(
+			f"""
+			SELECT tax.parent, SUM({signed_tax_amount})
+			FROM `tab{tax_table}` tax
+			INNER JOIN `tab{doctype}` inv ON inv.name = tax.parent
+			WHERE tax.parenttype = %(doctype)s AND {invoice_filters}
+			GROUP BY tax.parent
+			""",
+			params,
+		)
+	)
+
 	for line in lines:
 		tax = item_tax.get(line.item_row)
 		line.vat_amount = flt(tax.amount) if tax else 0.0
 		line.vat_rate = flt(tax.rate) if tax else 0.0
+
+	_reconcile_line_vat(lines, invoice_tax)
 	return lines
+
+
+def _reconcile_line_vat(lines, invoice_tax):
+	"""Spread any VAT missing from the item-wise breakup over the invoice's lines.
+
+	Happens when an invoice has no (or an incomplete) Item Wise Tax Detail, e.g.
+	data imported or patched outside the normal save. The difference goes to the
+	lines already carrying VAT, or to all lines when none do, in proportion to
+	their net amount; the last line takes the rounding remainder.
+	"""
+	lines_by_invoice = {}
+	for line in lines:
+		lines_by_invoice.setdefault(line.name, []).append(line)
+
+	for invoice, inv_lines in lines_by_invoice.items():
+		difference = flt(flt(invoice_tax.get(invoice)) - sum(line.vat_amount for line in inv_lines), 2)
+		if not difference:
+			continue
+
+		targets = [line for line in inv_lines if line.vat_amount] or inv_lines
+		base = sum(flt(line.base_net_amount) for line in targets)
+		allocated = 0.0
+		for idx, line in enumerate(targets):
+			if idx == len(targets) - 1:
+				share = difference - allocated
+			elif base:
+				share = flt(difference * flt(line.base_net_amount) / base, 2)
+			else:
+				share = flt(difference / len(targets), 2)
+			allocated += share
+			line.vat_amount += share
 
 
 def get_line_tax_category(line):
 	"""(tax_type, zero_rate_reason) of an item line.
 
-	A line without an Item Tax Template follows the invoice's Sales/Purchase
-	Taxes and Charges Template. A line with one is categorised by the VAT rate
-	actually applied to it in the item-wise tax breakup: a positive rate is
-	standard rated; a 0% line is exempt when its Item Tax Template title says so,
-	otherwise zero rated (keeping the invoice template's zero rate reason when
-	the invoice itself is zero rated).
+	VAT charged on a line always puts it in a standard rated row, whatever the
+	templates say, so VAT is never reported in a zero rated / exempt row or left
+	out. A line without VAT is:
+	- exempt when its Item Tax Template title says so, or when the invoice's
+	  Taxes and Charges Template is exempt;
+	- out of the return when the invoice template is Out of Scope;
+	- otherwise zero rated, keeping the invoice template's zero rate reason when
+	  the invoice itself is zero rated.
 	"""
 	invoice_tax_type = line.get("custom_tax_type")
 	invoice_zero_rate_reason = line.get("custom_zero_rate_reason") or ""
 
-	if not line.get("item_tax_template") or invoice_tax_type == "Out of Scope":
-		return invoice_tax_type, invoice_zero_rate_reason
-
-	if flt(line.get("vat_rate")) > 0:
+	if flt(line.get("vat_amount")) != 0:
 		return "Standard Rate", ""
-	if "exempt" in (line.get("item_tax_template_title") or line.item_tax_template).lower():
+
+	item_tax_template = line.get("item_tax_template_title") or line.get("item_tax_template") or ""
+	if "exempt" in item_tax_template.lower():
 		return "Except Rate", ""
+	if not item_tax_template and invoice_tax_type in ("Except Rate", "Out of Scope"):
+		return invoice_tax_type, ""
 	if invoice_tax_type == "Zero Rate":
 		return "Zero Rate", invoice_zero_rate_reason
 	return "Zero Rate", ""
