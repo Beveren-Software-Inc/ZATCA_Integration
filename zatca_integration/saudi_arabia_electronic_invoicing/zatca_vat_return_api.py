@@ -35,29 +35,14 @@ def _empty_rows():
 
 @frappe.whitelist()
 def get_vat_return_summary(company, from_date, to_date, tax_id=None):
-	sales_invoices = get_sales_invoices(company, from_date, to_date, tax_id)
-	purchase_invoices = get_purchase_invoices(company, from_date, to_date, tax_id)
-
 	rows = _empty_rows()
 	row_docs = {k: set() for k in rows}
 
-	for inv in sales_invoices:
-		row_id = classify_sales_invoice(inv)
-		if row_id:
-			rows[row_id]["amount"] += flt(inv.base_total)
-			rows[row_id]["vat"] += flt(inv.base_total_taxes_and_charges)
-			row_docs[row_id].add(inv.name)
-
-	for inv in purchase_invoices:
-		row_id = classify_purchase_invoice(inv)
-		if row_id:
-			rows[row_id]["amount"] += flt(inv.base_total)
-			# Reverse-charge imports are self-accounted: the input VAT claimed
-			# equals the output VAT declared, so the net VAT impact is zero.
-			# Only the taxable value is disclosed for this row.
-			if row_id != "import_rcm":
-				rows[row_id]["vat"] += flt(inv.base_total_taxes_and_charges)
-			row_docs[row_id].add(inv.name)
+	for entry in get_invoice_row_contributions(company, from_date, to_date, tax_id):
+		row_id = entry["row_id"]
+		rows[row_id]["amount"] += entry["taxable_value"]
+		rows[row_id]["vat"] += entry["vat_amount"]
+		row_docs[row_id].add(entry["invoice_no"])
 
 	for key in rows:
 		rows[key]["count"] = len(row_docs[key])
@@ -84,151 +69,190 @@ def get_vat_return_summary(company, from_date, to_date, tax_id=None):
 
 @frappe.whitelist()
 def get_invoice_list(row_id, company, from_date, to_date, tax_id=None):
-	invoices = []
-
-	if row_id in SALES_ROW_KEYS:
-		for inv in get_sales_invoices(company, from_date, to_date, tax_id):
-			if classify_sales_invoice(inv) == row_id:
-				invoices.append(
-					{
-						"invoice_no": inv.name,
-						"doctype": "Sales Invoice",
-						"party": inv.customer_name or inv.customer,
-						"date": inv.posting_date,
-						"taxable_value": flt(inv.base_total),
-						"vat_amount": flt(inv.base_total_taxes_and_charges),
-					}
-				)
-	elif row_id in PURCHASE_ROW_KEYS:
-		for inv in get_purchase_invoices(company, from_date, to_date, tax_id):
-			if classify_purchase_invoice(inv) == row_id:
-				invoices.append(
-					{
-						"invoice_no": inv.name,
-						"doctype": "Purchase Invoice",
-						"party": inv.supplier_name or inv.supplier,
-						"date": inv.posting_date,
-						"taxable_value": flt(inv.base_total),
-						"vat_amount": 0.0 if row_id == "import_rcm" else flt(inv.base_total_taxes_and_charges),
-					}
-				)
-
+	invoices = [
+		_public_entry(entry)
+		for entry in get_invoice_row_contributions(company, from_date, to_date, tax_id)
+		if entry["row_id"] == row_id
+	]
 	return sorted(invoices, key=lambda x: x["date"])
 
 
 @frappe.whitelist()
 def get_all_contributing_invoices(company, from_date, to_date, tax_id=None):
 	invoices = []
-
-	for inv in get_sales_invoices(company, from_date, to_date, tax_id):
-		row_id = classify_sales_invoice(inv)
-		if row_id:
-			invoices.append(
-				{
-					"invoice_no": inv.name,
-					"doctype": "Sales Invoice",
-					"party": inv.customer_name or inv.customer,
-					"date": inv.posting_date,
-					"taxable_value": flt(inv.base_total),
-					"vat_amount": flt(inv.base_total_taxes_and_charges),
-					"box": ROW_META[row_id]["no"],
-				}
-			)
-
-	for inv in get_purchase_invoices(company, from_date, to_date, tax_id):
-		row_id = classify_purchase_invoice(inv)
-		if row_id:
-			invoices.append(
-				{
-					"invoice_no": inv.name,
-					"doctype": "Purchase Invoice",
-					"party": inv.supplier_name or inv.supplier,
-					"date": inv.posting_date,
-					"taxable_value": flt(inv.base_total),
-					"vat_amount": 0.0 if row_id == "import_rcm" else flt(inv.base_total_taxes_and_charges),
-					"box": ROW_META[row_id]["no"],
-				}
-			)
-
+	for entry in get_invoice_row_contributions(company, from_date, to_date, tax_id):
+		row = _public_entry(entry)
+		row["box"] = ROW_META[entry["row_id"]]["no"]
+		invoices.append(row)
 	return sorted(invoices, key=lambda x: x["date"])
 
 
-def get_sales_invoices(company, from_date, to_date, tax_id=None):
-	params = {"company": company, "from_date": from_date, "to_date": to_date}
-	condition = ""
-	# if tax_id:
-	# 	condition = """
-	# 		AND (
-	# 			comp_addr.tax_id = %(tax_id)s
-	# 			OR (si.company_address IS NULL AND (SELECT tax_id FROM `tabCompany` WHERE name = si.company) = %(tax_id)s)
-	# 		)
-	# 	"""
-	# 	params["tax_id"] = tax_id
+def _public_entry(entry):
+	return {k: entry[k] for k in ("invoice_no", "doctype", "party", "date", "taxable_value", "vat_amount")}
 
+
+def get_invoice_row_contributions(company, from_date, to_date, tax_id=None):
+	"""One entry per (invoice, VAT return row).
+
+	Every invoice item line is classified on its own (Item Tax Template first,
+	then the invoice's Taxes and Charges Template) and its VAT is taken from the
+	invoice's item-wise tax breakup, so an invoice mixing standard, zero rated
+	and exempt items is split across the matching rows.
+	"""
+	contributions = {}
+
+	for doctype, lines, classify in (
+		("Sales Invoice", get_sales_invoice_lines(company, from_date, to_date, tax_id), classify_sales_line),
+		(
+			"Purchase Invoice",
+			get_purchase_invoice_lines(company, from_date, to_date, tax_id),
+			classify_purchase_line,
+		),
+	):
+		for line in lines:
+			row_id = classify(line)
+			if not row_id:
+				continue
+
+			key = (doctype, line.name, row_id)
+			if key not in contributions:
+				contributions[key] = {
+					"row_id": row_id,
+					"invoice_no": line.name,
+					"doctype": doctype,
+					"party": line.party_name or line.party,
+					"date": line.posting_date,
+					"taxable_value": 0.0,
+					"vat_amount": 0.0,
+				}
+			contributions[key]["taxable_value"] += flt(line.base_net_amount)
+			# Reverse-charge imports are self-accounted: the input VAT claimed
+			# equals the output VAT declared, so the net VAT impact is zero.
+			# Only the taxable value is disclosed for this row.
+			if row_id != "import_rcm":
+				contributions[key]["vat_amount"] += flt(line.vat_amount)
+
+	return list(contributions.values())
+
+
+def get_sales_invoice_lines(company, from_date, to_date, tax_id=None):
+	return _get_invoice_lines(
+		"Sales Invoice",
+		company,
+		from_date,
+		to_date,
+		tax_id,
+		extra_fields="inv.customer AS party, inv.customer_name AS party_name, inv.custom_government_bears_vat",
+		tax_template="Sales Taxes and Charges Template",
+	)
+
+
+def get_purchase_invoice_lines(company, from_date, to_date, tax_id=None):
+	return _get_invoice_lines(
+		"Purchase Invoice",
+		company,
+		from_date,
+		to_date,
+		tax_id,
+		extra_fields=(
+			"inv.supplier AS party, inv.supplier_name AS party_name, "
+			"inv.custom_reverse_charge_applicable, tt.custom_country"
+		),
+		tax_template="Purchase Taxes and Charges Template",
+	)
+
+
+def _get_invoice_lines(doctype, company, from_date, to_date, tax_id, extra_fields, tax_template):
+	"""Item lines of submitted invoices with their line VAT from Item Wise Tax Detail."""
+	params = {"company": company, "from_date": from_date, "to_date": to_date, "doctype": doctype}
+	condition = ""
 	if tax_id:
-		condition = "AND (SELECT tax_id FROM `tabCompany` WHERE name = si.company) = %(tax_id)s"
+		condition = "AND (SELECT tax_id FROM `tabCompany` WHERE name = inv.company) = %(tax_id)s"
 		params["tax_id"] = tax_id
 
-	query = f"""
+	lines = frappe.db.sql(
+		f"""
 		SELECT
-			si.name, si.posting_date, si.customer, si.customer_name,
-			si.base_total, si.base_total_taxes_and_charges,
-			si.custom_government_bears_vat,
-			stct.custom_tax_type, stct.custom_zero_rate_reason, stct.custom_except_rate_reason
-		FROM `tabSales Invoice` si
-		LEFT JOIN `tabSales Taxes and Charges Template` stct ON stct.name = si.taxes_and_charges
-		LEFT JOIN `tabAddress` comp_addr ON si.company_address = comp_addr.name
-		WHERE si.company = %(company)s
-		  AND si.docstatus = 1
-		  AND si.posting_date BETWEEN %(from_date)s AND %(to_date)s
+			inv.name, inv.posting_date, {extra_fields},
+			item.name AS item_row, item.base_net_amount,
+			tt.custom_tax_type, tt.custom_zero_rate_reason, tt.custom_except_rate_reason,
+			item.item_tax_template, itt.title AS item_tax_template_title
+		FROM `tab{doctype}` inv
+		INNER JOIN `tab{doctype} Item` item
+			ON item.parent = inv.name AND item.parenttype = %(doctype)s
+		LEFT JOIN `tab{tax_template}` tt ON tt.name = inv.taxes_and_charges
+		LEFT JOIN `tabItem Tax Template` itt ON itt.name = item.item_tax_template
+		WHERE inv.company = %(company)s
+		  AND inv.docstatus = 1
+		  AND inv.posting_date BETWEEN %(from_date)s AND %(to_date)s
 		  {condition}
+		ORDER BY inv.posting_date, inv.name, item.idx
+		""",
+		params,
+		as_dict=True,
+	)
+
+	# Item-wise tax breakup (company currency); summed over all tax rows of each item line.
+	item_tax = {
+		row.item_row: row
+		for row in frappe.db.sql(
+			f"""
+			SELECT iwtd.item_row, SUM(iwtd.amount) AS amount, MAX(iwtd.rate) AS rate
+			FROM `tabItem Wise Tax Detail` iwtd
+			INNER JOIN `tab{doctype}` inv ON inv.name = iwtd.parent
+			WHERE iwtd.parenttype = %(doctype)s
+			  AND inv.company = %(company)s
+			  AND inv.docstatus = 1
+			  AND inv.posting_date BETWEEN %(from_date)s AND %(to_date)s
+			  {condition}
+			GROUP BY iwtd.item_row
+			""",
+			params,
+			as_dict=True,
+		)
+	}
+
+	for line in lines:
+		tax = item_tax.get(line.item_row)
+		line.vat_amount = flt(tax.amount) if tax else 0.0
+		line.vat_rate = flt(tax.rate) if tax else 0.0
+	return lines
+
+
+def get_line_tax_category(line):
+	"""(tax_type, zero_rate_reason) of an item line.
+
+	A line without an Item Tax Template follows the invoice's Sales/Purchase
+	Taxes and Charges Template. A line with one is categorised by the VAT rate
+	actually applied to it in the item-wise tax breakup: a positive rate is
+	standard rated; a 0% line is exempt when its Item Tax Template title says so,
+	otherwise zero rated (keeping the invoice template's zero rate reason when
+	the invoice itself is zero rated).
 	"""
-	return frappe.db.sql(query, params, as_dict=True)
+	invoice_tax_type = line.get("custom_tax_type")
+	invoice_zero_rate_reason = line.get("custom_zero_rate_reason") or ""
+
+	if not line.get("item_tax_template") or invoice_tax_type == "Out of Scope":
+		return invoice_tax_type, invoice_zero_rate_reason
+
+	if flt(line.get("vat_rate")) > 0:
+		return "Standard Rate", ""
+	if "exempt" in (line.get("item_tax_template_title") or line.item_tax_template).lower():
+		return "Except Rate", ""
+	if invoice_tax_type == "Zero Rate":
+		return "Zero Rate", invoice_zero_rate_reason
+	return "Zero Rate", ""
 
 
-def get_purchase_invoices(company, from_date, to_date, tax_id=None):
-	params = {"company": company, "from_date": from_date, "to_date": to_date}
-	condition = ""
-	# if tax_id:
-	# 	condition = """
-	# 		AND (
-	# 			comp_addr.tax_id = %(tax_id)s
-	# 			OR (pi.billing_address IS NULL AND (SELECT tax_id FROM `tabCompany` WHERE name = pi.company) = %(tax_id)s)
-	# 		)
-	# 	"""
-	# 	params["tax_id"] = tax_id
+def classify_sales_line(line):
+	tax_type, zero_rate_reason = get_line_tax_category(line)
 
-	if tax_id:
-		condition = "AND (SELECT tax_id FROM `tabCompany` WHERE name = pi.company) = %(tax_id)s"
-		params["tax_id"] = tax_id
-
-	query = f"""
-		SELECT
-			pi.name, pi.posting_date, pi.supplier, pi.supplier_name,
-			pi.base_total, pi.base_total_taxes_and_charges,
-			pi.custom_reverse_charge_applicable,
-			pt.custom_tax_type, pt.custom_zero_rate_reason, pt.custom_except_rate_reason, pt.custom_country
-		FROM `tabPurchase Invoice` pi
-		LEFT JOIN `tabPurchase Taxes and Charges Template` pt ON pt.name = pi.taxes_and_charges
-		LEFT JOIN `tabAddress` comp_addr ON pi.billing_address = comp_addr.name
-		WHERE pi.company = %(company)s
-		  AND pi.docstatus = 1
-		  AND pi.posting_date BETWEEN %(from_date)s AND %(to_date)s
-		  {condition}
-	"""
-	return frappe.db.sql(query, params, as_dict=True)
-
-
-def classify_sales_invoice(inv):
-	if inv.get("custom_government_bears_vat"):
-		return "govt_sales"
-
-	tax_type = inv.get("custom_tax_type")
 	if tax_type == "Standard Rate":
-		return "std_sales"
+		return "govt_sales" if line.get("custom_government_bears_vat") else "std_sales"
 	if tax_type == "Zero Rate":
-		reason = inv.get("custom_zero_rate_reason") or ""
-		if reason.startswith(EXPORT_ZERO_RATE_REASON_PREFIXES):
+		# Reasons are stored as "Export of goods(VATEX-SA-32)"; match on the code.
+		reason_code = zero_rate_reason.rsplit("(", 1)[-1].rstrip(")").strip()
+		if reason_code.startswith(EXPORT_ZERO_RATE_REASON_PREFIXES):
 			return "export_sales"
 		return "zero_sales"
 	if tax_type == "Except Rate":
@@ -237,13 +261,13 @@ def classify_sales_invoice(inv):
 	return None
 
 
-def classify_purchase_invoice(inv):
-	if inv.get("custom_reverse_charge_applicable"):
+def classify_purchase_line(line):
+	if line.get("custom_reverse_charge_applicable"):
 		return "import_rcm"
 
-	tax_type = inv.get("custom_tax_type")
+	tax_type, _zero_rate_reason = get_line_tax_category(line)
 	if tax_type == "Standard Rate":
-		country = inv.get("custom_country") or "Saudi Arabia"
+		country = line.get("custom_country") or "Saudi Arabia"
 		return "import_paid" if country != "Saudi Arabia" else "std_purch"
 	if tax_type == "Zero Rate":
 		return "zero_purch"
