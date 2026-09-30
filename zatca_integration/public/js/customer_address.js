@@ -87,7 +87,7 @@ frappe.ui.form.CustomerQuickEntryForm = class CustomerQuickEntryForm extends (
 			variant_fields.splice(street_index + 1, 0,
 				{
 					label: __("Street (In Arabic)"),
-					fieldname: "custom_street_arabic",
+					fieldname: "custom_street_in_arabic",
 					fieldtype: "Data"
 				}
 			);
@@ -102,7 +102,7 @@ frappe.ui.form.CustomerQuickEntryForm = class CustomerQuickEntryForm extends (
 			variant_fields.splice(district_index + 1, 0,
 				{
 					label: __("District (In Arabic)"),
-					fieldname: "custom_district_arabic",
+					fieldname: "custom_district_in_arabic",
 					fieldtype: "Data"
 				}
 			);
@@ -117,7 +117,7 @@ frappe.ui.form.CustomerQuickEntryForm = class CustomerQuickEntryForm extends (
 			variant_fields.splice(city_name_index + 1, 0,
 				{
 					label: __("City (In Arabic)"),
-					fieldname: "custom_city_arabic",
+					fieldname: "custom_city_in_arabic",
 					fieldtype: "Data"
 				}
 			);
@@ -132,7 +132,7 @@ frappe.ui.form.CustomerQuickEntryForm = class CustomerQuickEntryForm extends (
 			variant_fields.splice(postal_code_index + 1, 0,
 				{
 					label: __("Country (In Arabic)"),
-					fieldname: "custom_country_arabic",
+					fieldname: "custom_country_in_arabic",
 					fieldtype: "Data"
 				}
 			);
