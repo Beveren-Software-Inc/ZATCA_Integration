@@ -272,9 +272,9 @@ frappe.ui.form.on('ZATCA VAT Return', {
 					<div class="zatca-vat-summary-label">${__("Purchase VAT Amount")}</div>
 					<div class="zatca-vat-summary-value">${frm.events.format_sar(total_purch_vat)}</div>
 				</div>
-				<div class="zatca-vat-summary-item" style="border-bottom: 3px solid ${net_vat_due >= 0 ? '#48bb78' : '#e53e3e'};">
-					<div class="zatca-vat-summary-label">${__("Net VAT Due / (Reclaimed)")}</div>
-					<div class="zatca-vat-summary-value" style="color: ${net_vat_due >= 0 ? '#2f855a' : '#c53030'};">
+				<div class="zatca-vat-summary-item" style="border-bottom: 3px solid ${net_vat_due > 0 ? '#48bb78' : '#e53e3e'};">
+					<div class="zatca-vat-summary-label">${__("Net VAT Reclaimable / (Payable)")}</div>
+					<div class="zatca-vat-summary-value" style="color: ${net_vat_due > 0 ? '#2f855a' : '#c53030'};">
 						${frm.events.format_sar(net_vat_due)}
 					</div>
 				</div>
@@ -449,7 +449,7 @@ frappe.ui.form.on('ZATCA VAT Return', {
 				<td class="zatca-vat-amount-col" style="font-weight: bold;">-</td>
 				<td class="zatca-vat-amount-col" style="font-weight: bold;">-</td>
 				<td class="zatca-vat-amount-col" style="font-weight: bold;">-</td>
-				<td class="zatca-vat-amount-col" style="font-weight: bold; color: ${net_vat_due >= 0 ? '#2f855a' : '#c53030'}">
+				<td class="zatca-vat-amount-col" style="font-weight: bold; color: ${net_vat_due > 0 ? '#2f855a' : '#c53030'}">
 					${frm.events.format_sar(net_vat_due)}
 				</td>
 			</tr>
@@ -458,7 +458,7 @@ frappe.ui.form.on('ZATCA VAT Return', {
 		html += `
 			<tr class="child-node" data-parent-group="net" ${net_style}>
 				<td class="text-center"></td>
-				<td class="indent-col">${__("Total VAT Due for Current Period")}</td>
+				<td class="indent-col">${__("Purchase VAT - Sales VAT for Current Period")}</td>
 				<td class="zatca-vat-amount-col">-</td>
 				<td class="zatca-vat-amount-col">-</td>
 				<td class="zatca-vat-amount-col">-</td>
@@ -482,11 +482,11 @@ frappe.ui.form.on('ZATCA VAT Return', {
 			</tr>
 			<tr class="child-node total-row" data-parent-group="net" ${net_style} style="background-color: #ebf8ff; color: #2b6cb0;">
 				<td class="text-center"></td>
-				<td class="indent-col" style="font-weight: bold;">${__("Net VAT Due (or Reclaimed)")}</td>
+				<td class="indent-col" style="font-weight: bold;">${__("Net VAT Reclaimable / (Payable)")}</td>
 				<td class="zatca-vat-amount-col" style="font-weight: bold;">-</td>
 				<td class="zatca-vat-amount-col" style="font-weight: bold;">-</td>
 				<td class="zatca-vat-amount-col" style="font-weight: bold;">-</td>
-				<td class="zatca-vat-amount-col" style="font-weight: bold; font-size: 1.05rem;">${frm.events.format_sar(net_vat_due)}</td>
+				<td class="zatca-vat-amount-col" style="font-weight: bold; font-size: 1.05rem; color: ${net_vat_due > 0 ? '#2f855a' : '#c53030'};">${frm.events.format_sar(net_vat_due)}</td>
 			</tr>
 		`;
 

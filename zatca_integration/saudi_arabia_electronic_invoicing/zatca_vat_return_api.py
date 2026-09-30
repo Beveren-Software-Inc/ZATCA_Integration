@@ -52,7 +52,9 @@ def get_vat_return_summary(company, from_date, to_date, tax_id=None):
 	total_purch_amount = sum(rows[k]["amount"] for k in PURCHASE_ROW_KEYS)
 	total_purch_vat = sum(rows[k]["vat"] for k in PURCHASE_ROW_KEYS)
 
-	row_vat_due = total_sales_vat - total_purch_vat
+	# Purchase VAT - Sales VAT: positive = reclaimable, negative = payable.
+	# download_vat_excel flips it back to the ZATCA form sign (Sales - Purchase).
+	row_vat_due = total_purch_vat - total_sales_vat
 
 	return {
 		"rows": rows,
@@ -438,11 +440,12 @@ def download_vat_excel(company, from_date, to_date, tax_id=None):
 			ws.cell(row=current_row, column=2, value="")
 			ws.cell(row=current_row, column=3, value="")
 
+			# The ZATCA form reports VAT due as Sales - Purchase; the summary holds Purchase - Sales.
 			val = {
-				"vat_due": summary["row_vat_due"],
+				"vat_due": -flt(summary["row_vat_due"]),
 				"correction": summary["row_correction_amount"],
 				"credit_cf": summary["row_credit_carried_forward"],
-				"net_due": summary["row_net_due"],
+				"net_due": -flt(summary["row_net_due"]),
 			}[key]
 
 			ws.cell(row=current_row, column=4, value=flt(val))
