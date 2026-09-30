@@ -126,11 +126,7 @@ def get_invoice_row_contributions(company, from_date, to_date, tax_id=None):
 					"vat_amount": 0.0,
 				}
 			contributions[key]["taxable_value"] += flt(line.base_net_amount)
-			# Reverse-charge imports are self-accounted: the input VAT claimed
-			# equals the output VAT declared, so the net VAT impact is zero.
-			# Only the taxable value is disclosed for this row.
-			if row_id != "import_rcm":
-				contributions[key]["vat_amount"] += flt(line.vat_amount)
+			contributions[key]["vat_amount"] += flt(line.vat_amount)
 
 	return list(contributions.values())
 
@@ -142,7 +138,7 @@ def get_sales_invoice_lines(company, from_date, to_date, tax_id=None):
 		from_date,
 		to_date,
 		tax_id,
-		extra_fields="inv.customer AS party, inv.customer_name AS party_name, inv.custom_government_bears_vat",
+		extra_fields="inv.customer AS party, inv.customer_name AS party_name",
 		tax_template="Sales Taxes and Charges Template",
 	)
 
@@ -154,10 +150,7 @@ def get_purchase_invoice_lines(company, from_date, to_date, tax_id=None):
 		from_date,
 		to_date,
 		tax_id,
-		extra_fields=(
-			"inv.supplier AS party, inv.supplier_name AS party_name, "
-			"inv.custom_reverse_charge_applicable, tt.custom_country"
-		),
+		extra_fields="inv.supplier AS party, inv.supplier_name AS party_name, tt.custom_country",
 		tax_template="Purchase Taxes and Charges Template",
 	)
 
@@ -248,7 +241,7 @@ def classify_sales_line(line):
 	tax_type, zero_rate_reason = get_line_tax_category(line)
 
 	if tax_type == "Standard Rate":
-		return "govt_sales" if line.get("custom_government_bears_vat") else "std_sales"
+		return "std_sales"
 	if tax_type == "Zero Rate":
 		# Reasons are stored as "Export of goods(VATEX-SA-32)"; match on the code.
 		reason_code = zero_rate_reason.rsplit("(", 1)[-1].rstrip(")").strip()
@@ -262,9 +255,6 @@ def classify_sales_line(line):
 
 
 def classify_purchase_line(line):
-	if line.get("custom_reverse_charge_applicable"):
-		return "import_rcm"
-
 	tax_type, _zero_rate_reason = get_line_tax_category(line)
 	if tax_type == "Standard Rate":
 		country = line.get("custom_country") or "Saudi Arabia"
