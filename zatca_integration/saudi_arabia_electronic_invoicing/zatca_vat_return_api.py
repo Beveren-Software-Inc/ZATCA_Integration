@@ -190,7 +190,8 @@ def _get_invoice_lines(
 ):
     """Item lines of submitted invoices with their line VAT from Item Wise Tax Detail.
 
-    The line VAT of every invoice always adds up to the invoice's tax rows, so no
+    Only tax rows posted to VAT accounts count as VAT (see _vat_account_condition).
+    The line VAT of every invoice always adds up to the invoice's VAT rows, so no
     VAT charged on an invoice is left out of the return (see _reconcile_line_vat).
     """
     params = {"company": company, "from_date": from_date, "to_date": to_date, "doctype": doctype}
@@ -205,6 +206,8 @@ def _get_invoice_lines(
 		AND inv.posting_date BETWEEN %(from_date)s AND %(to_date)s
 		{condition}
 	"""
+
+    vat_account = _vat_account_condition()
 
     lines = frappe.db.sql(
         f"""
@@ -225,7 +228,7 @@ def _get_invoice_lines(
         as_dict=True,
     )
 
-    # Item-wise tax breakup (company currency); summed over all tax rows of each item line.
+    # Item-wise tax breakup (company currency); summed over the VAT rows of each item line.
     item_tax = {
         row.item_row: row
         for row in frappe.db.sql(
@@ -233,7 +236,9 @@ def _get_invoice_lines(
 			SELECT iwtd.item_row, SUM(iwtd.amount) AS amount, MAX(iwtd.rate) AS rate
 			FROM `tabItem Wise Tax Detail` iwtd
 			INNER JOIN `tab{doctype}` inv ON inv.name = iwtd.parent
-			WHERE iwtd.parenttype = %(doctype)s AND {invoice_filters}
+			INNER JOIN `tab{tax_table}` tax ON tax.name = iwtd.tax_row
+			INNER JOIN `tabAccount` acc ON acc.name = tax.account_head
+			WHERE iwtd.parenttype = %(doctype)s AND {invoice_filters} AND {vat_account}
 			GROUP BY iwtd.item_row
 			""",
             params,
@@ -241,14 +246,15 @@ def _get_invoice_lines(
         )
     }
 
-    # Total of each invoice's tax rows, the figure the line VAT must add up to.
+    # Total of each invoice's VAT rows, the figure the line VAT must add up to.
     invoice_tax = dict(
         frappe.db.sql(
             f"""
 			SELECT tax.parent, SUM({signed_tax_amount})
 			FROM `tab{tax_table}` tax
 			INNER JOIN `tab{doctype}` inv ON inv.name = tax.parent
-			WHERE tax.parenttype = %(doctype)s AND {invoice_filters}
+			INNER JOIN `tabAccount` acc ON acc.name = tax.account_head
+			WHERE tax.parenttype = %(doctype)s AND {invoice_filters} AND {vat_account}
 			GROUP BY tax.parent
 			""",
             params,
@@ -262,6 +268,16 @@ def _get_invoice_lines(
 
     _reconcile_line_vat(lines, invoice_tax)
     return lines
+
+
+def _vat_account_condition():
+    """SQL condition (Account alias acc) for VAT accounts.
+
+    An account is VAT when its Account Type is "Tax". Tax rows on other accounts
+    (round off, government fees, card charges, ...) are not VAT. The account's
+    ZATCA Tax Type is not used: it is also set on expense accounts.
+    """
+    return "acc.account_type = 'Tax'"
 
 
 def _reconcile_line_vat(lines, invoice_tax):
