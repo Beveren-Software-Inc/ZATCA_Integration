@@ -125,6 +125,7 @@ fixtures = [
                     "Sales Invoice-custom_seller_name",
                     "Sales Invoice-custom_section_break_sepgk",
                     "Sales Invoice-custom_invoice_qr_code",
+                    "Sales Invoice-custom_invoice_qr_codesar",
                     "Sales Invoice-custom_section_break_eerov",
                     "Sales Invoice-custom_column_break_7ag35",
                     "Sales Invoice-custom_invoice_xml",

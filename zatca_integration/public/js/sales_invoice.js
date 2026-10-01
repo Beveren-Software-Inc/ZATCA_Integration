@@ -39,6 +39,25 @@ frappe.ui.form.on('Sales Invoice', {
             frm.toggle_display("custom_zatca_submit_status", enabled);
             frm.toggle_display("custom_zatca_submit_time", enabled);
             frm.trigger('add_submit_button');
+            if (
+                frm.doc.docstatus === 1 &&
+                frm.doc.currency &&
+                frm.doc.currency !== "SAR" &&
+                frm.doc.custom_invoice_qr_code &&
+                !frm.doc.custom_invoice_qr_codesar
+            ) {
+                frm.add_custom_button(__("Generate SAR QR"), () => {
+                    frappe.call({
+                        method: "zatca_integration.clearence_util.generate_missing_sar_qr",
+                        args: { invoice: frm.doc.name },
+                        freeze: true,
+                        freeze_message: __("Generating SAR QR…"),
+                        callback() {
+                            frm.reload_doc();
+                        },
+                    });
+                }, __("ZATCA Actions"));
+            }
         });
 
         check_multi_sales_invoice_enabled(frm, (enabled) => {
