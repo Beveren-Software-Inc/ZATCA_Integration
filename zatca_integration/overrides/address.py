@@ -96,11 +96,34 @@ def validate(doc, method=None):
     # Keep the VAT Category Select matching its options (invisible characters or
     # a different case make the field render blank and save blank again).
     canonicalize_vat_category_field(doc)
+    apply_quick_entry_address_values(doc)
 
     # Local maps only — never call external translate APIs during save
     autofill_arabic_fields(doc, allow_network=False)
     sync_tax_category_from_party(doc)
     validate_address_by_party(doc)
+
+
+def apply_quick_entry_address_values(doc):
+    """Fill City Name / Arabic fields entered in the Customer quick entry dialog.
+
+    ERPNext creates the primary Address from the new Customer but copies only
+    the standard address fields; overrides.customer.validate stashes the rest.
+    """
+    stash = frappe.flags.get("zatca_quick_entry_address")
+    if not stash or not doc.is_new():
+        return
+
+    if not any(
+        link.link_doctype == stash["link_doctype"] and link.link_name == stash["link_name"]
+        for link in doc.get("links") or []
+    ):
+        return
+
+    for fieldname, value in stash["values"].items():
+        if not doc.get(fieldname):
+            doc.set(fieldname, value)
+    frappe.flags.zatca_quick_entry_address = None
 
 
 def autofill_arabic_fields(doc, force: bool = False, allow_network: bool = False):

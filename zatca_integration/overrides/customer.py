@@ -59,8 +59,36 @@ def has_registration(doc) -> bool:
     )
 
 
+# Quick entry address fields that ERPNext's make_address() does not copy to the
+# primary Address; they are handed over through frappe.flags (see
+# overrides.address.apply_quick_entry_address_values).
+QUICK_ENTRY_ADDRESS_FIELDS = (
+    "county",
+    "custom_street_in_arabic",
+    "custom_district_in_arabic",
+    "custom_city_in_arabic",
+    "custom_country_in_arabic",
+)
+
+
+def stash_quick_entry_address_values(doc):
+    """Keep the extra quick entry address values for the primary Address created on insert."""
+    if not (doc.is_new() and doc.get("address_line1")):
+        return
+
+    values = {f: doc.get(f) for f in QUICK_ENTRY_ADDRESS_FIELDS if doc.get(f)}
+    if values:
+        frappe.flags.zatca_quick_entry_address = {
+            "link_doctype": doc.doctype,
+            "link_name": doc.name,
+            "values": values,
+        }
+
+
 def validate(doc, method=None):
     """Server-side Customer rules for ZATCA identification fields."""
+    stash_quick_entry_address_values(doc)
+
     # Keep the VAT Category Select matching its options (invisible characters or
     # a different case make the field render blank and save blank again).
     canonicalize_vat_category_field(doc)
