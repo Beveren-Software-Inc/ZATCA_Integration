@@ -753,7 +753,7 @@
   "collapsible": 0,
   "collapsible_depends_on": null,
   "columns": 0,
-  "default": "Cash",
+  "default": "",
   "depends_on": "eval:doc.custom_enable_zatca_e_invoicing == 1 && doc.custom_zatca_phase == 'ZATCA Phase 2'",
   "description": null,
   "docstatus": 0,
