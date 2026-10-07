@@ -183,9 +183,11 @@ frappe.ui.form.on('Sales Invoice', {
                 },
                 callback: function(r) {
                     if (r.message) {
-                        console.log(r.message);
                         // Set the payment method to the invoice
                         frm.set_value('custom_payment_means', r.message);
+                    } else if (frm.is_new()) {
+                        // Not set on the customer: leave it blank so the user must choose one
+                        frm.set_value('custom_payment_means', '');
                     }
                 }
             });

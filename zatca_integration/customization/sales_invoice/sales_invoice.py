@@ -12,11 +12,11 @@ def update_payment_method(customer):
         frappe.throw(f"Customer with ID {customer} does not exist.")
     payment_method = frappe.db.get_value("Customer", customer, "custom_payment_method")
     customer_type = frappe.db.get_value("Customer", customer, "customer_type")
-    if customer_type == "Individual":
-        return "Cash"
-    if payment_method is None:
-        return "Cash"
-    return payment_method
+    # if customer_type == "Individual":
+    #     return "Cash"
+    # if payment_method is None:
+    #     return "Cash"
+    return payment_method or ""
 
 
 @frappe.whitelist()
