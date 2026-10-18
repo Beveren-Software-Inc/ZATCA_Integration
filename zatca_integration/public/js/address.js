@@ -7,6 +7,9 @@ frappe.ui.form.on("Address", {
 
 	refresh(frm) {
 		prefill_tax_category_from_party(frm);
+		// Apply the current country state on load as well, so reopened or
+		// prefilled addresses show the right required markers immediately.
+		toggle_saudi_address_requirements(frm);
 		frm.add_custom_button(__("Translate Arabic Fields"), () => {
 			translate_all_arabic_fields(frm, true);
 		});
@@ -51,6 +54,8 @@ frappe.ui.form.on("Dynamic Link", {
 	},
 });
 
+// Saudi National Address fields (labels come from the property setters):
+// Street Name, Building Number, Subdivision Name, City Name and Postal Code.
 const SA_ADDRESS_FIELDS = [
 	"address_line1",
 	"address_line2",
@@ -60,39 +65,7 @@ const SA_ADDRESS_FIELDS = [
 	"custom_additional_no",
 ];
 
-// Keep in sync with zatca_integration/common_util.py:
-// - custom_vat_category select: Registered / Unregistered / Overseas / Government / Exempt
-// - tax_category link: B2B / B2C / B2G / Export / Non-Resident / Exempt Entity
-function normalize_vat_category(value) {
-	return String(value || "")
-		.trim()
-		.replace(/\s+/g, " ")
-		.toLowerCase();
-}
-
-// VAT-registered buyers (national address required for Individuals)
-const ZATCA_REGISTERED_VAT_CATEGORIES = ["Registered", "B2B", "B2G", "Tax Deductors", "Tax Deductor"];
-
-// Overseas / export-style buyers: full Saudi national address not required
-const ZATCA_EXPORT_VAT_CATEGORIES = [
-	"Overseas",
-	"Oversees",
-	"Deemed Export",
-	"Export / Non-Resident",
-	"Export",
-];
-
-function is_registered_vat_category(value) {
-	const category = normalize_vat_category(value);
-	return ZATCA_REGISTERED_VAT_CATEGORIES.some(
-		(name) => normalize_vat_category(name) === category
-	);
-}
-
-function is_export_vat_category(value) {
-	const category = normalize_vat_category(value);
-	return ZATCA_EXPORT_VAT_CATEGORIES.some((name) => normalize_vat_category(name) === category);
-}
+const SAUDI_ARABIA = "Saudi Arabia";
 
 function get_linked_party(frm) {
 	const link = (frm.doc.links || []).find(
@@ -101,49 +74,26 @@ function get_linked_party(frm) {
 	return link || null;
 }
 
-function get_vat_category(frm) {
-	return (frm.doc.tax_category || frm.doc.custom_vat_category || "").trim();
-}
-
-function requires_saudi_national_address(frm) {
-	if ((frm.doc.country || "").trim() !== "Saudi Arabia") {
-		return false;
-	}
-
-	const vat_category = get_vat_category(frm);
-	if (is_export_vat_category(vat_category)) {
-		return false;
-	}
-
-	const entity_type = (frm._zatca_party_context || {}).entity_type;
-	if (entity_type === "Individual") {
-		return is_registered_vat_category(vat_category);
-	}
-	if (entity_type === "Company") {
-		return true;
-	}
-	return is_registered_vat_category(vat_category);
+function is_saudi_arabia(country) {
+	return String(country || "").trim().toLowerCase() === SAUDI_ARABIA.toLowerCase();
 }
 
 function toggle_saudi_address_requirements(frm) {
-	const entity_type = (frm._zatca_party_context || {}).entity_type;
-	const is_individual = entity_type === "Individual";
-	const national_required = requires_saudi_national_address(frm);
-
-	// Individuals: only Country is mandatory (unless Registered + SA)
+	// Country is always mandatory on an Address
 	if (frm.fields_dict.country) {
 		frm.toggle_reqd("country", true);
 	}
+
+	// The Saudi National Address is mandatory only when the address country is
+	// Saudi Arabia; for every other country these fields stay optional.
+	const saudi_address = is_saudi_arabia(frm.doc.country);
 
 	SA_ADDRESS_FIELDS.forEach((field) => {
 		if (!frm.fields_dict[field]) {
 			return;
 		}
-		if (is_individual && !national_required) {
-			frm.toggle_reqd(field, false);
-			return;
-		}
-		frm.toggle_reqd(field, national_required && field !== "custom_additional_no");
+		// Additional Number stays optional even for Saudi Arabia
+		frm.toggle_reqd(field, saudi_address && field !== "custom_additional_no");
 	});
 
 	if (frm.fields_dict.custom_national_address) {
