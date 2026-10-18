@@ -12,7 +12,7 @@ app_license = "mit"
 # include js, css files in header of desk.html
 # app_include_css = "/assets/zatca_integration/css/zatca_integration.css"
 # app_include_js = "/assets/zatca_integration/js/zatca_integration.js"
-app_include_js = "/assets/zatca_integration/js/customer_address.js"
+app_include_js = "/assets/zatca_integration/js/customer_address.js?v=20261018c"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/zatca_integration/css/zatca_integration.css"
@@ -224,9 +224,11 @@ fixtures = [
                     "Address-county-reqd",
                     "Address-county-label",
                     "Address-city-label",
+                    "Address-city-reqd",
                     "Address-address_line2-reqd",
                     "Address-address_line2-label",
                     "Address-address_line1-label",
+                    "Address-address_line1-reqd",
                     "Address-pincode-reqd",
                     "Address-tax_category-label",
                     "Customer-tax_category-label",
