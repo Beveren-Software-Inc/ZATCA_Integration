@@ -1,33 +1,4 @@
-// TEMPORARY — remove after the SAR QR backfill is done.
-// The temp-QR dialog lives in public/js/temp_sar_qr.js, loaded on both the
-// Company and the Sales Invoice form (see doctype_js in hooks.py), so the same
-// tool is available from either form.
-
 frappe.ui.form.on("Company", {
-	refresh(frm) {
-		// TEMPORARY — remove after QR currency check
-		if (!frm.is_new()) {
-			frm.add_custom_button(__("Temp: Generate SAR QR"), () => {
-				if (!frappe.zatca_temp_qr) {
-					frappe.throw(
-						__("temp_sar_qr.js is not loaded — run 'bench clear-cache' and reload.")
-					);
-					return;
-				}
-				frappe.zatca_temp_qr.open_dialog(frm);
-			});
-
-			// One-click, right next to it: the invoice, its original QR and the
-			// SAR amounts all come from the backend (generate_default_temp_qr),
-			// so there is nothing to type and nothing to mix up.
-			if (frappe.zatca_temp_qr) {
-				frm.add_custom_button(frappe.zatca_temp_qr.quick_button_label(), () =>
-					frappe.zatca_temp_qr.quick_generate(frm)
-				);
-			}
-		}
-	},
-
 	custom_zatca_setup(frm) {
 		run_zatca_vat_setup(frm);
 	},
