@@ -595,6 +595,9 @@ function zatca_wrap_quick_entry_form(form_name) {
 	class ZatcaAddressQuickEntryForm extends Base {
 		render_dialog() {
 			const result = super.render_dialog();
+			if (this.doctype === "Supplier") {
+				return result;
+			}
 			const setup = () => zatca_setup_quick_entry_address_requirements(this);
 			setup();
 
@@ -607,16 +610,24 @@ function zatca_wrap_quick_entry_form(form_name) {
 
 		get_address_fields() {
 			const base = super.get_address_fields;
+			const fields = base ? base.call(this) : [];
+			if (this.doctype === "Supplier") {
+				return fields;
+			}
 			return zatca_drop_duplicate_country_fields(
-				zatca_ensure_quick_entry_address_fields(base ? base.call(this) : []),
+				zatca_ensure_quick_entry_address_fields(fields),
 				this.doctype
 			);
 		}
 
 		get_variant_fields() {
 			const base = super.get_variant_fields;
+			const fields = base ? base.call(this) : [];
+			if (this.doctype === "Supplier") {
+				return fields;
+			}
 			return zatca_drop_duplicate_country_fields(
-				zatca_ensure_quick_entry_address_fields(base ? base.call(this) : []),
+				zatca_ensure_quick_entry_address_fields(fields),
 				this.doctype
 			);
 		}
@@ -654,7 +665,8 @@ function zatca_wrap_quick_entry_form(form_name) {
 function zatca_install_quick_entry_address_requirements() {
 	zatca_wrap_quick_entry_form("AddressQuickEntryForm");
 	zatca_wrap_quick_entry_form("CustomerQuickEntryForm");
-	zatca_wrap_quick_entry_form("SupplierQuickEntryForm");
+	// Supplier quick entry stays the standard form: no Street Name, Building
+	// Number, City Name, or Subdivision Name.
 }
 
 // ERPNext and India Compliance replace CustomerQuickEntryForm after this file
