@@ -10,6 +10,7 @@ from zatca_integration.common_util import (
     is_registered_vat_category,
     validate_ksa_vat_number,
 )
+from zatca_integration.overrides.customer import stash_quick_entry_address_values
 
 # Supplier fields that can carry the tax / VAT registration number.
 TAX_NUMBER_FIELDS = ("tax_id", "custom_vat_number", "ksa_tax_id")
@@ -36,6 +37,11 @@ def is_saudi_supplier(doc) -> bool:
 
 def validate(doc, method=None):
     """Server-side Supplier rules for ZATCA identification fields."""
+    # The Supplier quick entry dialog collects City Name (county) and Arabic
+    # address fields that ERPNext's make_address() does not copy. Keep them for
+    # the primary Address created right after insert, like Customer does.
+    stash_quick_entry_address_values(doc)
+
     # Keep the VAT Category Select matching its options (invisible characters or
     # a different case make the field render blank and save blank again).
     canonicalize_vat_category_field(doc)

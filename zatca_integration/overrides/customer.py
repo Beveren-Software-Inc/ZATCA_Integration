@@ -61,7 +61,8 @@ def has_registration(doc) -> bool:
 
 # Quick entry address fields that ERPNext's make_address() does not copy to the
 # primary Address; they are handed over through frappe.flags (see
-# overrides.address.apply_quick_entry_address_values).
+# overrides.address.apply_quick_entry_address_values). Customer and Supplier
+# quick entry both use this helper.
 QUICK_ENTRY_ADDRESS_FIELDS = (
     "county",
     "custom_street_in_arabic",
@@ -72,8 +73,10 @@ QUICK_ENTRY_ADDRESS_FIELDS = (
 
 
 def stash_quick_entry_address_values(doc):
-    """Keep the extra quick entry address values for the primary Address created on insert."""
-    if not (doc.is_new() and doc.get("address_line1")):
+    """Keep extra quick entry Address values for the primary Address created on insert."""
+    # India Compliance moves the street to `_address_line1` before saving, so
+    # accept either name.
+    if not (doc.is_new() and (doc.get("address_line1") or doc.get("_address_line1"))):
         return
 
     values = {f: doc.get(f) for f in QUICK_ENTRY_ADDRESS_FIELDS if doc.get(f)}

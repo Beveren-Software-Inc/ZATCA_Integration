@@ -248,6 +248,23 @@ vii *B2C Auto Sales Submission + Submission Frequency*
 - ERPNext system administrator access
 - Basic understanding of Saudi tax regulations
 
+### Running the Tests
+The Saudi national-address fields in the Address / Customer / Supplier quick entry
+dialogs are covered by two dependency-free suites (no browser or site needed). Run
+them from the bench directory:
+
+```bash
+# JavaScript: quick-entry wrapping, field labels, required state, frappe.meta isolation
+node apps/zatca_integration/zatca_integration/test/js/test_quick_entry_address.js
+
+# Python: Customer / Supplier -> Address hand-over helpers
+PYTHONPATH=apps/zatca_integration:apps/frappe env/bin/python -m unittest \
+  zatca_integration.test.test_quick_entry_address
+```
+
+The Python suite also runs on a site with
+`bench --site <site> run-tests --module zatca_integration.test.test_quick_entry_address`.
+
 ## 🏢 About Beveren Software
 
 Beveren Software provides ERP solutions and digital transformation services in the Middle East, specializing in:
