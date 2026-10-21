@@ -105,10 +105,10 @@ def validate(doc, method=None):
 
 
 def apply_quick_entry_address_values(doc):
-    """Fill City Name / Arabic fields entered in the Customer quick entry dialog.
+    """Fill City Name / Arabic fields entered in the party quick entry dialog.
 
-    ERPNext creates the primary Address from the new Customer but copies only
-    the standard address fields; overrides.customer.validate stashes the rest.
+    ERPNext creates the primary Address from the new Customer / Supplier but
+    copies only the standard address fields; the party overrides stash the rest.
     """
     stash = frappe.flags.get("zatca_quick_entry_address")
     if not stash or not doc.is_new():
