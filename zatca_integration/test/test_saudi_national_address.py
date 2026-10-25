@@ -24,7 +24,9 @@ from zatca_integration.saudi_arabia_electronic_invoicing.doctype.zatca_csr_setti
     zatca_csr_settings,
 )
 from zatca_integration.saudi_arabia_electronic_invoicing.saudi_national_address import (
+    SAUDI_CITIES,
     canonical_city_name,
+    city_options,
     is_saudi_country,
     is_valid_saudi_postal_code,
     normalize_city_name,
@@ -85,6 +87,29 @@ class TestCityNames(unittest.TestCase):
         suggestions = suggest_saudi_cities("Damamm")
         self.assertIn("Dammam", suggestions)
 
+    def test_suggestions_are_ranked_by_how_the_name_starts(self):
+        self.assertEqual(suggest_saudi_cities("Kho"), ["Al Khobar"])
+        self.assertEqual(suggest_saudi_cities("Dammam")[0], "Dammam")
+        # Arabic input is answered with the official English name.
+        self.assertEqual(suggest_saudi_cities("الدم"), ["Dammam"])
+
+    def test_suggestions_never_offer_unrelated_cities(self):
+        # The complaint that started this: typing "Mana" answered with
+        # "Did you mean: Anak, Madinah, Marat?".
+        for value in ("Mana", "HIDD", "Atlantis", "zzzz"):
+            with self.subTest(value=value):
+                suggestions = suggest_saudi_cities(value)
+                for unrelated in ("Anak", "Madinah", "Marat"):
+                    self.assertNotIn(unrelated, suggestions)
+        self.assertEqual(suggest_saudi_cities("Atlantis"), [])
+        self.assertEqual(suggest_saudi_cities("HIDD"), [])
+
+    def test_suggestions_use_each_word_of_the_field(self):
+        self.assertIn("Madinah", suggest_saudi_cities("madinah brida"))
+
+    def test_suggestions_are_limited(self):
+        self.assertLessEqual(len(suggest_saudi_cities("A")), 3)
+
     def test_postal_code_typed_after_the_city_name_is_ignored(self):
         self.assertEqual(canonical_city_name("Al Jubail 35717-7459"), "Jubail")
 
@@ -101,6 +126,36 @@ class TestCityNames(unittest.TestCase):
         for value in ("Al Mishael Dist.", "Ad Dabab dist", "Nakhil", "Salwa"):
             with self.subTest(value=value):
                 self.assertIsNone(canonical_city_name(value))
+
+
+class TestCityOptions(unittest.TestCase):
+    """The list behind the City Name type-ahead (get_saudi_city_options)."""
+
+    def test_every_official_city_is_offered_once(self):
+        options = city_options()
+        values = [option["value"] for option in options]
+
+        self.assertEqual(len(values), len(set(values)))
+        self.assertEqual(set(values), set(SAUDI_CITIES))
+
+    def test_option_carries_the_region_and_the_arabic_name(self):
+        option = next(item for item in city_options() if item["value"] == "Dammam")
+
+        self.assertEqual(option["label"], "Dammam")
+        self.assertEqual(option["region"], "Eastern Province")
+        self.assertEqual(option["arabic"], "الدمام")
+
+    def test_extra_cities_from_settings_are_offered(self):
+        fake_db = frappe._dict(
+            get_singles_dict=lambda doctype: {"extra_saudi_cities": "Hawtat Sudair"}
+        )
+        patcher = patch.object(frappe, "db", fake_db)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+        values = [option["value"] for option in city_options()]
+
+        self.assertIn("Hawtat Sudair", values)
 
 
 class TestPostalCode(unittest.TestCase):

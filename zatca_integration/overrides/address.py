@@ -18,6 +18,7 @@ from zatca_integration.common_util import (
 )
 from zatca_integration.saudi_arabia_electronic_invoicing.saudi_national_address import (
     canonical_city_name,
+    city_options,
     is_saudi_country,
     is_valid_saudi_postal_code,
     suggest_saudi_cities,
@@ -404,6 +405,16 @@ def get_saudi_city_suggestion(city_name=None):
         "city_name": canonical_city_name(value) or "",
         "suggestions": suggest_saudi_cities(value),
     }
+
+
+@frappe.whitelist()
+def get_saudi_city_options():
+    """Client helper: the city list behind the City Name type-ahead.
+
+    Loaded once per browser session by public/js/saudi_city_autocomplete.js and
+    filtered locally, so typing does not call the server.
+    """
+    return city_options()
 
 
 @frappe.whitelist()

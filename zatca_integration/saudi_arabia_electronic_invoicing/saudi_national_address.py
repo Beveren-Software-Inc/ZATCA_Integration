@@ -46,7 +46,10 @@ FUZZY_MIN_LENGTH = 4
 
 # Minimum similarity for "Did you mean ..." suggestions (looser than the
 # automatic correction, but close enough to be useful).
-SUGGESTION_CUTOFF = 0.66
+SUGGESTION_CUTOFF = 0.8
+
+# How many "Did you mean ..." suggestions an error message shows.
+SUGGESTION_LIMIT = 3
 
 # Official city name -> {"region": ..., "arabic": ...}
 SAUDI_CITIES = {
@@ -522,21 +525,102 @@ def canonical_city_name(value: str) -> str | None:
     return None
 
 
-def suggest_saudi_cities(value: str, limit: int = 3) -> list[str]:
-    """Official city names close to ``value``, for an error message."""
-    key = normalize_city_name(value)
-    if not key:
+def _match_score(query: str, candidate: str) -> float:
+    """How well one lookup key matches what the user typed (0 = no match).
+
+    Ranked so a type-ahead list is ordered the way a person expects: the exact
+    name, then names that start with the typed text ("kho" -> "Al Khobar"), then
+    names with a word that starts with it, and only then a typo ("Damamm" ->
+    "Dammam"). A typo must keep the first letter and 80% of the letters, so
+    "Mana" no longer answers with "Anak" and a district does not answer with a
+    town whose name merely ends the same way.
+    """
+    if not query or not candidate:
+        return 0.0
+    if query == candidate:
+        return 5.0
+
+    stripped_query = _strip_article(query)
+    if candidate.startswith(query) or _strip_article(candidate).startswith(stripped_query):
+        return 4.0
+    if any(word.startswith(query) for word in candidate.split()):
+        return 3.0
+
+    if len(query) < FUZZY_MIN_LENGTH:
+        return 0.0
+
+    stem, candidate_stem = stripped_query, _strip_article(candidate)
+    if not stem or not candidate_stem or stem[0] != candidate_stem[0]:
+        return 0.0
+    if abs(len(stem) - len(candidate_stem)) > 3:
+        # A much shorter query is a prefix, not a typo ("mana" is not "madinah").
+        return 0.0
+    ratio = difflib.SequenceMatcher(None, stem, candidate_stem).ratio()
+    return ratio if ratio >= SUGGESTION_CUTOFF else 0.0
+
+
+def _rank_city_matches(queries: list[str], index: dict[str, str], penalty: float = 1.0) -> dict:
+    """Best score per official city over every lookup key and query."""
+    ranked: dict[str, tuple[float, str]] = {}
+    for candidate, official in index.items():
+        for query in queries:
+            score = _match_score(query, candidate) * penalty
+            if not score:
+                continue
+            best = ranked.get(official)
+            if best is None or score > best[0]:
+                ranked[official] = (score, official)
+            break
+    return ranked
+
+
+def suggest_saudi_cities(value: str, limit: int = SUGGESTION_LIMIT) -> list[str]:
+    """Official city names close to ``value``, best first, for a form hint.
+
+    Uses the same index as ``canonical_city_name`` (English, Arabic and known
+    transliterations), so typing Arabic or "kho" suggests the official name.
+    A value no city resembles returns an empty list instead of unrelated
+    cities, and each word is tried on its own ("madinah brida" -> "Madinah").
+    """
+    keys = _city_keys(value)
+    if not keys:
         return []
 
-    lookup = {normalize_city_name(name): name for name in SAUDI_CITIES}
-    matches = difflib.get_close_matches(key, list(lookup), n=limit, cutoff=SUGGESTION_CUTOFF)
-    if len(matches) < limit:
-        for match in difflib.get_close_matches(
-            _strip_article(key), list(lookup), n=limit, cutoff=SUGGESTION_CUTOFF
-        ):
-            if match not in matches:
-                matches.append(match)
-    return [lookup[match] for match in matches[:limit]]
+    index = city_index()
+    ranked = _rank_city_matches(keys, index)
+
+    words = [word for word in normalize_city_name(value).split() if len(word) >= FUZZY_MIN_LENGTH]
+    if len(ranked) < limit and len(words) > 1:
+        for official, (score, official_name) in _rank_city_matches(
+            words, index, penalty=0.5
+        ).items():
+            if official not in ranked or score > ranked[official][0]:
+                ranked[official] = (score, official_name)
+
+    ordered = sorted(ranked.values(), key=lambda item: (-item[0], item[1]))
+    return [official for _, official in ordered[:limit]]
+
+
+def city_options() -> list[dict]:
+    """City Name choices for the type-ahead on the Address form.
+
+    One entry per official city - ``value`` is what is stored, ``region`` and
+    ``arabic`` are shown to help pick the right city - plus the extra names from
+    ``Zatca Settings`` so an extended list also completes.
+    """
+    options = [
+        {
+            "value": name,
+            "label": name,
+            "region": str(details.get("region") or ""),
+            "arabic": str(details.get("arabic") or ""),
+        }
+        for name, details in SAUDI_CITIES.items()
+    ]
+    for name in get_city_validation_settings()["extra_cities"]:
+        if name not in SAUDI_CITIES:
+            options.append({"value": name, "label": name, "region": "", "arabic": ""})
+    return options
 
 
 def is_valid_saudi_postal_code(value: str) -> bool:
@@ -581,14 +665,20 @@ def validate_zatca_city_name(city_name: str, party_label: str, notify: bool = Fa
         return canonical
 
     suggestions = suggest_saudi_cities(raw)
-    did_you_mean = ", ".join(suggestions) or _("none")
+    # Point the user at the type-ahead on the form as well as at the closest
+    # official names; "Did you mean: none?" only confuses.
+    hint = (
+        _("Did you mean: {0}?").format(", ".join(suggestions))
+        if suggestions
+        else _("Clear the City Name and pick the city from the list.")
+    )
 
     if get_city_validation_settings()["skip_city_validation"]:
         frappe.msgprint(
             _(
                 'City Name "{0}" is not in the Saudi National Address list; ZATCA may'
-                " report the address as inaccurate. Did you mean: {1}?"
-            ).format(raw, did_you_mean),
+                " report the address as inaccurate. {1}"
+            ).format(raw, hint),
             title=_("Unverified City Name"),
             indicator="orange",
         )
@@ -597,10 +687,9 @@ def validate_zatca_city_name(city_name: str, party_label: str, notify: bool = Fa
     frappe.throw(
         _(
             'City Name "{0}" is not a Saudi National Address city name, so ZATCA reports'
-            " the {1} as inaccurate. Did you mean: {2}? If this is a Saudi locality"
-            " missing from the list, add it to Zatca Settings > Additional Saudi City"
-            " Names."
-        ).format(raw, party_label, did_you_mean),
+            " the {1} as inaccurate. {2} If this is a Saudi locality missing from the"
+            " list, add it to Zatca Settings > Additional Saudi City Names."
+        ).format(raw, party_label, hint),
         title=_("Invalid City Name"),
     )
     return raw

@@ -12,7 +12,11 @@ app_license = "mit"
 # include js, css files in header of desk.html
 # app_include_css = "/assets/zatca_integration/css/zatca_integration.css"
 # app_include_js = "/assets/zatca_integration/js/zatca_integration.js"
-app_include_js = "/assets/zatca_integration/js/customer_address.js?v=20261021d"
+app_include_js = [
+    "/assets/zatca_integration/js/customer_address.js?v=20261021d",
+    # City Name type-ahead (Saudi National Address list) for every form
+    "/assets/zatca_integration/js/saudi_city_autocomplete.js?v=20261025a",
+]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/zatca_integration/css/zatca_integration.css"
@@ -37,6 +41,7 @@ doctype_js = {
     "Address": "public/js/address.js",
     "Customer": "public/js/customer.js",
     "Supplier": "public/js/supplier.js",
+    "Zatca CSR Settings": "public/js/zatca_csr_settings.js",
 }
 
 doctype_list_js = {"Sales Invoice": "public/js/sales_invoice_list.js"}

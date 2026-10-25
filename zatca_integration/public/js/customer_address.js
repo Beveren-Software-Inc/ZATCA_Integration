@@ -510,6 +510,13 @@ function zatca_setup_quick_entry_address_requirements(form) {
 	}
 
 	const apply = () => zatca_apply_quick_entry_address_requirements(form);
+	// City Name type-ahead: only the official National Address city names are
+	// accepted by ZATCA, so offer them while the user types.
+	const attach_cities = () => {
+		if (frappe.zatca && frappe.zatca.saudi_city) {
+			frappe.zatca.saudi_city.attach(dialog, "county");
+		}
+	};
 
 	// Re-apply after every dependency pass so a country change cannot leave the
 	// old required/optional state behind.
@@ -533,21 +540,25 @@ function zatca_setup_quick_entry_address_requirements(form) {
 				// Refreshing the dialog here reloads the Link from the document
 				// and puts Saudi Arabia back as soon as the user deletes it.
 				apply();
+				attach_cities();
 			}
 		);
 	}
 
 	zatca_hide_duplicate_address_country(dialog);
 	apply();
+	attach_cities();
 
 	// Defaults land asynchronously after the dialog opens.
 	setTimeout(() => {
 		zatca_hide_duplicate_address_country(dialog);
 		apply();
+		attach_cities();
 	}, 0);
 	setTimeout(() => {
 		zatca_hide_duplicate_address_country(dialog);
 		apply();
+		attach_cities();
 	}, 300);
 }
 
