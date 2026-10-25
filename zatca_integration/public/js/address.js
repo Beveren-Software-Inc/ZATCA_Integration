@@ -18,6 +18,7 @@ frappe.ui.form.on("Address", {
 	country(frm) {
 		toggle_saudi_address_requirements(frm);
 		autofill_arabic(frm, "country", "custom_country_in_arabic");
+		check_saudi_city_name(frm);
 	},
 
 	tax_category(frm) {
@@ -38,6 +39,7 @@ frappe.ui.form.on("Address", {
 
 	county(frm) {
 		autofill_arabic(frm, "county", "custom_city_in_arabic");
+		check_saudi_city_name(frm);
 	},
 
 	links_add(frm) {
@@ -190,6 +192,45 @@ function prefill_tax_category_from_party(frm, force = false) {
 			}
 
 			toggle_saudi_address_requirements(frm);
+		},
+	});
+}
+
+// City Name must be a Saudi National Address city (the "inaccurate address
+// data" finding): fix a known spelling on the fly and suggest the official
+// name otherwise. The server repeats this check on save, so a stale form or a
+// direct API call cannot skip it.
+function check_saudi_city_name(frm) {
+	const city = (frm.doc.county || "").trim();
+	if (!city || !is_saudi_arabia(frm.doc.country)) {
+		return;
+	}
+
+	frappe.call({
+		method: "zatca_integration.overrides.address.get_saudi_city_suggestion",
+		args: { city_name: city },
+		freeze: false,
+		callback(r) {
+			const result = r.message || {};
+			if (result.city_name && result.city_name !== city) {
+				frm.set_value("county", result.city_name);
+				frappe.show_alert({
+					message: __("City Name set to the Saudi National Address city {0}.", [
+						result.city_name,
+					]),
+					indicator: "blue",
+				});
+				return;
+			}
+			if (!result.city_name && (result.suggestions || []).length) {
+				frappe.show_alert({
+					message: __(
+						"City Name {0} is not a Saudi National Address city. Did you mean: {1}?",
+						[city, result.suggestions.join(", ")]
+					),
+					indicator: "orange",
+				});
+			}
 		},
 	});
 }

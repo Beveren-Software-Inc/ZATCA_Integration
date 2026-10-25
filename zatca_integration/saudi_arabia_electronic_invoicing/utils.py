@@ -21,6 +21,9 @@ from zatca_integration.common_util import (
     get_country_code,
     get_customer_billing_address,
 )
+from zatca_integration.saudi_arabia_electronic_invoicing.saudi_national_address import (
+    validate_postal_address_for_zatca,
+)
 
 
 @frappe.whitelist()
@@ -523,6 +526,19 @@ def get_address(sales_invoice_doc):
         if customer_country:
             customer_address["country"] = customer_address["country"] or customer_country
             customer_address["country_code"] = get_country_code(customer_country)
+
+    # Fail here, before the invoice is signed and sent, instead of letting ZATCA
+    # report "Inaccurate Seller/Buyer Address Data": a Saudi address needs a
+    # 5-digit Postal Zone and a City Name from the Saudi National Address list.
+    # A foreign address keeps its own postal format (BR-KSA-67 only applies to
+    # SA), and a known city spelling is sent the official way.
+    company_address["city_name"] = validate_postal_address_for_zatca(
+        company_address, _("Seller address (Zatca CSR Settings)")
+    )
+    if customer_address:
+        customer_address["city_name"] = validate_postal_address_for_zatca(
+            customer_address, _("Buyer address")
+        )
 
     return company_address, customer_address
 

@@ -16,6 +16,13 @@ from zatca_integration.common_util import (
     is_export_vat_category,
     is_registered_vat_category,
 )
+from zatca_integration.saudi_arabia_electronic_invoicing.saudi_national_address import (
+    canonical_city_name,
+    is_saudi_country,
+    is_valid_saudi_postal_code,
+    suggest_saudi_cities,
+    validate_zatca_city_name,
+)
 
 # English Address field → Arabic custom field
 ARABIC_FIELD_MAP = {
@@ -187,7 +194,7 @@ def requires_saudi_national_address(doc, party=None) -> bool:
     - VAT Category is not overseas / export-style.
     Individuals (unless Registered) do not require national address fields.
     """
-    if (doc.get("country") or "").strip() != "Saudi Arabia":
+    if not is_saudi_country(doc.get("country")):
         return False
 
     party = party if party is not None else _get_linked_party_values(doc)
@@ -252,11 +259,20 @@ def validate_address_by_party(doc):
         )
 
     postal = str(doc.get("pincode") or "").strip()
-    if not postal.isdigit() or len(postal) != 5:
+    if not is_valid_saudi_postal_code(postal):
         frappe.throw(
-            _("Postal Code must be exactly 5 digits for Saudi Arabia addresses."),
+            _(
+                "Postal Code must be exactly 5 digits for Saudi Arabia addresses "
+                '(a Saudi postal code never starts with 0). Received: "{0}".'
+            ).format(postal or _("empty")),
             title=_("Invalid Postal Code"),
         )
+
+    # City Name (Address.county -> cbc:CityName) must be a city of the Saudi
+    # National Address database: ZATCA reports any other value ("dammam",
+    # "AL KHUBAR", "Ad Dammam") as inaccurate address data. Known spellings are
+    # rewritten to the official one instead of being refused.
+    doc.county = validate_zatca_city_name(doc.get("county"), _("Saudi Arabia address"), notify=True)
 
 
 def get_linked_party(doc):
@@ -374,6 +390,20 @@ def get_address_party_context(link_doctype=None, link_name=None):
     result["tax_category"] = values.get("tax_category")
     result["custom_vat_category"] = values.get("custom_vat_category")
     return result
+
+
+@frappe.whitelist()
+def get_saudi_city_suggestion(city_name=None):
+    """Client helper: the official City Name (or "" plus suggestions).
+
+    Used by public/js/address.js while the user types the City Name, so the
+    National Address spelling is fixed in the form and not only on save.
+    """
+    value = str(city_name or "").strip()
+    return {
+        "city_name": canonical_city_name(value) or "",
+        "suggestions": suggest_saudi_cities(value),
+    }
 
 
 @frappe.whitelist()
