@@ -8,7 +8,9 @@
  "field_order": [
   "validation_section",
   "validate_vat_no_against_registered_company",
-  "validate_vat_no_against_all_company"
+  "validate_vat_no_against_all_company",
+  "skip_saudi_city_validation",
+  "extra_saudi_cities"
  ],
  "fields": [
   {
@@ -29,13 +31,26 @@
    "fieldname": "validate_vat_no_against_all_company",
    "fieldtype": "Check",
    "label": "Validate VAT No Against All Company"
+  },
+  {
+   "default": "0",
+   "description": "Only warn (do not block) when an Address City Name is not in the Saudi National Address list. Keep this unchecked so an inaccurate city name can never reach a ZATCA invoice.",
+   "fieldname": "skip_saudi_city_validation",
+   "fieldtype": "Check",
+   "label": "Allow City Names Outside the Saudi National Address List"
+  },
+  {
+   "description": "Additional Saudi city names, one per line, accepted as Address City Name. Use it for a locality that is missing from the built-in National Address list.",
+   "fieldname": "extra_saudi_cities",
+   "fieldtype": "Small Text",
+   "label": "Additional Saudi City Names"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-09-22 19:00:00.000000",
+ "modified": "2026-10-25 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Saudi Arabia Electronic Invoicing",
  "name": "Zatca Settings",

@@ -10,6 +10,7 @@ frappe.ui.form.on("Address", {
 		// Apply the current country state on load as well, so reopened or
 		// prefilled addresses show the right required markers immediately.
 		toggle_saudi_address_requirements(frm);
+		attach_saudi_city_autocomplete(frm);
 		frm.add_custom_button(__("Translate Arabic Fields"), () => {
 			translate_all_arabic_fields(frm, true);
 		});
@@ -18,6 +19,8 @@ frappe.ui.form.on("Address", {
 	country(frm) {
 		toggle_saudi_address_requirements(frm);
 		autofill_arabic(frm, "country", "custom_country_in_arabic");
+		attach_saudi_city_autocomplete(frm);
+		check_saudi_city_name(frm);
 	},
 
 	tax_category(frm) {
@@ -38,6 +41,7 @@ frappe.ui.form.on("Address", {
 
 	county(frm) {
 		autofill_arabic(frm, "county", "custom_city_in_arabic");
+		check_saudi_city_name(frm);
 	},
 
 	links_add(frm) {
@@ -190,6 +194,60 @@ function prefill_tax_category_from_party(frm, force = false) {
 			}
 
 			toggle_saudi_address_requirements(frm);
+		},
+	});
+}
+
+// City Name must be a Saudi National Address city (the "inaccurate address
+// data" finding): the official list is offered while typing (see
+// saudi_city_autocomplete.js), a known spelling is corrected on the fly and an
+// unknown name gets the closest official names. The server repeats this check
+// on save, so a stale form or a direct API call cannot skip it.
+function attach_saudi_city_autocomplete(frm) {
+	if (frappe.zatca && frappe.zatca.saudi_city) {
+		frappe.zatca.saudi_city.attach(frm, "county");
+	}
+}
+
+function check_saudi_city_name(frm) {
+	const city = (frm.doc.county || "").trim();
+	if (!city || !is_saudi_arabia(frm.doc.country)) {
+		return;
+	}
+
+	frappe.call({
+		method: "zatca_integration.overrides.address.get_saudi_city_suggestion",
+		args: { city_name: city },
+		freeze: false,
+		callback(r) {
+			const result = r.message || {};
+			if (result.city_name && result.city_name !== city) {
+				frm.set_value("county", result.city_name);
+				frappe.show_alert({
+					message: __("City Name set to the Saudi National Address city {0}.", [
+						result.city_name,
+					]),
+					indicator: "blue",
+				});
+				return;
+			}
+			if (result.city_name) {
+				return;
+			}
+
+			const suggestions = result.suggestions || [];
+			frappe.show_alert({
+				message: suggestions.length
+					? __(
+							"City Name {0} is not a Saudi National Address city. Did you mean: {1}?",
+							[city, suggestions.join(", ")]
+					  )
+					: __(
+							"City Name {0} is not a Saudi National Address city. Clear the field and pick the city from the list.",
+							[city]
+					  ),
+				indicator: "orange",
+			});
 		},
 	});
 }

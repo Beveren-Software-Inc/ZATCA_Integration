@@ -7,6 +7,10 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
+from zatca_integration.saudi_arabia_electronic_invoicing.saudi_national_address import (
+    validate_postal_address_for_zatca,
+)
+
 # Single DocType holding the VAT Number validation switches
 ZATCA_SETTINGS = "Zatca Settings"
 
@@ -506,13 +510,15 @@ def get_buyer_information(customer_name, address_name=None):
         frappe.throw("City Name is required for Company type customer")
 
     # Postal Zone is required
-    # Postal Zone must be 5 digits if country_code is SA
     if not address_fields["postal_zone"]:
         frappe.throw("Postal Zone is required for Company type customer")
-    if country_code == "SA" and not (
-        address_fields["postal_zone"].isdigit() and len(address_fields["postal_zone"]) == 5
-    ):
-        frappe.throw("Postal Zone must be 5 digits for Company type customer in Saudi Arabia")
+
+    # A Saudi buyer needs a 5-digit Postal Zone (BR-KSA-67) and a City Name from
+    # the Saudi National Address list; a foreign address keeps its own postal
+    # format, so a Bahraini "5021" stays valid because the country is BH.
+    address_fields["city_name"] = validate_postal_address_for_zatca(
+        address_fields, _("Company type customer address")
+    )
 
     full_address = f"{address_fields['building_number']}, {address_fields['street_name']},\n"
     full_address += f"{address_fields['city_subdivision_name']},\n"

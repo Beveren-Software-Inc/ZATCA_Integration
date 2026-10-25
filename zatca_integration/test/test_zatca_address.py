@@ -277,12 +277,22 @@ class TestBuyerInformation(AddressTestCase):
         self.assertIn("Postal Zone must be 5 digits", str(context.exception))
 
     def test_saudi_buyer_with_a_national_address_passes(self):
-        customer_address = address(country="Saudi Arabia", pincode="12345")
+        customer_address = address(country="Saudi Arabia", pincode="12345", county="Riyadh")
 
         buyer = self._buyer(self._customer(custom_country="Saudi Arabia"), customer_address)
 
         self.assertEqual(buyer["countryCode"], "SA")
         self.assertEqual(buyer["postalZone"], "12345")
+
+    def test_saudi_buyer_city_name_must_be_a_national_address_city(self):
+        # "HIDD" is a Bahraini town: on a Saudi address ZATCA reports it as an
+        # inaccurate City Name, so it cannot reach the XML.
+        customer_address = address(country="Saudi Arabia", pincode="12345", county="HIDD")
+
+        with self.assertRaises(AssertionError) as context:
+            self._buyer(self._customer(custom_country="Saudi Arabia"), customer_address)
+
+        self.assertIn("not a Saudi National Address city name", str(context.exception))
 
     def test_customer_country_mismatch_is_reported_but_the_address_wins(self):
         buyer = self._buyer(self._customer(custom_country="Saudi Arabia"), address())
