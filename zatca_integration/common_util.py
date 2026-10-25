@@ -195,6 +195,61 @@ def validate_ksa_vat_number(vat_number, field_label=None):
         )
 
 
+# ------------------------------------------- Registration (buyer) ID numbers
+# ZATCA rejects the whole invoice when the ID number cannot belong to its
+# scheme — "There is a mismatch between the 'Buyer ID Type' and the 'ID Number'
+# provided" — e.g. the 5-digit "17788" sent with schemeID="CRN". Keyed by the
+# scheme code written as ``schemeID`` on <cac:PartyIdentification>, i.e. the
+# part in brackets of the Registration Scheme option.
+REGISTRATION_SCHEME_RULES = {
+    # Saudi Commercial Registration numbers are issued as exactly 10 digits.
+    "CRN": (r"\d{10}", "a 10-digit Commercial Registration number"),
+    # A "700" number is the 10-digit alternative for establishments without a CR.
+    "700": (r"\d{10}", "a 10-digit 700 number"),
+    # MOMRAH / MHRSD / MISA licence numbers are numeric; ZATCA publishes no
+    # length rule for them, so only the character set is enforced.
+    "MOM": (r"\d+", "a numeric MOMRAH licence number"),
+    "MLS": (r"\d+", "a numeric MHRSD licence number"),
+    "SAG": (r"\d+", "a numeric MISA licence number"),
+    # "Other OD" is free-form by definition.
+    "OTH": (r".+", "a registration number"),
+}
+
+
+def validate_registration_number(registration_scheme, registration_number, field_label=None):
+    """
+    Check that the Registration Number matches the selected Registration Scheme.
+
+    A number that cannot belong to its scheme is rejected by ZATCA, so it is
+    refused here instead of on the tax authority's side. Missing values are left
+    to the presence checks, which report them separately.
+    """
+    scheme = str(registration_scheme or "").strip()
+    number = str(registration_number or "").strip()
+    if not scheme or not number:
+        return
+
+    try:
+        scheme_code = get_registration_scheme_code(scheme)
+    except frappe.ValidationError:
+        # A scheme without a "(CODE)" part cannot be sent to ZATCA at all; the
+        # XML builder reports that on its own.
+        return
+
+    rule = REGISTRATION_SCHEME_RULES.get(scheme_code)
+    if not rule:
+        return
+
+    pattern, expected = rule
+    if not re.fullmatch(pattern, number):
+        frappe.throw(
+            _('{0} "{1}" is not valid for Registration Scheme "{2}": {3} is required.').format(
+                field_label or _("Registration Number"), number, _(scheme), _(expected)
+            ),
+            title=_("Invalid Registration Number"),
+        )
+
+
 def get_customer_vat_category(customer) -> str:
     """VAT Category of a Customer (Document or dict), Tax Category taking precedence."""
     return (customer.get("tax_category") or customer.get("custom_vat_category") or "").strip()
@@ -256,13 +311,39 @@ def validate_company_buyer_identification(customer):
     if customer.customer_type != "Company":
         return
 
+    # <cac:PartyIdentification> is only written when BOTH the scheme and the
+    # number are present, so a half-filled pair silently removes the buyer ID
+    # from the invoice (BR-KSA-F-08). Surface it instead of dropping it.
+    registration_scheme = str(customer.get("custom_registration_scheme") or "").strip()
+    registration_number = str(customer.get("custom_registration_number") or "").strip()
+
+    # The number must belong to the selected scheme: ZATCA answers a CRN that is
+    # not a 10-digit number with "There is a mismatch between the 'Buyer ID
+    # Type' and the 'ID Number' provided" and rejects the invoice.
+    validate_registration_number(
+        registration_scheme, registration_number, field_label=_("Registration Number")
+    )
+
+    if bool(registration_scheme) != bool(registration_number):
+        missing_field = (
+            _("Registration Number") if registration_scheme else _("Registration Scheme")
+        )
+        frappe.msgprint(
+            _(
+                "Buyer identification is incomplete: {0} is missing. A company buyer is "
+                "identified on the invoice by its VAT Number, or by both Registration "
+                "Scheme and Registration Number; until both are filled in, the buyer ID "
+                "is left out of the ZATCA invoice."
+            ).format(missing_field),
+            title=_("Incomplete Buyer Registration"),
+            indicator="orange",
+        )
+
     if is_foreign_customer(customer):
         return
 
     has_vat = bool(customer.custom_vat_number or customer.get("tax_id"))
-    has_registration = bool(
-        customer.custom_registration_scheme and customer.custom_registration_number
-    )
+    has_registration = bool(registration_scheme and registration_number)
     if has_vat:
         validate_ksa_vat_number(
             customer.custom_vat_number or customer.get("tax_id"),
@@ -277,72 +358,185 @@ def validate_company_buyer_identification(customer):
         )
 
 
-def get_buyer_information(customer_name):
+def get_customer_billing_address(customer, address_name=None):
+    """
+    Address document ZATCA reads for the buyer of an invoice.
+
+    Priority:
+        1. The billing address selected on the invoice (``customer_address``).
+        2. The Customer's primary address.
+        3. The first Address linked to the Customer through a Dynamic Link.
+
+    Returns ``None`` for Individual customers (B2C invoices carry no buyer
+    postal address) and when no address can be resolved.
+    """
+    if customer.customer_type == "Individual":
+        return None
+
+    for name in (address_name, customer.get("customer_primary_address")):
+        if name and frappe.db.exists("Address", name):
+            return frappe.get_doc("Address", name)
+
+    frappe.msgprint(_("Remember to choose customer primary address on Customer doctype"))
+
+    customer_link = frappe.get_all(
+        "Dynamic Link",
+        filters={
+            "link_doctype": "Customer",
+            "link_name": customer.name,
+            "parenttype": "Address",
+        },
+        fields=["parent"],
+        limit=1,
+    )
+    if customer_link:
+        return frappe.get_doc("Address", customer_link[0].parent)
+
+    return None
+
+
+def build_zatca_address(address) -> dict:
+    """
+    Map an ERPNext Address (Document or dict) to the ZATCA / UBL postal fields.
+
+        UBL element          ERPNext Address field
+        StreetName           address_line1
+        BuildingNumber       address_line2
+        PlotIdentification   custom_additional_no (Additional Number)
+        CitySubdivisionName  city     (district / sub-division)
+        CityName             county   (the city itself)
+        PostalZone           pincode
+        CountrySubentity     state    (province / governorate)
+        Country              country  (ISO alpha-2 via Country.code)
+
+    Values are trimmed and never defaulted: ZATCA compares the address on the
+    invoice with the national address, so a missing field must stay missing
+    instead of being replaced by another field's value.
+    """
+
+    def value(fieldname):
+        raw = (
+            address.get(fieldname) if hasattr(address, "get") else getattr(address, fieldname, None)
+        )
+        return str(raw or "").strip()
+
+    country = value("country")
+    country_code = frappe.db.get_value("Country", country, "code") if country else ""
+    if (
+        not country_code
+        and len(country) == 2
+        and frappe.db.exists("Country", {"code": country.upper()})
+    ):
+        # Some sites save the ISO code in Address.country instead of the name
+        country_code = country.upper()
+    return {
+        "street_name": value("address_line1"),
+        "building_number": value("address_line2"),
+        "plot_identification": value("custom_additional_no"),
+        "city_subdivision_name": value("city"),
+        "city_name": value("county"),
+        "postal_zone": value("pincode"),
+        "country_subentity": value("state"),
+        "country": country,
+        "country_code": str(country_code or "").strip().upper(),
+    }
+
+
+def get_buyer_information(customer_name, address_name=None):
     customer = frappe.get_doc("Customer", customer_name)
-    country_code = get_country_code(customer.custom_country)
 
-    if customer.customer_type == "Company":
-        address = frappe.get_doc("Address", customer.customer_primary_address)
-        if not address:
-            frappe.throw("Customer must have a primary address")
-
-        validate_company_buyer_identification(customer)
-
-        # ZATCA Address Validation
-        # Address Line 1 is required
-        if not address.address_line1:
-            frappe.throw("Street Name is required for Company type customer")
-
-        # Building Number is required
-        # Building Number must be 4 digits if country_code is SA
-        if not address.address_line2:
-            frappe.throw("Building Number is required for Company type customer")
-        if country_code == "SA" and len(address.address_line2) != 4:
-            frappe.throw(
-                "Building Number must be 4 digits for Company type customer in Saudi Arabia"
-            )
-
-        # City Subdivision Name is required
-        if not address.city:
-            frappe.throw("City Subdivision Name is required for Company type customer")
-
-        # City Name is required
-        if not address.county:
-            frappe.throw("City Name is required for Company type customer")
-
-        # Postal Zone is required
-        # Postal Zone must be 5 digits if country_code is SA
-        if not address.pincode:
-            frappe.throw("Postal Zone is required for Company type customer")
-        if country_code == "SA" and len(address.pincode) != 5:
-            frappe.throw("Postal Zone must be 5 digits for Company type customer in Saudi Arabia")
-
-        full_address = f"{address.address_line2}, {address.address_line1},\n"
-        full_address += f"{address.city},\n"
-        full_address += f"{address.county},\n"
-        full_address += f"{address.pincode}, {country_code}"
-
-        return {
-            "organizationName": customer.customer_name,
-            "vatNumber": customer.custom_vat_number,
-            "registrationScheme": (
-                get_registration_scheme_code(customer.custom_registration_scheme)
-                if customer.custom_registration_scheme
-                else ""
-            ),
-            "registrationNumber": customer.custom_registration_number or "",
-            "streetName": address.address_line1,
-            "buildingNumber": address.address_line2,
-            "citySubdivisionName": address.city,
-            "cityName": address.county,
-            "postalZone": address.pincode,
-            "countryCode": country_code,
-            "full_address": full_address,
-        }
-    elif customer.customer_type == "Individual":
+    if customer.customer_type == "Individual":
         return {"organizationName": customer.customer_name}
-    else:
+    if customer.customer_type != "Company":
         frappe.throw("Invalid Customer Type")
+
+    address = get_customer_billing_address(customer, address_name)
+    if not address:
+        frappe.throw("Customer must have a primary address")
+
+    validate_company_buyer_identification(customer)
+
+    address_fields = build_zatca_address(address)
+    customer_country = str(customer.get("custom_country") or "").strip()
+    customer_country_code = get_country_code(customer_country) if customer_country else ""
+    country_code = address_fields["country_code"] or customer_country_code
+
+    # The Address is what is printed on the invoice and sent to ZATCA. A Customer
+    # country that disagrees with it silently puts the wrong buyer country on the
+    # invoice, so surface it instead of guessing.
+    if (
+        customer_country_code
+        and address_fields["country_code"]
+        and customer_country_code != address_fields["country_code"]
+    ):
+        frappe.msgprint(
+            _(
+                "Customer Country ({0}) does not match the country of the address used "
+                "on this invoice ({1}). The address country is sent to ZATCA; please "
+                "update the Customer or the Address so both match."
+            ).format(customer_country, address_fields["country"]),
+            title=_("Customer Country Mismatch"),
+            indicator="orange",
+        )
+
+    if not country_code:
+        frappe.throw("Country is required for Company type customer")
+    address_fields["country_code"] = country_code
+
+    # ZATCA Address Validation
+    # Street Name is required
+    if not address_fields["street_name"]:
+        frappe.throw("Street Name is required for Company type customer")
+
+    # Building Number is required
+    # Building Number must be 4 digits if country_code is SA
+    if not address_fields["building_number"]:
+        frappe.throw("Building Number is required for Company type customer")
+    if country_code == "SA" and not (
+        address_fields["building_number"].isdigit() and len(address_fields["building_number"]) == 4
+    ):
+        frappe.throw("Building Number must be 4 digits for Company type customer in Saudi Arabia")
+
+    # City Subdivision Name (district) is required
+    if not address_fields["city_subdivision_name"]:
+        frappe.throw("City Subdivision Name is required for Company type customer")
+
+    # City Name is required
+    if not address_fields["city_name"]:
+        frappe.throw("City Name is required for Company type customer")
+
+    # Postal Zone is required
+    # Postal Zone must be 5 digits if country_code is SA
+    if not address_fields["postal_zone"]:
+        frappe.throw("Postal Zone is required for Company type customer")
+    if country_code == "SA" and not (
+        address_fields["postal_zone"].isdigit() and len(address_fields["postal_zone"]) == 5
+    ):
+        frappe.throw("Postal Zone must be 5 digits for Company type customer in Saudi Arabia")
+
+    full_address = f"{address_fields['building_number']}, {address_fields['street_name']},\n"
+    full_address += f"{address_fields['city_subdivision_name']},\n"
+    full_address += f"{address_fields['city_name']},\n"
+    full_address += f"{address_fields['postal_zone']}, {country_code}"
+
+    return {
+        "organizationName": customer.customer_name,
+        "vatNumber": customer.custom_vat_number,
+        "registrationScheme": (
+            get_registration_scheme_code(customer.custom_registration_scheme)
+            if customer.custom_registration_scheme
+            else ""
+        ),
+        "registrationNumber": customer.custom_registration_number or "",
+        "streetName": address_fields["street_name"],
+        "buildingNumber": address_fields["building_number"],
+        "plotIdentification": address_fields["plot_identification"],
+        "citySubdivisionName": address_fields["city_subdivision_name"],
+        "cityName": address_fields["city_name"],
+        "postalZone": address_fields["postal_zone"],
+        "countryCode": country_code,
+        "full_address": full_address,
+    }
 
 
 def get_seller_information(csr_settings):

@@ -16,6 +16,12 @@ from frappe import _
 from frappe.utils import add_months, get_datetime, get_site_path
 from PIL import Image
 
+from zatca_integration.common_util import (
+    build_zatca_address,
+    get_country_code,
+    get_customer_billing_address,
+)
+
 
 @frappe.whitelist()
 def generate_private_keys(doc_name):
@@ -458,11 +464,16 @@ def clean_pem_key(pem_key: str, keyword: str) -> str:
 
 def get_address(sales_invoice_doc):
     """
-    Returns both the Company and Customer billing addresses.
-    - Company address is fetched from ZATCA CSR Settings via Compliance CSID.
-    - Customer address is resolved:
-        1. From customer_primary_address if set.
-        2. Else from the first linked Address via Dynamic Link.
+    Returns the seller and buyer postal addresses in the normalized ZATCA shape
+    used to build <cac:PostalAddress> (see common_util.build_zatca_address).
+
+    - Seller: the VAT-registered address from ZATCA CSR Settings, reached
+      through the Compliance CSID of the invoice.
+    - Buyer: the billing address used on the invoice (``customer_address``),
+      falling back to the customer's primary / linked Address.
+
+    Individual (B2C) invoices return an empty buyer address, because ZATCA does
+    not accept a buyer postal address on simplified invoices.
     """
 
     # -------- COMPANY ADDRESS --------
@@ -475,55 +486,44 @@ def get_address(sales_invoice_doc):
     csr_settings = frappe.get_doc("Zatca CSR Settings", compliance_csid.csr_settings)
 
     company_address = {
-        "address_line1": str(csr_settings.street_name or ""),
-        "address_line2": str(csr_settings.building_number or ""),
-        "city": str(csr_settings.city_name or ""),
-        "pincode": str(csr_settings.postal_zone or ""),
-        "state": str(csr_settings.city_subdivision_name or ""),
+        "street_name": str(csr_settings.street_name or "").strip(),
+        "building_number": str(csr_settings.building_number or "").strip(),
+        # CSR Settings has no Additional Number field: omit Plot Identification
+        # rather than repeating the street name (ZATCA compares address fields).
+        "plot_identification": "",
+        "city_subdivision_name": str(csr_settings.city_subdivision_name or "").strip(),
+        "city_name": str(csr_settings.city_name or "").strip(),
+        "postal_zone": str(csr_settings.postal_zone or "").strip(),
+        # No province field exists: leave Country Subentity empty instead of
+        # sending the district again under a different element.
+        "country_subentity": "",
         "country": "Saudi Arabia",
+        "country_code": str(csr_settings.csrcountryname or "SA").strip().upper(),
         "registration_name": str(csr_settings.csrorganizationname or ""),
         "company_tax_id": str(csr_settings.csrorganizationidentifier or ""),
     }
 
     # -------- CUSTOMER ADDRESS --------
     customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
-    address_name = None
+    if customer_doc.customer_type == "Individual":
+        return company_address, {}
 
-    # Priority 1: customer_primary_address
-    if customer_doc.customer_primary_address:
-        address_name = customer_doc.customer_primary_address
-    else:
-        # remember to choose customer primary address
-        if customer_doc.customer_type != "Individual":
-            frappe.msgprint("Remember to choose customer primary address on Customer doctype")
-        # Priority 2: Dynamic Link
-        customer_link = frappe.get_all(
-            "Dynamic Link",
-            filters={
-                "link_doctype": "Customer",
-                "link_name": sales_invoice_doc.customer,
-                "parenttype": "Address",
-            },
-            fields=["parent"],
-            limit=1,
-        )
-        if customer_link:
-            address_name = customer_link[0].parent
+    address_doc = get_customer_billing_address(
+        customer_doc, sales_invoice_doc.get("customer_address")
+    )
+    if not address_doc:
+        frappe.throw(_("No address found for customer: {0}").format(sales_invoice_doc.customer))
 
-    if not address_name:
-        if customer_doc.customer_type != "Individual":
-            frappe.throw(_("No address found for customer: {0}").format(sales_invoice_doc.customer))
-        customer_address = {}
-    else:
-        address_fields = [
-            "address_line1",
-            "address_line2",
-            "city",
-            "pincode",
-            "state",
-            "country",
-        ]
-        customer_address = frappe.get_value("Address", address_name, address_fields, as_dict=True)
+    customer_address = build_zatca_address(address_doc)
+
+    # An Address without (or with an unknown) country falls back to the country
+    # on the Customer so the buyer country is never invented as "SA".
+    if not customer_address["country_code"]:
+        customer_country = str(customer_doc.get("custom_country") or "").strip()
+        if customer_country:
+            customer_address["country"] = customer_address["country"] or customer_country
+            customer_address["country_code"] = get_country_code(customer_country)
+
     return company_address, customer_address
 
 

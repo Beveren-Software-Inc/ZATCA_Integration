@@ -19,6 +19,7 @@ from zatca_integration.common_util import (
     generate_invoice_hash,
     get_buyer_information,
     get_seller_information,
+    validate_company_buyer_identification,
 )
 from zatca_integration.saudi_arabia_electronic_invoicing.signing_engine.final_invoice_signing import (  # noqa: E501
     process_invoice_for_zatca_submission,
@@ -50,6 +51,11 @@ def generate_einvoice(doc, submit_now=True, skip_success_message=False):
     # Buyer Information
     customer = frappe.get_doc("Customer", doc.customer)
     customer_type = customer.customer_type
+
+    # Refuse a buyer ID that cannot belong to its Registration Scheme before the
+    # invoice is rendered and signed: ZATCA rejects such an invoice with "There
+    # is a mismatch between the 'Buyer ID Type' and the 'ID Number' provided".
+    validate_company_buyer_identification(customer)
 
     compliance_type = get_compliance_type(doc, customer_type)
 
@@ -488,7 +494,7 @@ def _prepare_invoice_data(doc, config):
 
     # Get seller and buyer information
     seller = get_seller_information(config["compliance_csr"])
-    buyer = get_buyer_information(doc.customer)
+    buyer = get_buyer_information(doc.customer, doc.get("customer_address"))
 
     # Set counters and identifiers
     invoice_number = doc.name
