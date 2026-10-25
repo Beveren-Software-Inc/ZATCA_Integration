@@ -34,6 +34,18 @@ from zatca_integration.overrides.supplier import (
 )
 
 
+class _Doc(dict):
+    """Document stand-in: dict storage plus the Document methods the hooks call.
+
+    ``overrides.customer.stash_quick_entry_address_values`` asks ``doc.is_new()``
+    on every save, so a plain dict is no longer enough. An existing record keeps
+    the quick entry stash out of the way.
+    """
+
+    def is_new(self):
+        return False
+
+
 class TestNormalizeVatCategory(unittest.TestCase):
     def test_trims_collapses_spaces_and_folds_case(self):
         self.assertEqual(normalize_vat_category("  Overseas  "), "overseas")
@@ -231,7 +243,7 @@ class TestSupplierVatCategory(unittest.TestCase):
     """A VAT registered supplier must carry a Tax ID (VAT Number)."""
 
     def _supplier(self, category, **extra):
-        doc = {"doctype": "Supplier", "supplier_name": "Test Supplier"}
+        doc = _Doc({"doctype": "Supplier", "supplier_name": "Test Supplier"})
         doc.update(extra)
         if category is not None:
             doc["custom_vat_category"] = category
@@ -247,7 +259,7 @@ class TestSupplierVatCategory(unittest.TestCase):
         supplier_validate(self._supplier("Registered", tax_id="310460471100003"))
 
     def test_tax_category_link_registered_also_requires_a_tax_id(self):
-        doc = {"doctype": "Supplier", "supplier_name": "Test Supplier", "tax_category": "B2B"}
+        doc = _Doc({"doctype": "Supplier", "supplier_name": "Test Supplier", "tax_category": "B2B"})
         with self.assertRaises(frappe.exceptions.ValidationError):
             supplier_validate(doc)
 

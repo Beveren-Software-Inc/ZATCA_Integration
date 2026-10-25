@@ -2,7 +2,6 @@
 import random
 import uuid
 import xml.etree.ElementTree as ET
-from types import SimpleNamespace
 
 import frappe
 from frappe import _
@@ -10,6 +9,7 @@ from frappe.utils.data import get_time
 
 from zatca_integration.common_util import (
     generate_invoice_hash,
+    get_country_code,
     get_registration_scheme_code,
     validate_company_buyer_identification,
 )
@@ -47,6 +47,40 @@ def get_issue_time(invoice_number):
     time = get_time(doc.posting_time)
     issue_time = time.strftime("%H:%M:%S")
     return issue_time
+
+
+def add_postal_address(cac_postaladdress, address):
+    """
+    Emit the children of <cac:PostalAddress> in UBL schema order.
+
+    ``address`` is the normalized dict built by ``common_util.build_zatca_address``
+    (seller: assembled in ``utils.get_address`` from ZATCA CSR Settings). Only
+    fields with a value are written: ZATCA compares the invoice address against
+    the national address, so a missing field must never be filled with another
+    field's value (the old mapping sent the street name as Plot Identification,
+    the building number as City Subdivision and the country as a fixed "SA").
+    """
+    fields = (
+        ("street_name", "cbc:StreetName"),
+        ("building_number", "cbc:BuildingNumber"),
+        ("plot_identification", "cbc:PlotIdentification"),
+        ("city_subdivision_name", "cbc:CitySubdivisionName"),
+        ("city_name", "cbc:CityName"),
+        ("postal_zone", "cbc:PostalZone"),
+        ("country_subentity", "cbc:CountrySubentity"),
+    )
+    for key, tag in fields:
+        value = str(address.get(key) or "").strip()
+        if not value:
+            continue
+        element = ET.SubElement(cac_postaladdress, tag)
+        element.text = value
+
+    country_code = str(address.get("country_code") or "").strip().upper()
+    if country_code:
+        cac_country = ET.SubElement(cac_postaladdress, "cac:Country")
+        cbc_identificationcode = ET.SubElement(cac_country, "cbc:IdentificationCode")
+        cbc_identificationcode.text = country_code
 
 
 # def billing_reference_for_credit_and_debit_note(invoice, sales_invoice_doc):
@@ -564,47 +598,15 @@ def company_data(invoice, sales_invoice_doc):
         cbc_id_2.set("schemeID", custom_registration_type)
         cbc_id_2.text = custom_company_registration
 
-        # Get the appropriate address
-        # address = get_address(sales_invoice_doc, company_doc)
+        # Seller address exactly as registered in ZATCA CSR Settings
+        company_address, _customer_address = get_address(sales_invoice_doc)
 
-        company_address, customer_address = get_address(sales_invoice_doc)
-        address_dict = {
-            "address_line1": company_address.get("address_line1", ""),
-            "address_line2": company_address.get("address_line2", ""),
-            "custom_building_number": company_address.get("address_line2", ""),
-            "city": company_address.get("city", ""),
-            "pincode": company_address.get("pincode", ""),
-            "state": company_address.get("state", "") or "Eastern Province",
-            "country": company_address.get("country", "Saudi Arabia"),
-            "registration_name": company_address.get("registration_name"),
-            "company_tax_id": company_address.get("company_tax_id"),
-        }
-
-        address = SimpleNamespace(**address_dict)
         cac_postaladdress = ET.SubElement(cac_party_1, "cac:PostalAddress")
-        cbc_streetname = ET.SubElement(cac_postaladdress, "cbc:StreetName")
-        cbc_streetname.text = address.address_line1
-        cbc_buildingnumber = ET.SubElement(cac_postaladdress, "cbc:BuildingNumber")
-        cbc_buildingnumber.text = address.custom_building_number
-        cbc_plotidentification = ET.SubElement(cac_postaladdress, "cbc:PlotIdentification")
-        cbc_plotidentification.text = address.address_line1
-        cbc_citysubdivisionname = ET.SubElement(cac_postaladdress, "cbc:CitySubdivisionName")
-        cbc_citysubdivisionname.text = address.address_line2
-        cbc_cityname = ET.SubElement(cac_postaladdress, "cbc:CityName")
-        cbc_cityname.text = address.city
-        cbc_postalzone = ET.SubElement(cac_postaladdress, "cbc:PostalZone")
-        cbc_postalzone.text = address.pincode
-        cbc_countrysubentity = ET.SubElement(cac_postaladdress, "cbc:CountrySubentity")
-        cbc_countrysubentity.text = address.state
-
-        cac_country = ET.SubElement(cac_postaladdress, "cac:Country")
-        cbc_identificationcode = ET.SubElement(cac_country, "cbc:IdentificationCode")
-        cbc_identificationcode.text = "SA"
+        add_postal_address(cac_postaladdress, company_address)
 
         cac_partytaxscheme = ET.SubElement(cac_party_1, "cac:PartyTaxScheme")
         cbc_companyid = ET.SubElement(cac_partytaxscheme, "cbc:CompanyID")
-        # cbc_companyid.text = company_doc.tax_id
-        cbc_companyid.text = address.company_tax_id
+        cbc_companyid.text = company_address.get("company_tax_id") or ""
 
         cac_taxscheme = ET.SubElement(cac_partytaxscheme, "cac:TaxScheme")
         cbc_id_3 = ET.SubElement(cac_taxscheme, CBC_ID)
@@ -612,8 +614,9 @@ def company_data(invoice, sales_invoice_doc):
 
         cac_partylegalentity = ET.SubElement(cac_party_1, "cac:PartyLegalEntity")
         cbc_registrationname = ET.SubElement(cac_partylegalentity, "cbc:RegistrationName")
-        # cbc_registrationname.text = sales_invoice_doc.company
-        cbc_registrationname.text = address.registration_name
+        cbc_registrationname.text = (
+            company_address.get("registration_name") or sales_invoice_doc.company
+        )
 
         return invoice
     except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
@@ -626,6 +629,9 @@ def customer_data(invoice, sales_invoice_doc):
     Add customer data (address, registration, tax info) to the XML invoice.
     Skips <PartyIdentification> if registration scheme or number is missing.
     Non-KSA buyers may omit VAT and registration (ZATCA export rules, Annex 5.3–5.4).
+    The registration number is checked against its scheme before it is written
+    (a CRN must be a 10-digit number, otherwise ZATCA rejects the invoice with a
+    "Buyer ID Type" / "ID Number" mismatch).
     """
     try:
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
@@ -643,76 +649,30 @@ def customer_data(invoice, sales_invoice_doc):
             cbc_id_4.set("schemeID", scheme_code)
             cbc_id_4.text = customer_registration_number
 
-        address = None
+        address = {}
+        buyer_country_code = ""
 
         if customer_doc.customer_type != "Individual":
-            company_address, customer_address = get_address(sales_invoice_doc)
-            address_dict = {
-                "address_line1": customer_address.get("address_line1", ""),
-                "address_line2": customer_address.get("address_line2", ""),
-                "custom_building_number": customer_address.get("address_line2", ""),
-                "city": customer_address.get("city", ""),
-                "pincode": customer_address.get("pincode", ""),
-                "state": customer_address.get("state", "") or "Eastern Province",
-                "country": customer_address.get("country", "Saudi Arabia"),
-            }
-            address = SimpleNamespace(**address_dict)
-
-            # Frappe v13 compatibility
-            if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
-                if sales_invoice_doc.customer_address:
-                    address = frappe.get_doc("Address", sales_invoice_doc.customer_address)
-            else:
-                if customer_doc.customer_primary_address:
-                    address = frappe.get_doc("Address", customer_doc.customer_primary_address)
-
+            _company_address, address = get_address(sales_invoice_doc)
             if not address:
                 frappe.throw(_("Customer address is mandatory for non-B2C customers."))
+            if not address.get("country_code"):
+                frappe.throw(_("Country is required for Company type customer"))
 
             cac_postaladdress_1 = ET.SubElement(cac_party_2, "cac:PostalAddress")
+            add_postal_address(cac_postaladdress_1, address)
 
-            if address.address_line1:
-                cbc_streetname_1 = ET.SubElement(cac_postaladdress_1, "cbc:StreetName")
-                cbc_streetname_1.text = str(address.address_line1)
+            buyer_country_code = address.get("country_code")
 
-            if address.address_line2:
-                cbc_buildingnumber_1 = ET.SubElement(cac_postaladdress_1, "cbc:BuildingNumber")
-                cbc_buildingnumber_1.text = str(address.address_line2)
+        if not buyer_country_code:
+            # Individual / address-less buyers: fall back to the Customer country
+            # instead of assuming Saudi Arabia.
+            buyer_country = str(customer_doc.get("custom_country") or "").strip()
+            buyer_country_code = get_country_code(buyer_country) if buyer_country else ""
 
-            cbc_plotidentification_1 = ET.SubElement(cac_postaladdress_1, "cbc:PlotIdentification")
-            if hasattr(address, "po_box") and address.po_box:
-                cbc_plotidentification_1.text = str(address.po_box)
-            elif address.address_line1:
-                cbc_plotidentification_1.text = str(address.address_line1)
-
-            if address.city:
-                cbc_citysubdivisionname_1 = ET.SubElement(
-                    cac_postaladdress_1, "cbc:CitySubdivisionName"
-                )
-                cbc_citysubdivisionname_1.text = str(address.city)
-
-            if hasattr(address, "county") and address.county:
-                cbc_cityname_1 = ET.SubElement(cac_postaladdress_1, "cbc:CityName")
-                cbc_cityname_1.text = str(address.county)
-
-            if address.pincode:
-                cbc_postalzone_1 = ET.SubElement(cac_postaladdress_1, "cbc:PostalZone")
-                cbc_postalzone_1.text = str(address.pincode)
-
-            if address.state:
-                cbc_countrysubentity_1 = ET.SubElement(cac_postaladdress_1, "cbc:CountrySubentity")
-                cbc_countrysubentity_1.text = str(address.state)
-
-            cac_country_1 = ET.SubElement(cac_postaladdress_1, "cac:Country")
-            cbc_identificationcode_1 = ET.SubElement(cac_country_1, "cbc:IdentificationCode")
-            country_name = address.country or "Saudi Arabia"
-            country_code = (frappe.db.get_value("Country", country_name, "code") or "SA").upper()
-
-            cbc_identificationcode_1.text = country_code
-
-        # Tax Info
+        # Tax Info: buyer VAT is written unless the buyer is known to be foreign.
         cac_partytaxscheme_1 = ET.SubElement(cac_party_2, "cac:PartyTaxScheme")
-        if address and address.country == "Saudi Arabia" and customer_doc.custom_vat_number:
+        if buyer_country_code in ("", "SA") and customer_doc.custom_vat_number:
             cbc_company_id = ET.SubElement(cac_partytaxscheme_1, "cbc:CompanyID")
             cbc_company_id.text = customer_doc.custom_vat_number
 

@@ -12,6 +12,7 @@ from zatca_integration.common_util import (
     is_export_vat_category,
     is_vat_number_required,
     validate_ksa_vat_number,
+    validate_registration_number,
 )
 
 
@@ -108,6 +109,15 @@ def validate(doc, method=None):
 
     if doc.get("customer_type") != "Company":
         return
+
+    # The ID number must match the Registration Scheme: a CRN that is not a
+    # 10-digit number is refused by ZATCA as a "mismatch between the 'Buyer ID
+    # Type' and the 'ID Number' provided", so it cannot be saved either.
+    validate_registration_number(
+        doc.get("custom_registration_scheme"),
+        doc.get("custom_registration_number"),
+        field_label=_("Registration Number"),
+    )
 
     if not country:
         frappe.throw(
