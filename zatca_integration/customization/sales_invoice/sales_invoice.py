@@ -53,9 +53,7 @@ def set_base_retention_amount(doc, method):
 def should_subtract_retention_from_outstanding():
     """Read Zatca Settings flag; default True to preserve existing behaviour."""
     try:
-        value = frappe.db.get_single_value(
-            "Zatca Settings", "subtract_retention_from_outstanding"
-        )
+        value = frappe.db.get_single_value("Zatca Settings", "subtract_retention_from_outstanding")
     except Exception:
         return True
     # None = field not migrated / unset → keep historical subtract behaviour
