@@ -4,6 +4,10 @@ repos:
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
+        # `bench export-fixtures` writes these with `frappe.as_json`, which ends
+        # the file on the closing bracket and no newline. Certifying them here
+        # would mean every export re-opens the diff, so the exporter wins.
+        exclude: ^([a-z_]+)/fixtures/.*\.json$
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
