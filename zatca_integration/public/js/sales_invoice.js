@@ -58,6 +58,7 @@ frappe.ui.form.on('Sales Invoice', {
         frm.toggle_display("custom_retention_percentage", enabled)
         frm.toggle_display("custom_retention_amount", enabled)
         frm.toggle_display("custom_base_retention_amount", enabled)
+        frm.toggle_display("custom_retention_status", enabled)
 
     })
 },
