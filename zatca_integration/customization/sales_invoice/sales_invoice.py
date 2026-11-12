@@ -3,7 +3,7 @@
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 
 @frappe.whitelist()
@@ -50,17 +50,174 @@ def set_base_retention_amount(doc, method):
     doc.custom_base_retention_amount = doc.conversion_rate * doc.custom_retention_amount
 
 
-def adjust_outstanding_for_retention(doc, method):
-    """Reduce outstanding by retention while keeping grand_total full for ZATCA."""
+def should_subtract_retention_from_outstanding():
+    """Read Zatca Settings flag; default True to preserve existing behaviour."""
+    try:
+        value = frappe.db.get_single_value(
+            "Zatca Settings", "subtract_retention_from_outstanding"
+        )
+    except Exception:
+        return True
+    # None = field not migrated / unset → keep historical subtract behaviour
+    if value is None:
+        return True
+    return bool(cint(value))
+
+
+def _ple_outstanding(doc, account=None):
+    """Sum open Payment Ledger amount against this invoice (optionally one account)."""
+    if doc.is_new() or not doc.name:
+        return None
+
+    from frappe.query_builder.functions import Sum
+
+    ple = frappe.qb.DocType("Payment Ledger Entry")
+    query = (
+        frappe.qb.from_(ple)
+        .select(Sum(ple.amount_in_account_currency).as_("outstanding"))
+        .where(ple.against_voucher_type == "Sales Invoice")
+        .where(ple.against_voucher_no == doc.name)
+        .where(ple.party_type == "Customer")
+        .where(ple.party == doc.customer)
+        .where(ple.delinked == 0)
+    )
+    if account:
+        query = query.where(ple.account == account)
+
+    result = query.run(as_dict=True)
+    if not result or result[0].outstanding is None:
+        return None
+    return flt(result[0].outstanding)
+
+
+def get_invoice_receivable_outstanding(doc):
+    """Open receivable across all party accounts against this invoice (Debtors + Retention)."""
+    outstanding = _ple_outstanding(doc)
+    if outstanding is None:
+        return flt(doc.get("grand_total") or doc.get("outstanding_amount"))
+    return outstanding
+
+
+def get_retention_open_amount(doc):
+    """How much retention is still open against this invoice."""
+    retention = flt(doc.get("custom_retention_amount"))
+    if not retention:
+        return 0.0
+
+    retention_account = doc.get("custom_retention_account")
+    debit_to = doc.get("debit_to")
+
+    # Separate retention account — use that account's PLE balance
+    if retention_account and retention_account != debit_to:
+        open_amt = _ple_outstanding(doc, account=retention_account)
+        if open_amt is None:
+            return retention
+        return max(flt(open_amt), 0.0)
+
+    # Same account as Debtors — treat retention as the last unpaid slice
+    total_open = get_invoice_receivable_outstanding(doc)
+    return min(retention, max(total_open, 0.0))
+
+
+def get_outstanding_after_retention(doc):
+    """
+    Invoice outstanding that should be stored on the Sales Invoice.
+    - Subtract ON: exclude open retention (amount currently due)
+    - Subtract OFF: full open receivable including retention
+    """
+    precision = doc.precision("outstanding_amount") or 2
+    total_open = get_invoice_receivable_outstanding(doc)
+
+    if not should_subtract_retention_from_outstanding():
+        return flt(total_open, precision)
+
+    retention_open = get_retention_open_amount(doc)
+    return flt(max(total_open - retention_open, 0.0), precision)
+
+
+def adjust_outstanding_for_retention(doc, method=None):
+    """Reduce outstanding by retention on validate (before PLE exists)."""
     if doc.doctype != "Sales Invoice":
         return
     if not doc.custom_retention_account or not doc.custom_retention_amount:
+        return
+    if not should_subtract_retention_from_outstanding():
         return
 
     doc.outstanding_amount = flt(
         doc.outstanding_amount - flt(doc.custom_retention_amount),
         doc.precision("outstanding_amount"),
     )
+
+
+def sync_outstanding_for_retention(doc, method=None, update=False, update_modified=True):
+    """
+    Re-apply retention outstanding after Payment Ledger overwrites it on submit/payment.
+    Must run for submitted invoices whenever outstanding is refreshed from PLE.
+    """
+    if doc.doctype != "Sales Invoice" or cint(doc.docstatus) != 1:
+        return
+    if not doc.get("custom_retention_account") or not flt(doc.get("custom_retention_amount")):
+        return
+
+    precision = doc.precision("outstanding_amount") or 2
+    new_outstanding = get_outstanding_after_retention(doc)
+    current = flt(doc.get("outstanding_amount"), precision)
+
+    if current == new_outstanding:
+        return
+
+    doc.outstanding_amount = new_outstanding
+    persist = update or method in ("on_submit", "on_cancel")
+    if persist and doc.name:
+        frappe.db.set_value(
+            doc.doctype,
+            doc.name,
+            "outstanding_amount",
+            new_outstanding,
+            update_modified=update_modified,
+        )
+        # Status depends on outstanding — refresh after we correct it
+        # Call parent method only to avoid CustomSalesInvoice.set_status recursion
+        from erpnext.accounts.doctype.sales_invoice.sales_invoice import SalesInvoice
+
+        SalesInvoice.set_status(doc, update=True, update_modified=update_modified)
+        set_retention_status(doc, update=True, update_modified=update_modified)
+
+
+def set_retention_status(doc, method=None, update=False, update_modified=True):
+    """
+    Retention Status stays Unpaid until every receivable against the invoice
+    (including retention) is cleared, then Paid. Independent of ERPNext status.
+    """
+    if doc.doctype != "Sales Invoice":
+        return
+    if not frappe.get_meta("Sales Invoice").has_field("custom_retention_status"):
+        return
+
+    if doc.docstatus == 2 or not flt(doc.get("custom_retention_amount")):
+        new_status = ""
+    elif doc.docstatus == 0:
+        new_status = "Unpaid"
+    else:
+        outstanding = get_invoice_receivable_outstanding(doc)
+        precision = doc.precision("outstanding_amount") or 2
+        new_status = "Paid" if flt(outstanding, precision) <= 0 else "Unpaid"
+
+    if doc.get("custom_retention_status") == new_status:
+        return
+
+    doc.custom_retention_status = new_status
+    # Persist after submit/cancel hooks and when ERPNext asks for update=True (payments)
+    persist = update or method in ("on_submit", "on_cancel")
+    if persist and doc.name:
+        frappe.db.set_value(
+            doc.doctype,
+            doc.name,
+            "custom_retention_status",
+            new_status,
+            update_modified=update_modified,
+        )
 
 
 @frappe.whitelist()

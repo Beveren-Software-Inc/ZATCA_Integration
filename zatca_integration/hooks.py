@@ -99,6 +99,7 @@ fixtures = [
                     "Sales Invoice-custom_days_count",
                     "Sales Invoice-custom_credit_note_details",
                     "Sales Invoice-custom_has_warnings",
+                    "Sales Invoice-custom_retention_status",
                     "Sales Invoice-custom_base_retention_amount",
                     "Sales Invoice-custom_retention_amount",
                     "Sales Invoice-custom_column_break_lffvn",
@@ -309,6 +310,7 @@ doc_events = {
             "zatca_integration.customization.sales_invoice.sales_invoice.sync_retention_from_percentage",
             "zatca_integration.customization.sales_invoice.sales_invoice.set_base_retention_amount",
             "zatca_integration.customization.sales_invoice.sales_invoice.adjust_outstanding_for_retention",
+            "zatca_integration.customization.sales_invoice.sales_invoice.set_retention_status",
         ],
         "before_submit": [
             "zatca_integration.common_util.validate_sales_invoice",
@@ -316,10 +318,13 @@ doc_events = {
         ],
         "on_submit": [
             "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.create_qr_code",
+            "zatca_integration.customization.sales_invoice.sales_invoice.sync_outstanding_for_retention",
+            "zatca_integration.customization.sales_invoice.sales_invoice.set_retention_status",
         ],
         "on_cancel": [
             "zatca_integration.saudi_arabia_electronic_invoicing.phase_one_utils.delete_qr_code_file",
             "zatca_integration.overrides.sales_invoice.on_cancel",
+            "zatca_integration.customization.sales_invoice.sales_invoice.set_retention_status",
         ],
     },
     "POS Invoice": {

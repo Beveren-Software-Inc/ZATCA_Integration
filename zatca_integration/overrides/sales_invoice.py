@@ -9,6 +9,21 @@ from frappe.utils import flt
 
 
 class CustomSalesInvoice(SalesInvoice):
+    def set_status(self, update=False, status=None, update_modified=True):
+        # Payment Ledger overwrites outstanding on submit/payment — re-apply retention first
+        from zatca_integration.customization.sales_invoice.sales_invoice import (
+            set_retention_status,
+            sync_outstanding_for_retention,
+        )
+
+        sync_outstanding_for_retention(
+            self, update=update, update_modified=update_modified
+        )
+        super().set_status(update=update, status=status, update_modified=update_modified)
+        set_retention_status(
+            self, update=update, update_modified=update_modified
+        )
+
     def get_gl_entries(self, warehouse_account=None):
         from erpnext.accounts.general_ledger import merge_similar_entries
 

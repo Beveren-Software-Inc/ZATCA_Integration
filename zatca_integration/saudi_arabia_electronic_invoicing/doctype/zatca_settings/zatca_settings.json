@@ -1,0 +1,60 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "creation": "2026-11-12 14:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "retention_section",
+  "subtract_retention_from_outstanding",
+  "column_break_retention",
+  "retention_help"
+ ],
+ "fields": [
+  {
+   "fieldname": "retention_section",
+   "fieldtype": "Section Break",
+   "label": "Retention"
+  },
+  {
+   "default": "1",
+   "description": "When enabled, Sales Invoice outstanding is reduced by the retention amount (invoice may show Partly Paid).",
+   "fieldname": "subtract_retention_from_outstanding",
+   "fieldtype": "Check",
+   "label": "Subtract Retention from Outstanding"
+  },
+  {
+   "fieldname": "column_break_retention",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "retention_help",
+   "fieldtype": "HTML",
+   "options": "<p class=\"text-muted\">Retention Status on the Sales Invoice stays <b>Unpaid</b> until Debtors and Retention against that invoice are fully cleared, then <b>Paid</b>.</p>"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-11-12 14:19:40.459642",
+ "modified_by": "Administrator",
+ "module": "Saudi Arabia Electronic Invoicing",
+ "name": "Zatca Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
