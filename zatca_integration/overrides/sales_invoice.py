@@ -16,13 +16,9 @@ class CustomSalesInvoice(SalesInvoice):
             sync_outstanding_for_retention,
         )
 
-        sync_outstanding_for_retention(
-            self, update=update, update_modified=update_modified
-        )
+        sync_outstanding_for_retention(self, update=update, update_modified=update_modified)
         super().set_status(update=update, status=status, update_modified=update_modified)
-        set_retention_status(
-            self, update=update, update_modified=update_modified
-        )
+        set_retention_status(self, update=update, update_modified=update_modified)
 
     def get_gl_entries(self, warehouse_account=None):
         from erpnext.accounts.general_ledger import merge_similar_entries
@@ -216,9 +212,14 @@ class CustomSalesInvoice(SalesInvoice):
 def make_regional_gl_entries(gl_entries, doc):
     return gl_entries
 
+
 def on_cancel(doc, method):
     if doc.custom_validation_results is not None:
         frappe.throw(
-            "<span style='color:red; font-weight:thin;'>ZATCA Submitted invoice cannot be cancelled. Kindly create a Credit Note instead.</span>",
-            title="Action Not Allowed"
+            (
+                "<span style='color:red; font-weight:thin;'>"
+                "ZATCA Submitted invoice cannot be cancelled. "
+                "Kindly create a Credit Note instead.</span>"
+            ),
+            title="Action Not Allowed",
         )
