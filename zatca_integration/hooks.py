@@ -24,7 +24,7 @@ app_license = "mit"
 # webform_include_js = {"doctype": "public/js/doctype.js"}
 # webform_include_css = {"doctype": "public/css/doctype.css"}
 
-#test
+
 # include js in page
 # page_js = {"page" : "public/js/file.js"}
 
