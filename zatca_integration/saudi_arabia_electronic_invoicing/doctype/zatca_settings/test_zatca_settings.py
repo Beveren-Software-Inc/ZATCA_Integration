@@ -13,6 +13,7 @@ EXTRA_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
 IGNORE_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
 
 
+# test
 class TestZatcaSettings(FrappeTestCase):
     """
     Integration tests for ZatcaSettings.
