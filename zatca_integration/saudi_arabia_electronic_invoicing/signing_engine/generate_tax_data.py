@@ -167,14 +167,17 @@ def build_zatca_tax_section(invoice, sales_invoice_doc):
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
 
-        # Calculate taxable amount (net of discounts)
+        # Calculate taxable amount (net of discounts).
+        # Credit notes store totals/discounts as negatives — abs() so BT-116 stays positive.
         if sales_invoice_doc.taxes[0].included_in_print_rate == 0:
-            taxable_amount = Decimal(str(sales_invoice_doc.total)) - Decimal(
-                str(sales_invoice_doc.get("discount_amount", 0.0))
+            taxable_amount = abs(
+                Decimal(str(sales_invoice_doc.total))
+                - Decimal(str(sales_invoice_doc.get("discount_amount", 0.0)))
             )
         else:
-            taxable_amount = Decimal(str(sales_invoice_doc.net_total)) - Decimal(
-                str(sales_invoice_doc.get("discount_amount", 0.0))
+            taxable_amount = abs(
+                Decimal(str(sales_invoice_doc.net_total))
+                - Decimal(str(sales_invoice_doc.get("discount_amount", 0.0)))
             )
 
         # Document currency code (BT-5)

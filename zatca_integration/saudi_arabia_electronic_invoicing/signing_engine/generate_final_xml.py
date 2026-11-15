@@ -248,10 +248,14 @@ def _compute_zatca_line_amounts(qty, unit_net_rate):
 
 
 def _get_expected_line_extension_total(sales_invoice_doc, included):
-    """BT-106 must equal the sum of BT-131 before document-level allowances (BT-107)."""
-    discount = flt(sales_invoice_doc.get("discount_amount") or 0)
+    """BT-106 must equal the sum of BT-131 before document-level allowances (BT-107).
+
+    Credit notes store discount_amount as negative in ERPNext — use abs() so a
+    document-level allowance still means "lines are gross (pre-discount)".
+    """
+    has_doc_discount = abs(flt(sales_invoice_doc.get("discount_amount") or 0)) > 0
     if sales_invoice_doc.currency == "SAR":
-        if discount > 0:
+        if has_doc_discount:
             amount = (
                 sales_invoice_doc.base_total
                 if not included
@@ -262,9 +266,13 @@ def _get_expected_line_extension_total(sales_invoice_doc, included):
             amount = (
                 sales_invoice_doc.base_net_total if not included else sales_invoice_doc.net_total
             )
-    elif discount > 0:
+    elif has_doc_discount:
         amount = (
-            sales_invoice_doc.total if not included else flt(sales_invoice_doc.net_total) + discount
+            sales_invoice_doc.total
+            if not included
+            # Reconstruct gross: net already after discount; signs match on credit notes
+            else flt(sales_invoice_doc.net_total)
+            + flt(sales_invoice_doc.get("discount_amount") or 0)
         )
     else:
         amount = sales_invoice_doc.net_total if not included else sales_invoice_doc.total
